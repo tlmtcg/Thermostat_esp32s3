@@ -35,15 +35,15 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
 {
     ESP_LOGI(TAG, "Init WiFi Manager");
 
+    // 1. Initialisation des groupes d'événements et du timer de retry
     s_wifi_event_group = xEventGroupCreate();
-    
-    // Utilisation de la variable de l'intervalle depuis le Kconfig
     s_wifi_retry_timer = xTimerCreate("wifi_retry",
                                       pdMS_TO_TICKS(CONFIG_ESP_WIFI_RETRY_INTERVAL_MS),
                                       pdFALSE,
                                       NULL,
                                       wifi_retry_callback);
 
+    // 2. Initialisation de la NVS (Mémoire non volatile)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -51,60 +51,80 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    // 3. Initialisation TCP/IP et création des interfaces par défaut
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     esp_netif_create_default_wifi_sta();
     esp_netif_create_default_wifi_ap();
 
+    // 4. Initialisation du driver WiFi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
+    /**
+     * AJOUT CRITIQUE 1 : On force le stockage en RAM pour éviter que les
+     * résidus de vieux réglages en NVS ne bloquent la nouvelle configuration.
+     */
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+
+    // Initialisation des gestionnaires d'événements (handlers)
     wifi_events_init(callbacks);
 
-    char ssid[33] = {0}, pass[64] = {0}; // Standard WiFi : SSID 32, Pass 63 + \0
+    // 5. Chargement des identifiants (NVS ou Kconfig)
+    char ssid[33] = {0}, pass[65] = {0};
     if (!wifi_storage_load(ssid, sizeof(ssid), pass, sizeof(pass)))
     {
-        // CORRECTION : Noms alignés sur votre Kconfig.projbuild
+        ESP_LOGI(TAG, "NVS vide, utilisation des identifiants par défaut du Kconfig");
         strlcpy(ssid, CONFIG_ESP_WIFI_STA_SSID, sizeof(ssid));
         strlcpy(pass, CONFIG_ESP_WIFI_STA_PASSWORD, sizeof(pass));
+
+        // On sauvegarde pour les prochains démarrages
+        wifi_storage_save(ssid, pass);
     }
 
+    ESP_LOGI(TAG, "SSID STA : %s", ssid);
+
+    // 6. Configuration du mode Station (Client)
     wifi_config_t sta_cfg = {0};
     strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
     strlcpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password));
-    
-    // Utilisation du seuil de sécurité du Kconfig si nécessaire, 
-    // sinon WPA2 par défaut est un bon choix.
     sta_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    sta_cfg.sta.pmf_cfg.capable = true;
+    sta_cfg.sta.pmf_cfg.required = false;
 
+    // 7. Configuration du mode Access Point (Serveur)
     wifi_config_t ap_cfg = {
         .ap = {
-            // CORRECTION : Noms alignés sur votre Kconfig.projbuild
-            .ssid = "", 
-            .password = "",
             .channel = CONFIG_ESP_WIFI_AP_CHANNEL,
             .max_connection = CONFIG_ESP_MAX_STA_CONN_AP,
             .authmode = WIFI_AUTH_WPA2_PSK,
         },
     };
-    // Utilisation de strlcpy pour les champs de l'AP par sécurité
     strlcpy((char *)ap_cfg.ap.ssid, CONFIG_ESP_WIFI_AP_SSID, sizeof(ap_cfg.ap.ssid));
     strlcpy((char *)ap_cfg.ap.password, CONFIG_ESP_WIFI_AP_PASSWORD, sizeof(ap_cfg.ap.password));
 
-    // Si le mot de passe est vide, on force le mode ouvert
-    if (strlen((char *)ap_cfg.ap.password) == 0) {
+    if (strlen((char *)ap_cfg.ap.password) == 0)
+    {
         ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
     }
 
+    // 8. Application des réglages et démarrage
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
-    
-    // Désactivation du Power Save pour une meilleure réactivité (Thermostat)
+
+    // Désactivation du Power Save pour éviter les micro-déconnexions
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-    
+
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    /**
+     * AJOUT CRITIQUE 2 : Commande explicite de connexion.
+     * Sans cet appel, l'interface STA est active mais ne tente pas de rejoindre la Box.
+     */
+    ESP_LOGI(TAG, "Lancement de la tentative de connexion à la Box...");
+    esp_wifi_connect();
 
     ESP_LOGI(TAG, "WiFi démarré (AP+STA)");
 }
@@ -112,6 +132,15 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
 wifi_state_t wifi_get_state(void)
 {
     return wifi_state_get();
+}
+
+// Cette fonction doit être appelée par wifi_events.c
+void wifi_manager_update_client_count(int count) {
+    s_ap_clients = count;
+    // On profite de la mise à jour pour réévaluer le mode (STA pur ou AP+STA)
+    // On récupère l'état de connexion actuel pour ne pas faire d'erreur
+    bool connected = (wifi_state_get() == WIFI_STATE_STA_CONNECTED);
+    wifi_mode_update(connected, s_ap_clients, false); 
 }
 
 int wifi_get_ap_client_count(void)
@@ -138,6 +167,7 @@ void wifi_manager_try_connect(const char *ssid, const char *pass)
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
     esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100));
     esp_wifi_set_config(WIFI_IF_STA, &sta_cfg);
     esp_wifi_connect();
 

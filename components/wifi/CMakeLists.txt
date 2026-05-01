@@ -1,5 +1,6 @@
 idf_component_register(
     SRCS
+        "src/wifi_app.c"
         "src/wifi_manager.c"
         "src/wifi_state_machine.c"
         "src/wifi_storage.c"
