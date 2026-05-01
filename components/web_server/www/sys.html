@@ -1,0 +1,858 @@
+<!-- <!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Moniteur Système S3</title>
+    <style>
+      :root {
+        --bg: #f4f7f6;
+        --card: #ffffff;
+        --primary: #2c3e50;
+        --accent: #e67e22;
+        --dark: #1a252f;
+      }
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--primary);
+        margin: 0;
+        padding: 20px;
+      }
+      .box {
+        max-width: 950px;
+        margin: 0 auto;
+        background: var(--card);
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Header & Aide */
+      .header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .btn-help {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: 0.3s;
+      }
+      .btn-help:hover {
+        background: var(--dark);
+      }
+      .help-panel {
+        display: none;
+        background: #eef2f3;
+        border-left: 5px solid var(--accent);
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      /* Stats Mémoire */
+      .memory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+      }
+      .mem-card {
+        background: var(--dark);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .mem-val {
+        display: block;
+        font-size: 26px;
+        font-weight: bold;
+        color: #f1c40f;
+        margin-bottom: 5px;
+      }
+      .mem-label {
+        font-size: 12px;
+        color: #bdc3c7;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      /* Tableau */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        padding: 12px;
+        color: #7f8c8d;
+        font-size: 12px;
+        text-transform: uppercase;
+        border-bottom: 2px solid #eee;
+      }
+      td {
+        padding: 15px 12px;
+        border-bottom: 1px solid #eee;
+        font-family: "Consolas", monospace;
+        font-size: 14px;
+      }
+
+      /* Graphiques & Badges */
+      .bar-bg {
+        width: 100px;
+        background: #ecf0f1;
+        border-radius: 10px;
+        height: 6px;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 10px;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: var(--accent);
+        transition: width 0.6s ease;
+      }
+      .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: bold;
+        color: white;
+      }
+      .bg-x {
+        background: #e74c3c;
+        box-shadow: 0 0 8px rgba(231, 76, 60, 0.4);
+      } /* Rouge pour Running */
+      .bg-b {
+        background: #95a5a6;
+      } /* Gris pour Blocked */
+      .bg-r {
+        background: #3498db;
+      } /* Bleu pour Ready */
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+    <div class="box">
+      <div class="header-flex">
+        <h1 style="margin: 0">Système S3</h1>
+        <button class="btn-help" onclick="toggleHelp()">
+          ❔ Comprendre les données
+        </button>
+      </div>
+
+      <div id="help-panel" class="help-panel">
+        <strong>Lexique des États FreeRTOS :</strong><br />
+        • <b style="color: #e74c3c">X (Running)</b> : C'est la tâche qui
+        s'exécute <u>en ce moment même</u> sur le processeur (ici, souvent le
+        serveur Web qui génère cette page).<br />
+        • <b>R (Ready)</b> : La tâche est prête à travailler mais attend son
+        tour.<br />
+        • <b>B (Blocked)</b> : La tâche "dort" (attend un délai ou un
+        événement). Elle ne consomme aucun CPU.<br />
+        • <b>Stack (High Water Mark)</b> : Plus ce chiffre est élevé, plus il
+        reste de place en mémoire pour cette tâche.
+      </div>
+
+      <div class="memory-grid">
+        <div class="mem-card">
+          <span class="mem-val" id="heap-free">-</span
+          ><span class="mem-label">RAM Disponible</span>
+        </div>
+        <div class="mem-card">
+          <span class="mem-val" id="heap-min">-</span
+          ><span class="mem-label">Point le plus bas</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Tâche</th>
+            <th>État</th>
+            <th>Utilisation CPU</th>
+            <th>Stack Libre</th>
+          </tr>
+        </thead>
+        <tbody id="task-table"></tbody>
+      </table>
+
+      <div class="header-flex" style="margin-top: 25px">
+        <small style="color: #95a5a6"
+          >Actualisation auto : 3s | Mis à jour à
+          <span id="update-time">--:--:--</span></small
+        >
+        <button
+          onclick="fetchSysData()"
+          style="
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+          "
+        >
+          Rafraîchir
+        </button>
+      </div>
+    </div>
+
+    <script>
+      function toggleHelp() {
+        const p = document.getElementById("help-panel");
+        p.style.display = p.style.display === "block" ? "none" : "block";
+      }
+
+      async function fetchSysData() {
+        try {
+          const response = await fetch("/api/sys");
+          const raw = await response.text();
+
+          // Parsing de la RAM
+          const fHeap = raw.match(/Free Heap: (\d+)/)[1];
+          const mHeap = raw.match(/Min Ever Free: (\d+)/)[1];
+          document.getElementById("heap-free").textContent =
+            parseInt(fHeap).toLocaleString();
+          document.getElementById("heap-min").textContent =
+            parseInt(mHeap).toLocaleString();
+
+          // Parsing des tâches
+          const sections = raw.split("---");
+          const cpuSection = sections[4].trim().split("\n");
+          const listSection = sections[2].trim().split("\n").slice(1);
+
+          let html = "";
+          cpuSection.forEach((line) => {
+            // Nettoie la ligne et la découpe par n'importe quel espace/tabulation
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < 2) return;
+
+            const name = parts[0];
+            const cpuPerc = parts[parts.length - 1]; // Le dernier élément est toujours le %
+            const numPerc = parseFloat(cpuPerc.replace("<", "")) || 0.1;
+
+            // RECHERCHE ROBUSTE : On cherche la ligne qui COMMENCE par le nom exact
+            const detailLine = listSection.find((t) =>
+              t.trim().startsWith(name),
+            );
+            let state = "?",
+              stack = "N/A";
+
+            if (detailLine) {
+              const dParts = detailLine.trim().split(/\s+/);
+              // Dans TASK LIST, le format est : Nom | Etat | Prio | Stack | Num
+              state = dParts[1];
+              stack = dParts[3]; // C'est ici qu'on récupère le 2324
+            }
+
+            const stackVal = parseInt(stack) || 0;
+            const stackClass = stackVal < 500 ? "danger" : "";
+
+            html += `<tr>
+        <td><b>${name}</b></td>
+        <td>${getStateBadge(state)}</td>
+        <td>
+            <small>${cpuPerc}</small>
+            <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(numPerc * 5, 100)}%"></div></div>
+        </td>
+            <td class="${stackClass}">${stackVal.toLocaleString()} B</td>
+        </tr>`;
+          });
+          document.getElementById("task-table").innerHTML = html;
+          document.getElementById("update-time").textContent =
+            new Date().toLocaleTimeString();
+        } catch (e) {
+          console.error("Erreur API", e);
+        }
+      }
+
+      function getStateBadge(s) {
+        if (s === "X") return '<span class="badge bg-x">RUNNING</span>';
+        if (s === "B") return '<span class="badge bg-b">REPOS</span>';
+        if (s === "R") return '<span class="badge bg-r">PRÊT</span>';
+        return `<span class="badge" style="background:#bdc3c7">${s}</span>`;
+      }
+
+      setInterval(fetchSysData, 3000);
+      fetchSysData();
+    </script>
+  </body>
+</html> -->
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Moniteur Système S3</title>
+
+    <style>
+      body {
+        background: #0f1720;
+        color: #e5e7eb;
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      .box {
+        max-width: 950px;
+        margin: 0 auto;
+        background: #111827;
+        padding: 25px;
+        border-radius: 12px;
+      }
+      .header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .btn {
+        background: #1f2937;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .help-panel {
+        display: none;
+        background: #1e293b;
+        border-left: 5px solid #f97316;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        line-height: 1.5;
+      }
+      .memory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+      }
+      .mem-card {
+        background: #020617;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .mem-val {
+        font-size: 26px;
+        font-weight: bold;
+        color: #facc15;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        padding: 12px;
+        color: #9ca3af;
+        font-size: 12px;
+        text-transform: uppercase;
+        border-bottom: 2px solid #1f2937;
+        cursor: pointer;
+      }
+      th .sort {
+        margin-left: 5px;
+        font-size: 10px;
+      }
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #1f2937;
+        font-family: Consolas, monospace;
+      }
+      .bar-bg {
+        width: 100px;
+        height: 6px;
+        background: #1f2937;
+        border-radius: 10px;
+        display: inline-block;
+        margin-left: 10px;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.3s;
+      }
+      .badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: bold;
+        color: white;
+      }
+      .bg-x {
+        background: #ef4444;
+      }
+      .bg-b {
+        background: #6b7280;
+      }
+      .bg-r {
+        background: #3b82f6;
+      }
+      .danger {
+        color: #ef4444;
+        font-weight: bold;
+      }
+
+      canvas {
+        width: 100%;
+        height: 120px;
+        margin-top: 20px;
+        background: #0f1720;
+        border-radius: 8px;
+      }
+
+      .stack-ok {
+        color: #22c55e;
+        font-weight: bold;
+      }
+      .stack-warn {
+        color: #facc15;
+        font-weight: bold;
+      }
+      .stack-danger {
+        color: #ef4444;
+        font-weight: bold;
+      }
+      .health-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="box">
+      <div class="header-flex">
+        <h1>Système S3</h1>
+        <div id="health-score" class="health-badge">Analyse en cours…</div>
+
+        <button class="btn" onclick="toggleHelp()">❔ Aide</button>
+      </div>
+
+      <div id="help-panel" class="help-panel">
+        <strong>Lexique des États FreeRTOS :</strong><br />
+        • <b style="color: #e74c3c">X (Running)</b> : C'est la tâche qui
+        s'exécute <u>en ce moment même</u> sur le processeur.<br />
+        • <b>R (Ready)</b> : La tâche est prête à travailler mais attend son
+        tour.<br />
+        • <b>S (Pause)</b> : La tâche est volontairement mise en pause par le système.<br />
+        • <b>B (Blocked)</b> : La tâche dort (attend un délai ou un
+        événement).<br />
+        • <b>Stack (High Water Mark)</b> : Plus c'est élevé, plus il reste de
+        mémoire.
+      </div>
+
+      <div class="memory-grid">
+        <div class="mem-card">
+          <span class="mem-val" id="heap-free">-</span><br />
+          RAM Disponible
+        </div>
+        <div class="mem-card">
+          <span class="mem-val" id="heap-min">-</span><br />
+          Point le plus bas
+        </div>
+      </div>
+
+      <canvas id="ramChart"></canvas>
+      <canvas id="idleChart"></canvas>
+      <canvas id="stackChart"></canvas>
+
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name">Tâche <span class="sort"></span></th>
+            <th data-sort="state">État <span class="sort"></span></th>
+            <th data-sort="cpu">CPU <span class="sort"></span></th>
+            <th data-sort="stack">Stack <span class="sort"></span></th>
+          </tr>
+        </thead>
+        <tbody id="task-table"></tbody>
+      </table>
+
+      <div class="header-flex" style="margin-top: 20px">
+        <small>Mis à jour à <span id="update-time">--:--:--</span></small>
+      </div>
+    </div>
+
+    <script>
+      let tasks = [];
+      let sortKey = "cpu";
+      let sortDir = "desc";
+
+      let ramHistory = [];
+      let idle0History = [];
+      let idle1History = [];
+
+      function toggleHelp() {
+        const p = document.getElementById("help-panel");
+        p.style.display = p.style.display === "block" ? "none" : "block";
+      }
+
+      function stackClass(v) {
+        if (v < 600) return "stack-danger";
+        if (v < 1000) return "stack-warn";
+        return "stack-ok";
+      }
+
+      function cpuColor(v) {
+        if (v >= 80) return "#ef4444";
+        if (v >= 40) return "#f97316";
+        if (v >= 10) return "#22c55e";
+        return "#3b82f6";
+      }
+
+      function stateBadge(s) {
+        if (s === "X") return '<span class="badge bg-x">RUN</span>';
+        if (s === "R") return '<span class="badge bg-r">READY</span>';
+        if (s === "B") return '<span class="badge bg-b">BLOCK</span>';
+        if (s === "S") return '<span class="badge bg-b">PAUSE</span>';
+        return `<span class="badge" style="background:#6b7280">${s}</span>`;
+      }
+
+      function sortTasks(key) {
+        if (sortKey === key) sortDir = sortDir === "asc" ? "desc" : "asc";
+        else {
+          sortKey = key;
+          sortDir = key === "name" ? "asc" : "desc";
+        }
+
+        tasks.sort((a, b) => {
+          let A = a[key],
+            B = b[key];
+          if (typeof A === "string") A = A.toUpperCase();
+          if (typeof B === "string") B = B.toUpperCase();
+          if (A < B) return sortDir === "asc" ? -1 : 1;
+          if (A > B) return sortDir === "asc" ? 1 : -1;
+          return 0;
+        });
+
+        document
+          .querySelectorAll("th .sort")
+          .forEach((s) => (s.textContent = ""));
+        const th = document.querySelector(`th[data-sort="${key}"] .sort`);
+        th.textContent = sortDir === "asc" ? "▲" : "▼";
+
+        renderTable();
+      }
+
+      function renderTable() {
+        let html = "";
+        tasks.forEach((t) => {
+          const barWidth = Math.min(t.cpu, 100);
+          const barColor = cpuColor(t.cpu);
+
+          html += `
+<tr>
+  <td><b>${t.name}</b></td>
+  <td>${stateBadge(t.state)}</td>
+  <td>
+    ${t.cpu.toFixed(1)}%
+    <div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%; background:${barColor};"></div></div>
+  </td>
+  <td class="${stackClass(t.stack)}">${t.stack} B</td>
+</tr>`;
+        });
+        document.getElementById("task-table").innerHTML = html;
+      }
+
+      /* -----------------------------
+   GRAPHIQUES LISIBLES & PROPRES
+   ----------------------------- */
+
+      function drawRAM(canvas, values) {
+        const ctx = canvas.getContext("2d");
+        const w = (canvas.width = canvas.clientWidth);
+        const h = (canvas.height = canvas.clientHeight);
+
+        ctx.clearRect(0, 0, w, h);
+
+        const max = Math.max(...values, 1);
+        const stepX = w / Math.max(values.length - 1, 1);
+
+        // Zone remplie
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        values.forEach((v, i) => {
+          const x = i * stepX;
+          const y = h - (v / max) * h;
+          ctx.lineTo(x, y);
+        });
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(34,197,94,0.25)"; // vert translucide
+        ctx.fill();
+
+        // Courbe
+        ctx.beginPath();
+        values.forEach((v, i) => {
+          const x = i * stepX;
+          const y = h - (v / max) * h;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = "#9ca3af";
+        ctx.fillText("RAM Libre", 10, 15);
+      }
+
+      function drawIdle(canvas, idle0, idle1) {
+        const ctx = canvas.getContext("2d");
+        const w = (canvas.width = canvas.clientWidth);
+        const h = (canvas.height = canvas.clientHeight);
+
+        ctx.clearRect(0, 0, w, h);
+
+        const max = 100;
+        const stepX = w / Math.max(idle0.length - 1, 1);
+
+        // IDLE0 (bleu)
+        ctx.beginPath();
+        idle0.forEach((v, i) => {
+          const x = i * stepX;
+          const y = h - (v / max) * h;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // IDLE1 (orange)
+        ctx.beginPath();
+        idle1.forEach((v, i) => {
+          const x = i * stepX;
+          const y = h - (v / max) * h;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Légende
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillText("IDLE0", 10, 15);
+
+        ctx.fillStyle = "#f97316";
+        ctx.fillText("IDLE1", 70, 15);
+      }
+
+      function drawStackChart(canvas, tasks) {
+        const ctx = canvas.getContext("2d");
+        const w = (canvas.width = canvas.clientWidth);
+        const h = (canvas.height = 260); // 🔥 hauteur augmentée
+
+        ctx.clearRect(0, 0, w, h);
+
+        const sorted = [...tasks].sort((a, b) => a.stack - b.stack);
+        const max = Math.max(...sorted.map((t) => t.stack), 1);
+
+        const barHeight = h / sorted.length;
+
+        ctx.font = "16px Segoe UI"; // 🔥 texte plus grand
+        ctx.textBaseline = "middle"; // 🔥 centrage vertical
+
+        sorted.forEach((t, i) => {
+          const y = i * barHeight;
+          const width = (t.stack / max) * w;
+
+          // couleur selon criticité
+          let color = "#22c55e";
+          if (t.stack < 600) color = "#ef4444";
+          else if (t.stack < 1000) color = "#facc15";
+
+          // 🔥 barre plus épaisse
+          ctx.fillStyle = color;
+          ctx.fillRect(0, y + 4, width, barHeight - 8);
+
+          // 🔥 texte lisible + contour
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = 3;
+
+          const label = `${t.name} — ${t.stack} B`;
+
+          // contour
+          ctx.strokeText(label, 10, y + barHeight / 2);
+          // texte
+          ctx.fillText(label, 10, y + barHeight / 2);
+        });
+      }
+
+      function computeHealthScore(data) {
+        const idle0 = data.tasks.find((t) => t.name === "IDLE0")?.cpu || 0;
+        const idle1 = data.tasks.find((t) => t.name === "IDLE1")?.cpu || 0;
+        const idleAvg = (idle0 + idle1) / 2;
+
+        const minStack = Math.min(...data.tasks.map((t) => t.stack));
+        const freeHeap = data.free_heap;
+
+        let score = 100;
+
+        // CPU Idle bas
+        if (idleAvg < 50) score -= 40;
+        else if (idleAvg < 80) score -= 20;
+
+        // Stack critique
+        if (minStack < 600) score -= 40;
+        else if (minStack < 1000) score -= 20;
+
+        // RAM faible
+        if (freeHeap < 100000) score -= 20;
+
+        return score;
+      }
+
+      function updateHealthBadge(score) {
+        const el = document.getElementById("health-score");
+
+        if (score >= 80) {
+          el.textContent = "Santé : EXCELLENT";
+          el.style.background = "#22c55e";
+        } else if (score >= 60) {
+          el.textContent = "Santé : BON";
+          el.style.background = "#3b82f6";
+        } else if (score >= 40) {
+          el.textContent = "Santé : MOYEN";
+          el.style.background = "#facc15";
+        } else {
+          el.textContent = "Santé : CRITIQUE";
+          el.style.background = "#ef4444";
+        }
+      }
+
+      /* -----------------------------
+      FETCH JSON
+      ----------------------------- */
+
+      /* -----------------------------
+      TRI STABLE (ne change pas au refresh)
+      ------------------------------ */
+
+      function applySort() {
+        tasks.sort((a, b) => {
+          let A = a[sortKey];
+          let B = b[sortKey];
+
+          if (typeof A === "string") A = A.toUpperCase();
+          if (typeof B === "string") B = B.toUpperCase();
+
+          if (A < B) return sortDir === "asc" ? -1 : 1;
+          if (A > B) return sortDir === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      /* -----------------------------
+      TRI DYNAMIQUE AU CLIC
+      ------------------------------ */
+
+      function sortTasks(key) {
+        if (sortKey === key) {
+          sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+          sortKey = key;
+          sortDir = key === "name" ? "asc" : "desc";
+        }
+
+        applySort();
+        renderTable();
+
+        // Mise à jour des flèches ▲ ▼
+        document
+          .querySelectorAll("th .sort")
+          .forEach((s) => (s.textContent = ""));
+        const th = document.querySelector(`th[data-sort="${key}"] .sort`);
+        th.textContent = sortDir === "asc" ? "▲" : "▼";
+      }
+
+      /* -----------------------------
+      FETCH + GRAPHIQUES
+      ------------------------------ */
+
+      async function fetchSysData() {
+        try {
+          const res = await fetch("/api/sys");
+          const data = await res.json();
+
+          document.getElementById("heap-free").textContent =
+            data.free_heap.toLocaleString();
+          document.getElementById("heap-min").textContent =
+            data.min_heap.toLocaleString();
+
+          tasks = data.tasks;
+
+          // Score de santé
+          const score = computeHealthScore(data);
+          updateHealthBadge(score);
+
+          // Graphique stack
+          drawStackChart(document.getElementById("stackChart"), tasks);
+
+          // Historique RAM
+          ramHistory.push(data.free_heap);
+          if (ramHistory.length > 60) ramHistory.shift();
+
+          // Historique IDLE
+          const idle0 = data.tasks.find((t) => t.name === "IDLE0")?.cpu || 0;
+          const idle1 = data.tasks.find((t) => t.name === "IDLE1")?.cpu || 0;
+
+          idle0History.push(idle0);
+          idle1History.push(idle1);
+          if (idle0History.length > 60) idle0History.shift();
+          if (idle1History.length > 60) idle1History.shift();
+
+          drawRAM(document.getElementById("ramChart"), ramHistory);
+          drawIdle(
+            document.getElementById("idleChart"),
+            idle0History,
+            idle1History,
+          );
+
+          // 🔥 TRI STABLE : ne change pas si l’utilisateur n’a pas cliqué
+          applySort();
+          renderTable();
+
+          document.getElementById("update-time").textContent =
+            new Date().toLocaleTimeString();
+        } catch (e) {
+          console.error("Erreur API", e);
+        }
+      }
+
+      /* -----------------------------
+       INIT
+      ------------------------------ */
+
+      document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll("th[data-sort]").forEach((th) => {
+          th.addEventListener("click", () => sortTasks(th.dataset.sort));
+        });
+
+        fetchSysData();
+        setInterval(fetchSysData, 3000);
+      });
+    </script>
+  </body>
+</html>

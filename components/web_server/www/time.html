@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Time Settings</title>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Horloge Système</h1>
+
+    <div class="box">
+      <h2>Temps Réel</h2>
+      <div class="line">
+        <span class="label">Heure France</span>
+        <span id="current-time" class="value hms">--:--:--</span>
+      </div>
+      <div class="line">
+        <span class="label">Fuseau</span>
+        <span class="value">Paris (GMT+2)</span>
+      </div>
+      <div class="line">
+        <span class="label">Statut NTP</span>
+        <span id="ntp-status" class="value ok">Synchronisé</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Système</h2>
+      <div class="line">
+        <span class="label">Uptime</span>
+        <span id="uptime_human" class="value" style="color: var(--orange)"
+          >--</span
+        >
+      </div>
+      <div class="line">
+        <span class="label">Total secondes</span>
+        <span
+          id="uptime_raw"
+          class="value"
+          style="font-size: 0.8rem; opacity: 0.5"
+          >--</span
+        >
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Synchronisation NTP</h2>
+      <div class="line">
+        <span class="label">Dernière synchro</span>
+        <span id="last_sync" class="value">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Serveur</span>
+        <span class="value">pool.ntp.org</span>
+      </div>
+    </div>
+
+    <script src="index.js"></script>
+    <script>
+      function updateTime() {
+        fetch("/api/time")
+          .then((r) => r.json())
+          .then((data) => {
+            const latence = Date.now() - start; // Temps de réponse total
+            document.getElementById("ntp-latency").innerText = latence + " ms";
+            document.getElementById("current-time").innerText = data.time;
+            document.getElementById("uptime_human").innerText = formatUptime(
+              data.uptime,
+            );
+            // Conversion du timestamp de synchro en date lisible
+            if (data.last_sync > 0) {
+              const date = new Date(data.last_sync * 1000);
+              document.getElementById("last_sync").innerText =
+                date.toLocaleTimeString("fr-FR");
+            }
+          });
+      }
+      // Fonction de conversion secondes -> J H M S
+      function formatUptime(seconds) {
+        const d = Math.floor(seconds / (3600 * 24));
+        const h = Math.floor((seconds % (3600 * 24)) / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        let res = "";
+        if (d > 0) res += d + "j ";
+        res += h + "h " + m + "m " + s + "s";
+        return res;
+      }
+
+      // Unique fonction de mise à jour
+      function updateTime() {
+        fetch("/api/time")
+          .then((r) => r.json())
+          .then((data) => {
+            // Mise à jour de l'horloge
+            document.getElementById("current-time").innerText = data.time;
+
+            // Mise à jour de l'Uptime
+            document.getElementById("uptime_raw").innerText =
+              data.uptime + " s";
+            document.getElementById("uptime_human").innerText = formatUptime(
+              data.uptime,
+            );
+            // Conversion du timestamp de synchro en date lisible
+            if (data.last_sync > 0) {
+              const date = new Date(data.last_sync * 1000);
+              document.getElementById("last_sync").innerText =
+                date.toLocaleTimeString("fr-FR");
+            }
+          })
+          .catch((err) => console.error("Erreur API Time:", err));
+      }
+
+      // Lancement automatique
+      setInterval(updateTime, 1000);
+      updateTime(); // Premier appel immédiat
+    </script>
+  </body>
+</html>

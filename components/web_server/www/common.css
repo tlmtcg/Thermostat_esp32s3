@@ -1,0 +1,299 @@
+/* =========================================================
+   1. VARIABLES & THÈME (ROOT) ORIGINAL
+   ========================================================= */
+:root {
+    --orange: #ff7b00;
+    --orange-hover: #ff9d33;
+    --bg: #111;
+    --card: #222;
+    --text: #fff;
+    --text-dim: #aaa;
+    --border: #333;
+    
+    /* Menu & Surfaces */
+    --bg-surface: #1e1e1e;
+    --border-color: #333333;
+    --text-main: #e0e0e0;
+    --accent: #3b82f6;
+}
+
+/* =========================================================
+   2. STYLE GLOBAL
+   ========================================================= */
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    padding: 20px;
+    margin: 0;
+    line-height: 1.5;
+}
+
+h1, h2 {
+    color: var(--orange);
+    margin-top: 0;
+}
+
+/* Évite le chevauchement du menu fixe à gauche */
+.page-title, .box h2 {
+    margin-left: 55px; 
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* =========================================================
+   3. MENU DE NAVIGATION (DESIGN INJECTÉ)
+   ========================================================= */
+
+/* Le bouton flottant */
+.menu-button {
+    font-size: 20px !important;
+    padding: 10px 14px !important;
+    background: #1a1a1a !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    color: white !important;
+    cursor: pointer;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 3000;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    transition: transform 0.2s;
+}
+
+.menu-button:active { transform: scale(0.95); }
+
+/* Le conteneur du menu */
+.menu-dropdown {
+    position: fixed;
+    top: 75px;
+    left: 15px;
+    width: 260px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    display: none; /* Piloté par JS (.open) */
+    flex-direction: column;
+    z-index: 2999;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    overflow-x: hidden;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.menu-dropdown.open {
+    display: flex;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.menu-label {
+    padding: 15px 15px 5px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.menu-item {
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    transition: background 0.2s, color 0.2s;
+}
+
+/* Couleur thématique des icônes (Orange) */
+.fa-orange, .menu-item i.fa-orange {
+    color: #ff9800 !important;
+    width: 25px;
+    text-align: center;
+    margin-right: 10px;
+}
+
+.menu-item:hover {
+    background: #2a2a2a;
+    color: var(--orange);
+}
+
+.menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 5px 0;
+}
+
+/* --- SOUS-MENUS --- */
+.submenu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    color: var(--text-main);
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.submenu-header:hover { background: #252525; }
+
+.submenu-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #161616; /* Fond plus sombre pour le contenu */
+    padding-left: 10px;
+}
+
+/* Classes activées par JS */
+.submenu-content.open {
+    max-height: 1000px; /* Valeur large pour contenir les longs menus comme "Modules" */
+}
+
+.submenu-arrow {
+    transition: transform 0.3s ease;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.submenu-arrow.rotate {
+    transform: rotate(90deg);
+}
+
+/* =========================================================
+   4. BLOCS & CARTES (BOX)
+   ========================================================= */
+.box {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+    transition: border 0.3s;
+}
+
+.box:hover { border-color: #333; }
+
+.box h2 {
+    margin: 0 0 15px;
+    font-size: 1.1rem;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.label { color: var(--text-dim); font-size: 0.9rem; }
+.value { font-size: 1.1rem; font-weight: bold; }
+
+/* =========================================================
+   5. FORMULAIRES & INPUTS
+   ========================================================= */
+.line-input {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.line-input label {
+    width: 200px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+input:not([type="checkbox"]):not([type="range"]), 
+select, 
+textarea {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #1a1a1a;
+    color: var(--text);
+    font-size: 0.95rem;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus { border-color: var(--orange); }
+
+.hms {
+    color: var(--orange);
+    font-family: monospace;
+    min-width: 100px;
+    text-align: right;
+    font-weight: bold;
+}
+
+.btn-save {
+    width: 100%;
+    background: var(--orange);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s;
+}
+
+.btn-save:hover { background: var(--orange-hover); }
+
+/* =========================================================
+   6. ÉTATS & LOGS
+   ========================================================= */
+.value.ok { color: #00cc66; }
+.value.err { color: #ff4444; }
+
+.log-viewer {
+    background: #000;
+    color: #0f0;
+    padding: 12px;
+    height: 180px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    border: 1px solid #222;
+}
+
+.log-error { color: #ff5555; }
+.log-warn  { color: #ffaa00; }
+.log-info  { color: #55aaff; }
+
+/* Responsive mobile */
+@media (max-width: 600px) {
+    .line-input { flex-direction: column; align-items: flex-start; }
+    .line-input label { width: 100%; }
+    .page-title, .box h2 { margin-left: 0; margin-top: 50px; }
+}
+
+.fsm-legend {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--primary);
+}
+
+.icon-menu::before {
+    content: "\2630"; /* Code hexadécimal du symbole hamburger */
+    font-style: normal;
+}

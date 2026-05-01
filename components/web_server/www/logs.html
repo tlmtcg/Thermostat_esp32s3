@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Logs Système</title>
+    <style>
+      /* Ajustements spécifiques pour la zone de logs */
+      #log-container {
+        background-color: #1a1a1a;
+        color: #d4d4d4;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 10px;
+        height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-family: 'Consolas', monospace;
+        font-size: 0.85rem;
+        margin-top: 10px;
+      }
+      .log-W { color: var(--orange); } /* Utilisation de ta variable orange */
+      .log-E { color: #f48771; font-weight: bold; }
+      .hidden { display: none; }
+      
+      /* Style pour les contrôles dans une box */
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      input, select {
+        background: #252526;
+        border: 1px solid #444;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+      }
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange); /* Ou ta couleur d'accent */
+        color: white;
+      }
+      button.secondary { background-color: #444; }
+      button.danger { background-color: #832a2a; }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Logs Système</h1>
+
+    <div class="box">
+      <h2>Filtres & Contrôles</h2>
+      <div class="controls">
+        <input type="text" id="search" placeholder="Rechercher..." oninput="applyFilters()">
+        <select id="level-filter" onchange="applyFilters()">
+          <option value="ALL">Tous les niveaux</option>
+          <option value="I">Info</option>
+          <option value="W">Warning</option>
+          <option value="E">Error</option>
+        </select>
+        <button onclick="fetchLogs()">Rafraîchir</button>
+        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">Auto: ON</button>
+        <button class="danger" onclick="clearDisplay()">Effacer</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="line">
+        <span class="label">Statut</span>
+        <span id="status" class="value">--</span>
+      </div>
+      <div id="log-container">Initialisation...</div>
+    </div>
+
+    <script>
+      let rawLogs = "";
+      let autoRefreshInterval = null;
+
+      async function fetchLogs() {
+        try {
+          const response = await fetch('/api/logs');
+          rawLogs = await response.text();
+          render();
+          document.getElementById('status').textContent = new Date().toLocaleTimeString();
+        } catch (err) {
+          console.error("Erreur fetch:", err);
+        }
+      }
+
+      function render() {
+        const container = document.getElementById('log-container');
+        const lines = rawLogs.split('\n');
+        
+        container.innerHTML = lines.map(line => {
+          let cl = "";
+          if (line.startsWith('W ')) cl = 'log-W';
+          if (line.startsWith('E ')) cl = 'log-E';
+          return `<div class="log-line ${cl}">${line}</div>`;
+        }).join('');
+        
+        applyFilters();
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function applyFilters() {
+        const search = document.getElementById('search').value.toLowerCase();
+        const level = document.getElementById('level-filter').value;
+        const lines = document.querySelectorAll('.log-line');
+
+        lines.forEach(l => {
+          const textMatch = l.textContent.toLowerCase().includes(search);
+          const levelMatch = (level === "ALL") || l.classList.contains('log-' + level);
+          l.classList.toggle('hidden', !(textMatch && levelMatch));
+        });
+      }
+
+      function toggleAutoRefresh() {
+        const btn = document.getElementById('btn-auto');
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          btn.textContent = "Auto: OFF";
+        } else {
+          autoRefreshInterval = setInterval(fetchLogs, 3000);
+          btn.textContent = "Auto: ON";
+        }
+      }
+
+      function clearDisplay() {
+        rawLogs = "";
+        document.getElementById('log-container').innerHTML = "";
+      }
+
+      // Initialisation
+      fetchLogs();
+      autoRefreshInterval = setInterval(fetchLogs, 3000);
+    </script>
+        <script src="index.js"></script>
+  </body>
+</html>

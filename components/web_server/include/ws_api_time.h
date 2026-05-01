@@ -1,0 +1,12 @@
+#pragma once
+#include <esp_http_server.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void ws_register_time_api(httpd_handle_t server);
+
+#ifdef __cplusplus
+}
+#endif
