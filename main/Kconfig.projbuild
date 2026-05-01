@@ -1,0 +1,125 @@
+menu "Configuration Thermostat"
+
+    menu "Point d'Accès de Secours (SoftAP)"
+        comment "Paramètres du réseau diffusé par l'ESP32"
+
+        config ESP_WIFI_APac_SSID
+            string "Nom du réseau (SSID)"
+            default "Thermostat_Puys"
+            help
+                Nom du WiFi émis par l'appareil pour la configuration initiale ou le secours.
+
+        config ESP_WIFI_AP_PASSWORD
+            string "Mot de passe SoftAP"
+            default "12345678"
+            help
+                Le mot de passe doit comporter au moins 8 caractères.
+                Par défaut : 12345678.
+
+        config ESP_WIFI_AP_CHANNEL
+            int "Canal WiFi"
+            range 1 13
+            default 1
+            help
+                Canal utilisé par le SoftAP. Évitez les canaux encombrés par votre box.
+
+        config ESP_MAX_STA_CONN_AP
+            int "Nombre max de clients"
+            range 1 10
+            default 4
+            help
+                Nombre maximum de téléphones ou PC connectés simultanément à l'ESP32.
+    endmenu
+
+    menu "Connexion Box Internet (Station)"
+        comment "Paramètres de connexion à votre routeur"
+
+        config ESP_WIFI_REMOTE_AP_SSID
+            string "SSID de votre Box"
+            default "freebox-TR2SX"
+            help
+                Nom du réseau WiFi auquel l'ESP32 doit se connecter.
+
+        config ESP_WIFI_REMOTE_AP_PASSWORD
+            string "Code WiFi de votre Box"
+            default "cordon-electronics-tr2s"
+            help
+                Mot de passe de votre réseau domestique.
+
+        config ESP_MAXIMUM_STA_RETRY
+            int "Nombre de tentatives de reconnexion"
+            range 1 100
+            default 5
+            help
+                Nombre de tentatives avant d'activer l'AP de secours.
+                Une valeur de 5 est un bon compromis stabilité/vitesse.
+
+        choice ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD
+            prompt "Sécurité minimale acceptée"
+            default ESP_WIFI_AUTH_WPA2_PSK
+            help
+                Niveau de sécurité minimal pour autoriser la connexion. 
+                WPA2 PSK est la norme actuelle pour la plupart des box.
+
+            config ESP_WIFI_AUTH_OPEN
+                bool "Ouvert (Aucune)"
+            config ESP_WIFI_AUTH_WEP
+                bool "WEP (Obsolète)"
+            config ESP_WIFI_AUTH_WPA_PSK
+                bool "WPA PSK"
+            config ESP_WIFI_AUTH_WPA2_PSK
+                bool "WPA2 PSK"
+            config ESP_WIFI_AUTH_WPA_WPA2_PSK
+                bool "WPA/WPA2 PSK"
+            config ESP_WIFI_AUTH_WPA3_PSK
+                bool "WPA3 PSK"
+            config ESP_WIFI_AUTH_WPA2_WPA3_PSK
+                bool "WPA2/WPA3 PSK"
+        endchoice
+    endmenu
+
+    menu "Paramètres Avancés"
+        config ESP_WIFI_RETRY_INTERVAL_MS
+            int "Intervalle entre retries (ms)"
+            range 500 10000
+            default 3000
+            help
+                Délai de "respiration" radio entre deux tentatives de connexion.
+                Augmenter cette valeur rend le SoftAP de secours plus visible.
+    endmenu
+
+    menu "Freebox FTP Configuration"
+
+    config FB_FTP_HOST
+        string "IP de la Freebox"
+        default "192.168.0.254"
+        help
+            L'adresse IP locale de votre Freebox.
+
+    config FB_FTP_USER
+        string "Utilisateur FTP"
+        default "freebox"
+        help
+            Le nom d'utilisateur configuré dans l'interface Freebox OS.
+
+    config FB_FTP_PASS
+        string "Mot de passe FTP"
+        default "Tr2s_76142505"
+        help
+            Le mot de passe associé au compte FTP.
+
+    config FB_FTP_PORT
+        int "Port FTP"
+        default 21
+        help
+            Le port standard est 21.
+
+    config FB_FTP_PATH
+        string "Dossier cible"
+        default "Freebox/Logs"
+        help
+            Le dossier sur la Freebox où les fichiers seront stockés.
+
+    endmenu
+
+endmenu
