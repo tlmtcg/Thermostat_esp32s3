@@ -3,9 +3,9 @@ menu "Configuration Thermostat"
     menu "Point d'Accès de Secours (SoftAP)"
         comment "Paramètres du réseau diffusé par l'ESP32"
 
-        config ESP_WIFI_APac_SSID
+        config ESP_WIFI_AP_SSID
             string "Nom du réseau (SSID)"
-            default "Thermostat_Puys"
+            default "Thermostat"
             help
                 Nom du WiFi émis par l'appareil pour la configuration initiale ou le secours.
 
@@ -34,15 +34,15 @@ menu "Configuration Thermostat"
     menu "Connexion Box Internet (Station)"
         comment "Paramètres de connexion à votre routeur"
 
-        config ESP_WIFI_REMOTE_AP_SSID
+        config ESP_WIFI_STA_SSID
             string "SSID de votre Box"
-            default "freebox-TR2SX"
+            default "mySSID"
             help
                 Nom du réseau WiFi auquel l'ESP32 doit se connecter.
 
-        config ESP_WIFI_REMOTE_AP_PASSWORD
+        config ESP_WIFI_STA_PASSWORD
             string "Code WiFi de votre Box"
-            default "cordon-electronics-tr2s"
+            default "MyPassword"
             help
                 Mot de passe de votre réseau domestique.
 

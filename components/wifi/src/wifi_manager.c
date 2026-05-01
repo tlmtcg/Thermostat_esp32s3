@@ -36,8 +36,10 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
     ESP_LOGI(TAG, "Init WiFi Manager");
 
     s_wifi_event_group = xEventGroupCreate();
+    
+    // Utilisation de la variable de l'intervalle depuis le Kconfig
     s_wifi_retry_timer = xTimerCreate("wifi_retry",
-                                      pdMS_TO_TICKS(3000),
+                                      pdMS_TO_TICKS(CONFIG_ESP_WIFI_RETRY_INTERVAL_MS),
                                       pdFALSE,
                                       NULL,
                                       wifi_retry_callback);
@@ -60,32 +62,48 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
 
     wifi_events_init(callbacks);
 
-    char ssid[33] = {0}, pass[65] = {0};
+    char ssid[33] = {0}, pass[64] = {0}; // Standard WiFi : SSID 32, Pass 63 + \0
     if (!wifi_storage_load(ssid, sizeof(ssid), pass, sizeof(pass)))
     {
-        strlcpy(ssid, CONFIG_WIFI_STA_DEFAULT_SSID, sizeof(ssid));
-        strlcpy(pass, CONFIG_WIFI_STA_DEFAULT_PASSWORD, sizeof(pass));
+        // CORRECTION : Noms alignés sur votre Kconfig.projbuild
+        strlcpy(ssid, CONFIG_ESP_WIFI_STA_SSID, sizeof(ssid));
+        strlcpy(pass, CONFIG_ESP_WIFI_STA_PASSWORD, sizeof(pass));
     }
 
     wifi_config_t sta_cfg = {0};
     strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
     strlcpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password));
+    
+    // Utilisation du seuil de sécurité du Kconfig si nécessaire, 
+    // sinon WPA2 par défaut est un bon choix.
     sta_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
     wifi_config_t ap_cfg = {
         .ap = {
-            .ssid = CONFIG_WIFI_AP_SSID,
-            .password = CONFIG_WIFI_AP_PASSWORD,
-            .channel = CONFIG_WIFI_AP_CHANNEL,
-            .max_connection = CONFIG_WIFI_AP_MAX_CONN,
+            // CORRECTION : Noms alignés sur votre Kconfig.projbuild
+            .ssid = "", 
+            .password = "",
+            .channel = CONFIG_ESP_WIFI_AP_CHANNEL,
+            .max_connection = CONFIG_ESP_MAX_STA_CONN_AP,
             .authmode = WIFI_AUTH_WPA2_PSK,
         },
     };
+    // Utilisation de strlcpy pour les champs de l'AP par sécurité
+    strlcpy((char *)ap_cfg.ap.ssid, CONFIG_ESP_WIFI_AP_SSID, sizeof(ap_cfg.ap.ssid));
+    strlcpy((char *)ap_cfg.ap.password, CONFIG_ESP_WIFI_AP_PASSWORD, sizeof(ap_cfg.ap.password));
+
+    // Si le mot de passe est vide, on force le mode ouvert
+    if (strlen((char *)ap_cfg.ap.password) == 0) {
+        ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
+    }
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
+    
+    // Désactivation du Power Save pour une meilleure réactivité (Thermostat)
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+    
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "WiFi démarré (AP+STA)");
