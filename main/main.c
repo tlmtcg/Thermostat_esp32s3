@@ -95,14 +95,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
     dump_nvs_info();
 
-    // --- 2. Initialisation littlefs (pour le stockage des configs LED) ---
-    // ret = init_littlefs();
-    // if (ret != ESP_OK) {
-    //     ESP_LOGE(TAG, "Échec de l'initialisation littlefs !");
-    //     // Ne pas bloquer le système, mais continuer sans stockage
-    // }
-
-    // --- 3. Initialisation du module LED (doit être fait AVANT le WiFi si dépendances) ---
+        // --- 2. Initialisation du module LED (doit être fait AVANT le WiFi si dépendances) ---
     ESP_LOGI(TAG, "Initialisation du module LED...");
     ret = led_init();
     if (ret != ESP_OK) {
@@ -110,14 +103,14 @@ void app_main(void) {
         // Gérer l'erreur (ex: redémarrer ou continuer sans LED)
     } else {
         // Allumer la LED en bleu pour indiquer que le système démarre
-        led_set_background(LED_MODE_FIXED, (led_color_t){0, 0, 50}, 1000);
+        led_set_background(LED_MODE_BREATH, (led_color_t){0, 0, 50}, 1000);
     }
 
-    // --- 4. Démarrage du WiFi ---
+    // --- 3. Démarrage du WiFi ---
     ESP_LOGI(TAG, "Démarrage du module WiFi...");
     wifi_app_start();
 
-    // --- 5. Démarrage du serveur Web ---
+    // --- 4. Démarrage du serveur Web ---
     ESP_LOGI(TAG, "Démarrage du serveur Web...");
     httpd_handle_t server = start_webserver();
     if (server == NULL) {
@@ -128,22 +121,17 @@ void app_main(void) {
         led_set_background(LED_MODE_FIXED, (led_color_t){0, 50, 0}, 1000);  // LED verte = OK
     }
 
-    // --- 6. Initialisation du SNTP (après WiFi) ---
+    // --- 5. Initialisation du SNTP (après WiFi) ---
     ESP_LOGI(TAG, "Démarrage du SNTP...");
     time_utils_init();
 
-    // --- 7. Démarrage de la tâche d'affichage de l'heure (optionnelle) ---
+    // --- 6. Démarrage de la tâche d'affichage de l'heure (optionnelle) ---
     xTaskCreate(time_log_task, "TimeLogTask", 2048, NULL, 1, NULL);
 
-    // --- 8. Exemple d'utilisation de la base de données LED ---
-    // Ajouter une ambiance et une alarme (pour test)
-    led_db_add_info("Ambiance Calme", (led_color_t){0, 100, 200});
-    led_db_add_alarm("Alarme Urgente", 5, (led_color_t){255, 0, 0});
-
-    // Afficher l'état de la base de données
+    // --- 7. Afficher l'état de la base de données
     led_db_print_status();
 
-    // --- 9. Boucle principale (optionnelle) ---
+    // --- 8. Boucle principale (optionnelle) ---
     // Dans ce cas, tout est géré par des tâches FreeRTOS, donc on peut supprimer la boucle while(1)
     // Si vous voulez garder une boucle, utilisez un délai pour éviter de bloquer le CPU
     while (1) {

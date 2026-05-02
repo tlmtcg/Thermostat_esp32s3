@@ -5,11 +5,13 @@ idf_component_register(
         "wifi/ws_api_wifi.c"
         "wifi/wifi_service.c"
         "ws_api_time.c"
-        "ws_api_led.c"
+        "led/ws_api_led.c"   
+        "led/led_service.c"  
 
     INCLUDE_DIRS 
         "include"
         "wifi/include"
+        "led/include"
 
     # Visible depuis les headers
     REQUIRES 

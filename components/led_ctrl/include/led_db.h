@@ -102,3 +102,9 @@ void led_db_save(void);
  * @brief Charge la base de données depuis le stockage (SPIFFS).
  */
 void led_db_load(void);
+
+bool led_db_exists(const char *name);
+
+int led_db_get_info_idx_by_name(const char *name);
+
+int led_db_get_alarm_idx_by_name(const char *name);

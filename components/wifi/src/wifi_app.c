@@ -5,6 +5,8 @@
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/timers.h"
+#include "led_ctrl.h"
+#include "alert_manager.h"
 
 static const char *TAG = "WIFI_APP";
 
@@ -33,18 +35,19 @@ static void vTimerReconnectCallback(TimerHandle_t xTimer)
 
 static void on_sta_connected(const esp_ip4_addr_t *ip)
 {
+    alert_remove("Panne wifi");
     ESP_LOGI(TAG, "STA connectée ! IP : " IPSTR, IP2STR(ip));
 
     if (xReconnectTimer)
         xTimerStop(xReconnectTimer, 0);
+
 
     // start_webserver();
 }
 
 static void on_sta_failed(int reason)
 {
-    ESP_LOGE(TAG, "STA déconnectée (raison: %d). Retry dans 5s...", reason);
-
+    alert_add("Panne wifi"); // La LED clignote en erreur
     if (xReconnectTimer)
         xTimerStart(xReconnectTimer, 0);
 }
@@ -66,7 +69,7 @@ void wifi_app_start(void)
     static wifi_callbacks_t cb = {0};
     cb.on_sta_connected = on_sta_connected;
     cb.on_sta_failed = on_sta_failed;
-    cb.on_ap_started = NULL;   // si tu veux gérer l’AP, je peux ajouter un callback
+    cb.on_ap_started = NULL; // si tu veux gérer l’AP, je peux ajouter un callback
 
     // 3. Lancement du WiFi Manager
     wifi_manager_init(&cb);

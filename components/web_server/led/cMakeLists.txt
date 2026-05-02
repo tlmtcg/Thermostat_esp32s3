@@ -1,0 +1,6 @@
+# Enregistrer les fichiers sources et définir les répertoires d'inclusion
+idf_component_register(
+    SRCS "ws_api_led.c" "led_service.c"
+    INCLUDE_DIRS "include"
+    PRIV_REQUIRES esp_http_server cjson  # Dépendances nécessaires
+)

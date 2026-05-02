@@ -184,11 +184,13 @@
           renderList("list-infos", data.infos, 0);
           renderList("list-alarms", data.alarms, 1);
 
+          // Utilise le nom ou l'index de boucle si l'ID n'existe pas
           document.getElementById("select-info").innerHTML = data.infos
-            .map((i) => `<option value="${i.id}">${i.name}</option>`)
+            .map((item, idx) => `<option value="${idx}">${item.name}</option>`)
             .join("");
+
           document.getElementById("select-alarm").innerHTML = data.alarms
-            .map((a) => `<option value="${a.id}">${a.name}</option>`)
+            .map((item, idx) => `<option value="${idx}">${item.name}</option>`)
             .join("");
         } catch (e) {
           console.error(e);
@@ -199,32 +201,49 @@
         const container = document.getElementById(containerId);
         container.innerHTML = items
           .map(
-            (item) => `
-          <div class="line">
-            <span class="label">
-              <span class="led-dot" style="background: rgb(${item.r},${item.g},${item.b})"></span>
-              ${item.name} ${item.blinks ? "(" + item.blinks + "x)" : ""}
-            </span>
-            <div class="btn-group">
-              <button class="btn-play" style="${type === 1 ? "background:var(--orange)" : ""}" onclick="simulate(${type}, ${item.id})">
-                ${type === 0 ? "Fixer" : "Lancer"}
-              </button>
-              <button class="btn-play" style="background: #444" onclick="deleteLed('${item.name}')">
-                Effacer
-              </button>
-            </div>
+            (item, idx) => `
+        <div class="line">
+          <span class="label">
+            <span class="led-dot" style="background: rgb(${item.r},${item.g},${item.b})"></span>
+            ${item.name} ${item.blinks ? "(" + item.blinks + "x)" : ""}
+          </span>
+          <div class="btn-group">
+            <!-- On passe idx au lieu de item.id -->
+            <button class="btn-play" style="${type === 1 ? "background:var(--orange)" : ""}" onclick="simulate(${type}, ${idx})">
+              ${type === 0 ? "Fixer" : "Lancer"}
+            </button>
+            <button class="btn-play" style="background: #444" onclick="deleteLed('${item.name}')">
+              Effacer
+            </button>
           </div>
+        </div>
         `,
           )
           .join("");
       }
 
       async function simulate(type, id) {
-        if (type === 0) currentInfoIdx = id;
-        sendRequest("/api/led/simulate", {
-          info_idx: currentInfoIdx,
-          alarm_idx: id,
-        });
+        // Force la conversion en entier pour éviter les erreurs côté C
+        id = parseInt(id);
+
+        // Si on clique sur une "Ambiance" (type 0)
+        if (type === 0) {
+          currentInfoIdx = id;
+        }
+
+        // Préparation du payload avec les noms attendus par ton code C
+        const payload = {
+          info_idx: parseInt(currentInfoIdx), // La dernière ambiance sélectionnée
+          alarm_idx: type === 1 ? id : -1, // L'alarme si type=1, sinon -1
+        };
+
+        console.log("Envoi simulation :", payload);
+
+        try {
+          await sendRequest("/api/led/simulate", payload);
+        } catch (err) {
+          console.error("Erreur simulate:", err.message);
+        }
       }
 
       async function deleteLed(name) {

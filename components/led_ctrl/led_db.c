@@ -299,3 +299,70 @@ void led_db_load(void) {
     cJSON_Delete(root);
     ESP_LOGI(TAG, "Configuration chargée: %d infos, %d alarmes", info_count, alarm_count);
 }
+
+/**
+ * @brief Vérifie si un nom existe déjà dans la base de données (infos ou alarmes).
+ * 
+ * @param name Nom à rechercher.
+ * @return true si le nom est déjà utilisé, false sinon.
+ */
+bool led_db_exists(const char *name)
+{
+    if (name == NULL) return false;
+
+    // Parcours des informations
+    for (int i = 0; i < led_db_get_info_count(); i++)
+    {
+        stored_info_t *item = led_db_get_info_by_idx(i);
+        // On retire "item->name" car c'est un tableau fixe, l'adresse est toujours valide
+        if (item && strcmp(item->name, name) == 0) 
+        {
+            return true;
+        }
+    }
+
+    // Parcours des alarmes
+    for (int i = 0; i < led_db_get_alarm_count(); i++)
+    {
+        stored_alarm_t *item = led_db_get_alarm_by_idx(i);
+        // Idem ici
+        if (item && strcmp(item->name, name) == 0) 
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Recherche l'index d'une ambiance (info) par son nom.
+ * Retourne l'index trouvé ou -1 si aucune correspondance n'existe.
+ */
+int led_db_get_info_idx_by_name(const char *name) {
+    if (name == NULL) return -1;
+
+    for (int i = 0; i < info_count; i++) {
+        if (strcmp(info_db[i].name, name) == 0) {
+            return i; // Correspondance trouvée
+        }
+    }
+
+    return -1; // Non trouvé
+}
+
+/**
+ * Recherche l'index d'une alarme (alarm) par son nom.
+ * Retourne l'index trouvé ou -1 si aucune correspondance n'existe.
+ */
+int led_db_get_alarm_idx_by_name(const char *name) {
+    if (name == NULL) return -1;
+
+    for (int i = 0; i < info_count; i++) {
+        if (strcmp(alarm_db[i].name, name) == 0) {
+            return i; // Correspondance trouvée
+        }
+    }
+
+    return -1; // Non trouvé
+}

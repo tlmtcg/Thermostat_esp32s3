@@ -14,4 +14,6 @@ idf_component_register(
         nvs_flash
         esp_event
         freertos
+        led_ctrl
+        alert_manager
 )
