@@ -5,6 +5,7 @@ idf_component_register(
         "wifi/ws_api_wifi.c"
         "wifi/wifi_service.c"
         "ws_api_time.c"
+        "ws_api_led.c"
 
     INCLUDE_DIRS 
         "include"
@@ -15,6 +16,7 @@ idf_component_register(
         esp_http_server
         wifi
         time_utils
+        led_ctrl
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 

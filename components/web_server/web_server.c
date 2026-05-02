@@ -5,10 +5,10 @@
 #include "ws_static.h"
 #include "ws_api_wifi.h"
 #include "ws_api_time.h"
+#include "ws_api_led.h"
 // #include "ws_api_weather.h"
 // #include "ws_logs.h"
 // #include "ws_api_freebox.h"
-// #include "ws_api_led.h"
 // #include "ws_api_sys.h"
 
 static const char *TAG = "WEB_SERVER";
@@ -52,13 +52,13 @@ httpd_handle_t start_webserver(void)
     ESP_LOGI(TAG, "Serveur HTTP démarré, enregistrement des routes...");
 
     // --- Enregistrement modulaire (SOLID) ---
-    register_module(server, "static",   ws_register_static);
-    register_module(server, "wifi",     ws_register_wifi_api);
-    register_module(server, "time",     ws_register_time_api);
+    register_module(server, "static", ws_register_static);
+    register_module(server, "wifi", ws_register_wifi_api);
+    register_module(server, "time", ws_register_time_api);
+    register_module(server, "led", ws_register_led_api);
     // register_module(server, "weather",  ws_register_weather_api);
     // register_module(server, "logs",     ws_register_logs_api);
     // register_module(server, "freebox",  ws_register_freebox_api);
-    // register_module(server, "led",      ws_register_led_api);
     // register_module(server, "sys",      ws_register_sys_api);
 
     ESP_LOGI(TAG, "Serveur Web prêt.");

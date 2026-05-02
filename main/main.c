@@ -8,43 +8,42 @@
 #include "wifi_app.h"
 #include "time_utils.h"
 #include "led_ctrl.h"  // Module LED refactorisé
-#include "esp_spiffs.h"
+#include "esp_littlefs.h"
 
 static const char *TAG = "MAIN_APP";
 
-// --- Initialisation SPIFFS ---
-static esp_err_t init_spiffs(void) {
-    ESP_LOGI(TAG, "Initialisation SPIFFS...");
+// --- Initialisation littlefs ---
+// static esp_err_t init_littlefs(void) {
+//     ESP_LOGI(TAG, "Initialisation littlefs...");
 
-    esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs",
-        .partition_label = NULL,  // Utilise la partition par défaut
-        .max_files = 5,
-        .format_if_mount_failed = true
-    };
+//     esp_vfs_littlefs_conf_t conf = {
+//         .base_path = "/littlefs",
+//         .partition_label = NULL,  // Utilise la partition par défaut
+//         .format_if_mount_failed = true
+//     };
 
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Échec du montage SPIFFS");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Partition SPIFFS introuvable");
-        } else {
-            ESP_LOGE(TAG, "Erreur SPIFFS: %s", esp_err_to_name(ret));
-        }
-        return ret;
-    }
+//     esp_err_t ret = esp_vfs_littlefs_register(&conf);
+//     if (ret != ESP_OK) {
+//         if (ret == ESP_FAIL) {
+//             ESP_LOGE(TAG, "Échec du montage littlefs");
+//         } else if (ret == ESP_ERR_NOT_FOUND) {
+//             ESP_LOGE(TAG, "Partition littlefs introuvable");
+//         } else {
+//             ESP_LOGE(TAG, "Erreur littlefs: %s", esp_err_to_name(ret));
+//         }
+//         return ret;
+//     }
 
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(NULL, &total, &used);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Impossible de récupérer les infos SPIFFS (%s)", esp_err_to_name(ret));
-        return ret;
-    }
+//     size_t total = 0, used = 0;
+//     ret = esp_littlefs_info(NULL, &total, &used);
+//     if (ret != ESP_OK) {
+//         ESP_LOGE(TAG, "Impossible de récupérer les infos littlefs (%s)", esp_err_to_name(ret));
+//         return ret;
+//     }
 
-    ESP_LOGI(TAG, "SPIFFS initialisé: Total=%d, Utilisé=%d", total, used);
-    return ESP_OK;
-}
+//     ESP_LOGI(TAG, "littlefs initialisé: Total=%d, Utilisé=%d", total, used);
+//     return ESP_OK;
+// }
 
 // --- Affichage des infos NVS ---
 static void dump_nvs_info(void) {
@@ -96,12 +95,12 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
     dump_nvs_info();
 
-    // --- 2. Initialisation SPIFFS (pour le stockage des configs LED) ---
-    ret = init_spiffs();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Échec de l'initialisation SPIFFS !");
-        // Ne pas bloquer le système, mais continuer sans stockage
-    }
+    // --- 2. Initialisation littlefs (pour le stockage des configs LED) ---
+    // ret = init_littlefs();
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Échec de l'initialisation littlefs !");
+    //     // Ne pas bloquer le système, mais continuer sans stockage
+    // }
 
     // --- 3. Initialisation du module LED (doit être fait AVANT le WiFi si dépendances) ---
     ESP_LOGI(TAG, "Initialisation du module LED...");

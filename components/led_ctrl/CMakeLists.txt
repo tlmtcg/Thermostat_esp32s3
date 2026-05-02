@@ -17,5 +17,5 @@ idf_component_register(
         cjson
         esp_partition
         led_strip
-        spiffs
+        joltwallet__littlefs
 )
