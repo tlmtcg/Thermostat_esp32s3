@@ -4,7 +4,7 @@
 
 #include "ws_static.h"
 #include "ws_api_wifi.h"
-// #include "ws_api_time.h"
+#include "ws_api_time.h"
 // #include "ws_api_weather.h"
 // #include "ws_logs.h"
 // #include "ws_api_freebox.h"
@@ -54,7 +54,7 @@ httpd_handle_t start_webserver(void)
     // --- Enregistrement modulaire (SOLID) ---
     register_module(server, "static",   ws_register_static);
     register_module(server, "wifi",     ws_register_wifi_api);
-    // register_module(server, "time",     ws_register_time_api);
+    register_module(server, "time",     ws_register_time_api);
     // register_module(server, "weather",  ws_register_weather_api);
     // register_module(server, "logs",     ws_register_logs_api);
     // register_module(server, "freebox",  ws_register_freebox_api);

@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void ws_register_time_api(httpd_handle_t server);
+esp_err_t ws_register_time_api(httpd_handle_t server);
 
 #ifdef __cplusplus
 }

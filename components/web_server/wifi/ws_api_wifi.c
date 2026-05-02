@@ -68,4 +68,5 @@ esp_err_t ws_register_wifi_api(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_api_conn);
 
     ESP_LOGI(TAG, "API WiFi enregistrées");
+     return ESP_OK;
 }

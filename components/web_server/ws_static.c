@@ -20,8 +20,8 @@ extern const uint8_t index_js_start[] asm("_binary_index_js_start");
 extern const uint8_t index_js_end[] asm("_binary_index_js_end");
 extern const uint8_t nav_html_start[] asm("_binary_nav_html_start");
 extern const uint8_t nav_html_end[] asm("_binary_nav_html_end");
-// extern const uint8_t time_html_start[] asm("_binary_time_html_start");
-// extern const uint8_t time_html_end[] asm("_binary_time_html_end");
+extern const uint8_t time_html_start[] asm("_binary_time_html_start");
+extern const uint8_t time_html_end[] asm("_binary_time_html_end");
 // extern const uint8_t weather_html_start[] asm("_binary_weather_html_start");
 // extern const uint8_t weather_html_end[] asm("_binary_weather_html_end");
 // extern const uint8_t freebox_html_start[] asm("_binary_freebox_html_start");
@@ -68,10 +68,10 @@ static esp_err_t get_index(httpd_req_t *req)
     return send_embedded_file(req, index_html_start, index_html_end, "text/html");
 }
 
-// static esp_err_t get_time(httpd_req_t *req)
-// {
-//     return send_embedded_file(req, time_html_start, time_html_end, "text/html");
-// }
+static esp_err_t get_time(httpd_req_t *req)
+{
+    return send_embedded_file(req, time_html_start, time_html_end, "text/html");
+}
 
 static esp_err_t get_wifi(httpd_req_t *req)
 {
@@ -134,7 +134,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_css = {.uri = "/common.css", .method = HTTP_GET, .handler = get_css};
     httpd_uri_t uri_js = {.uri = "/index.js", .method = HTTP_GET, .handler = get_js};
     httpd_uri_t uri_nav = {.uri = "/nav.html", .method = HTTP_GET, .handler = get_nav};
-    // httpd_uri_t uri_time = {.uri = "/time", .method = HTTP_GET, .handler = get_time};
+    httpd_uri_t uri_time = {.uri = "/time", .method = HTTP_GET, .handler = get_time};
     // httpd_uri_t uri_weather = {.uri = "/weather", .method = HTTP_GET, .handler = meteo_html_handler};
     // httpd_uri_t uri_freebox = {.uri = "/freebox", .method = HTTP_GET, .handler = get_freebox};
     // httpd_uri_t led_ui_uri = {.uri = "/led", .method = HTTP_GET, .handler = led_page_handler};
@@ -147,7 +147,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_nav);
     httpd_register_uri_handler(server, &uri_css);
     httpd_register_uri_handler(server, &uri_js);
-    // httpd_register_uri_handler(server, &uri_time);
+    httpd_register_uri_handler(server, &uri_time);
     // httpd_register_uri_handler(server, &uri_weather);
     // httpd_register_uri_handler(server, &uri_freebox);
     // httpd_register_uri_handler(server, &led_ui_uri);

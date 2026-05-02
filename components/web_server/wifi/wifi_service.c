@@ -50,9 +50,14 @@ cJSON *wifi_service_status(void)
     esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_STA_DEF"), &ip_sta);
     esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey("WIFI_AP_DEF"), &ip_ap);
 
+    char ip_sta_str[16];
+    char ip_ap_str[16];
+
+    esp_ip4addr_ntoa(&ip_sta.ip, ip_sta_str, sizeof(ip_sta_str));
+    esp_ip4addr_ntoa(&ip_ap.ip, ip_ap_str, sizeof(ip_ap_str));
+
     int rssi = -127;
     int channel = 0;
-    const char *auth = "Open";
 
     if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK)
     {
@@ -64,8 +69,8 @@ cJSON *wifi_service_status(void)
     esp_wifi_ap_get_sta_list(&stations);
 
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "ip_sta", ip4addr_ntoa(&ip_sta.ip));
-    cJSON_AddStringToObject(root, "ip_ap", ip4addr_ntoa(&ip_ap.ip));
+    cJSON_AddStringToObject(root, "ip_sta", ip_sta_str);
+    cJSON_AddStringToObject(root, "ip_ap", ip_ap_str);
     cJSON_AddNumberToObject(root, "rssi", rssi);
     cJSON_AddNumberToObject(root, "chan", channel);
     cJSON_AddNumberToObject(root, "clients", stations.num);
@@ -81,5 +86,8 @@ cJSON *wifi_service_status(void)
 
 esp_err_t wifi_service_connect(const char *ssid, const char *pass)
 {
-    return wifi_manager_try_connect(ssid, pass);
+    wifi_manager_try_connect(ssid, pass);
+    return ESP_OK;
 }
+
+

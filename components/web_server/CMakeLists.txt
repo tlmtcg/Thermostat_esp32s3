@@ -2,7 +2,9 @@ idf_component_register(
     SRCS 
         "web_server.c"
         "ws_static.c"
-        "ws_api_wifi.c"
+        "wifi/ws_api_wifi.c"
+        "wifi/wifi_service.c"
+        "ws_api_time.c"
 
     INCLUDE_DIRS 
         "include"
@@ -12,6 +14,7 @@ idf_component_register(
     REQUIRES 
         esp_http_server
         wifi
+        time_utils
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
