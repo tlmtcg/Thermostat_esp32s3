@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Météo ESP32</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #121212; /* Fond noir */
+        color: white;
+        padding: 20px;
+      }
+
+      /* Le conteneur qui force les colonnes */
+      .columns-container {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: stretch;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      /* Style UNIQUE pour les cartes (version sombre) */
+      .card {
+        flex: 1;
+        background: #1e1e1e; /* Fond gris foncé */
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Style UNIQUE pour les températures */
+      .temp-main {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #ff9800; /* Orange météo */
+        margin: 10px 0;
+      }
+
+      .daily-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #333;
+      }
+
+      @media (max-width: 400px) {
+        .columns-container {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <div class="columns-container">
+      <!-- Colonne 1 : Jeedom -->
+      <div class="card">
+        <h3>Maison (Jeedom)</h3>
+        <div class="temp-main" id="jee_temp">--°C</div>
+        <div style="color: #7f8c8d">Sonde Intérieure</div>
+      </div>
+
+      <!-- Colonne 2 : Extérieur -->
+      <div class="card">
+        <h3 id="desc">Extérieur</h3>
+        <div class="temp-main" id="temp">--°C</div>
+        <div id="hum" style="color: #7f8c8d">Humidité: --%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <canvas id="weatherChart" style="height: 300px"></canvas>
+    </div>
+
+    <div class="card" id="daily-list"></div>
+
+    <script>
+      let chart = null;
+
+      function update() {
+        fetch("/api/weather")
+          .then((r) => r.json())
+          .then((data) => {
+            // Maj Actuel
+            document.getElementById("desc").innerText = data.now.desc;
+            document.getElementById("temp").innerText =
+              data.now.temp.toFixed(1) + "°C";
+            document.getElementById("hum").innerText =
+              "Humidité: " + data.now.hum + "%";
+            // Affichage de la température Jeedom
+            document.getElementById("jee_temp").innerText =
+              data.now.jee_temp + " °C";
+            // Maj Graphique
+            const ctx = document
+              .getElementById("weatherChart")
+              .getContext("2d");
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+              type: "line",
+              data: {
+                labels: Array.from({ length: 48 }, (_, i) => i + "h"),
+                datasets: [
+                  {
+                    label: "Temp (°C)",
+                    data: data.f48_temps,
+                    borderColor: "#ff9800",
+                    yAxisID: "y",
+                  },
+                  {
+                    label: "Hum (%)",
+                    data: data.f48_hums,
+                    borderColor: "#00bcd4",
+                    yAxisID: "y1",
+                    borderDash: [5, 5],
+                  },
+                ],
+              },
+              options: {
+                scales: {
+                  y: { type: "linear", position: "left" },
+                  y1: { type: "linear", position: "right", min: 0, max: 100 },
+                },
+              },
+            });
+
+            // Maj 7 Jours
+            const list = document.getElementById("daily-list");
+            list.innerHTML = "<h3>Prévisions 7 jours</h3>";
+            data.f7j.forEach((day) => {
+              const date = new Date(day.time * 1000).toLocaleDateString(
+                "fr-FR",
+                { weekday: "short", day: "numeric" },
+              );
+              list.innerHTML += `<div class="daily-item"><span>${date}</span><span>${day.desc}</span><b>${day.temp.toFixed(1)}°C</b></div>`;
+            });
+          })
+          .catch((e) => console.error("Erreur:", e));
+      }
+
+      update();
+      setInterval(update, 60000);
+    </script>
+
+    <script src="index.js"></script>
+  </body>
+</html>

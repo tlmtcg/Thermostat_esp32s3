@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Contrôle LED</title>
+    <style>
+      .led-dot {
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+      }
+      .btn-play {
+        background: var(--blue);
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85em;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+      }
+      .btn-play:hover {
+        opacity: 0.8;
+      }
+
+      /* Groupe de boutons alignés à droite */
+      .btn-group {
+        display: flex;
+        gap: 5px;
+      }
+
+      .line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        padding: 5px 0;
+        border-bottom: 1px solid #333;
+      }
+
+      input,
+      select {
+        background: #333;
+        color: white;
+        border: 1px solid #555;
+        padding: 5px;
+        border-radius: 4px;
+      }
+      .mt-10 {
+        margin-top: 10px;
+      }
+      .label {
+        display: flex;
+        align-items: center;
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Gestionnaire LED</h1>
+
+    <div class="box">
+      <button
+        class="btn-play"
+        style="background: var(--red); width: 100%; font-weight: bold"
+        onclick="powerOff()"
+      >
+        TOUT ÉTEINDRE
+      </button>
+    </div>
+
+    <div class="box">
+      <h2>Test Combiné</h2>
+      <div class="line">
+        <select id="select-info" style="flex: 1; margin-right: 5px"></select>
+        <select id="select-alarm" style="flex: 1; margin-right: 5px"></select>
+        <button class="btn-play" onclick="testCombo()">Lancer</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Nouveau Profil</h2>
+      <div class="line" style="border: none; align-items: center">
+        <!-- Champ Nom -->
+        <input
+          type="text"
+          id="new-name"
+          placeholder="Nom"
+          style="flex: 2; margin-right: 15px"
+        />
+
+        <!-- Sélecteur de couleur circulaire -->
+        <div style="position: relative; width: 40px; height: 40px">
+          <input
+            type="color"
+            id="new-color"
+            value="#00ff00"
+            style="
+              position: absolute;
+              opacity: 0;
+              width: 100%;
+              height: 100%;
+              cursor: pointer;
+              z-index: 2;
+            "
+            oninput="
+              document.getElementById('color-preview').style.backgroundColor =
+                this.value
+            "
+          />
+          <div
+            id="color-preview"
+            style="
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              background-color: #00ff00;
+              border: 2px solid #ddd;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              z-index: 1;
+            "
+          ></div>
+        </div>
+      </div>
+
+      <div
+        id="api-feedback"
+        style="
+          margin-top: 10px;
+          font-size: 0.85em;
+          display: none;
+          padding: 8px;
+          border-radius: 4px;
+        "
+      ></div>
+
+      <div class="line mt-10" style="border: none">
+        <select id="new-type" style="flex: 1; margin-right: 5px">
+          <option value="info">Ambiance (Fixe)</option>
+          <option value="alarm">Alarme (Flash)</option>
+        </select>
+        <input
+          type="number"
+          id="new-blinks"
+          style="width: 50px; margin-right: 5px"
+          value="3"
+        />
+        <button
+          class="btn-play"
+          style="background: var(--green)"
+          onclick="createNew()"
+        >
+          Ajouter
+        </button>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Profils d'Ambiance</h2>
+      <div id="list-infos"></div>
+    </div>
+
+    <div class="box">
+      <h2>Alarmes & Alertes</h2>
+      <div id="list-alarms"></div>
+    </div>
+
+    <script>
+      let currentInfoIdx = 0;
+
+      async function loadLedData() {
+        try {
+          const response = await fetch("/api/led");
+          const data = await response.json();
+
+          renderList("list-infos", data.infos, 0);
+          renderList("list-alarms", data.alarms, 1);
+
+          document.getElementById("select-info").innerHTML = data.infos
+            .map((i) => `<option value="${i.id}">${i.name}</option>`)
+            .join("");
+          document.getElementById("select-alarm").innerHTML = data.alarms
+            .map((a) => `<option value="${a.id}">${a.name}</option>`)
+            .join("");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      function renderList(containerId, items, type) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = items
+          .map(
+            (item) => `
+          <div class="line">
+            <span class="label">
+              <span class="led-dot" style="background: rgb(${item.r},${item.g},${item.b})"></span>
+              ${item.name} ${item.blinks ? "(" + item.blinks + "x)" : ""}
+            </span>
+            <div class="btn-group">
+              <button class="btn-play" style="${type === 1 ? "background:var(--orange)" : ""}" onclick="simulate(${type}, ${item.id})">
+                ${type === 0 ? "Fixer" : "Lancer"}
+              </button>
+              <button class="btn-play" style="background: #444" onclick="deleteLed('${item.name}')">
+                Effacer
+              </button>
+            </div>
+          </div>
+        `,
+          )
+          .join("");
+      }
+
+      async function simulate(type, id) {
+        if (type === 0) currentInfoIdx = id;
+        sendRequest("/api/led/simulate", {
+          info_idx: currentInfoIdx,
+          alarm_idx: id,
+        });
+      }
+
+      async function deleteLed(name) {
+        if (!confirm(`Supprimer ${name} ?`)) return;
+        await sendRequest("/api/led/delete", { name: name });
+        loadLedData();
+      }
+
+      async function createNew() {
+        const feedback = document.getElementById("api-feedback");
+        const nameInput = document.getElementById("new-name");
+
+        const payload = {
+          name: nameInput.value.trim(),
+          color: document.getElementById("new-color").value,
+          type: document.getElementById("new-type").value,
+          blinks: parseInt(document.getElementById("new-blinks").value),
+        };
+
+        if (!payload.name) {
+          showFeedback("Le nom est requis", "red");
+          return;
+        }
+
+        try {
+          await sendRequest("/api/led/add", payload);
+
+          // Si succès
+          showFeedback("Profil ajouté avec succès", "var(--green)");
+          nameInput.value = "";
+          await loadLedData(); // Rafraîchit la liste
+        } catch (error) {
+          // Si erreur (ex: doublon détecté par le code C)
+          showFeedback(error.message, "var(--red)");
+        }
+      }
+
+      function showFeedback(text, color) {
+        const el = document.getElementById("api-feedback");
+        el.innerText = text;
+        el.style.display = "block";
+        el.style.backgroundColor = color + "22"; // Couleur légère en fond
+        el.style.color = color;
+        el.style.border = `1px solid ${color}`;
+
+        // Disparaît après 3 secondes
+        setTimeout(() => {
+          el.style.display = "none";
+        }, 3000);
+      }
+
+      // Sélection de l'élément
+      const colorPicker = document.getElementById("new-color");
+
+      let previewTimeout = null;
+
+      // Détection du changement en temps réel avec protection (Debounce)
+      colorPicker.addEventListener("input", function () {
+        // 1. Mise à jour immédiate du cercle visuel (UI locale)
+        const color = this.value;
+        const previewCircle = document.getElementById("color-preview");
+        if (previewCircle) previewCircle.style.backgroundColor = color;
+
+        // 2. Annule l'envoi précédent s'il y en avait un en attente
+        clearTimeout(previewTimeout);
+
+        // 3. Prépare l'envoi à l'ESP32 après un court délai de stabilité
+        previewTimeout = setTimeout(() => {
+          // Conversion Hex vers RGB
+          const r = parseInt(color.substr(1, 2), 16);
+          const g = parseInt(color.substr(3, 2), 16);
+          const b = parseInt(color.substr(5, 2), 16);
+
+          fetch("/api/led/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ r: r, g: g, b: b }),
+          }).catch((err) => console.error("Erreur preview:", err));
+        }, 50); // Délai de 50ms : fluide pour l'œil, léger pour l'ESP32
+      });
+
+      async function testCombo() {
+        sendRequest("/api/led/simulate", {
+          info_idx: parseInt(document.getElementById("select-info").value),
+          alarm_idx: parseInt(document.getElementById("select-alarm").value),
+        });
+      }
+
+      async function powerOff() {
+        sendRequest("/api/led/off", {});
+      }
+
+      async function sendRequest(url, data) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+          if (!res.ok) {
+            // Récupère le texte de l'erreur envoyé par l'ESP32 (ex: "Le nom existe déjà")
+            const errorMsg = await res.text();
+            throw new Error(errorMsg || `Erreur ${res.status}`);
+          }
+
+          return await res.json();
+        } catch (e) {
+          console.error("API Error:", e.message);
+          throw e;
+        }
+      }
+
+      loadLedData();
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

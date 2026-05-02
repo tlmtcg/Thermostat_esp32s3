@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Configuration WiFi</title>
+    <link rel="stylesheet" href="common.css" />
+
+    <style>
+      .wifi-entry {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        margin-top: 8px;
+        border-radius: 12px;
+        background: #222;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+
+      .wifi-entry:hover {
+        transform: scale(1.02);
+      }
+
+      .wifi-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+      }
+
+      .lock {
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .rssi {
+        font-size: 0.85rem;
+        opacity: 0.85;
+      }
+
+      #wifi-status {
+        margin-top: 15px;
+        font-weight: bold;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 3px solid #999;
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 999;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .modal.show {
+        display: flex;
+      }
+
+      .modal-box {
+        background: #1f1f1f;
+        padding: 24px;
+        border-radius: 18px;
+        width: 330px;
+        max-width: 90%;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      }
+
+      .modal-box h3 {
+        margin-top: 0;
+      }
+
+      .wifi-input {
+        width: 100%;
+        padding: 12px;
+        margin-top: 14px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+      }
+
+      .showpass {
+        display: block;
+        margin-top: 12px;
+        font-size: 0.95rem;
+      }
+
+      .modal-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .btn-cancel {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+
+      .signal-good {
+        color: #00cc66;
+      }
+      .signal-mid {
+        color: orange;
+      }
+      .signal-bad {
+        color: #ff5555;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Configuration WiFi</h1>
+
+    <div class="box">
+      <h2>Station (Lien Box)</h2>
+
+      <div class="line">
+        <span class="label">Adresse IP</span>
+        <span id="ip_sta" class="value ok">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Signal</span>
+        <span id="rssi_val" class="value">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Qualité</span>
+        <span id="quality" class="value">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Canal</span>
+        <span id="chan" class="value">--</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Point d'accès local</h2>
+
+      <div class="line">
+        <span class="label">SSID diffusé</span>
+        <span class="value">Thermostat_Puys</span>
+      </div>
+
+      <div class="line">
+        <span class="label">IP passerelle</span>
+        <span id="ip_ap" class="value">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Clients connectés</span>
+        <span id="clients_count" class="value">0</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Infos liaison</h2>
+
+      <div class="line">
+        <span class="label">Adresse MAC</span>
+        <span id="mac" class="value">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Sécurité</span>
+        <span id="auth" class="value">--</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Réseaux détectés</h2>
+
+      <button class="btn-save" onclick="scanWifi()">Scanner les réseaux</button>
+
+      <div id="scan-results"></div>
+
+      <div id="wifi-status"></div>
+    </div>
+
+    <!-- Modal WiFi -->
+    <div id="wifiModal" class="modal">
+      <div class="modal-box">
+        <h3>Connexion WiFi</h3>
+
+        <div class="line">
+          <span class="label">Réseau</span>
+          <span id="selectedSsid" class="value"></span>
+        </div>
+
+        <input id="wifiPassword" type="password" placeholder="Mot de passe" />
+
+        <label class="showpass">
+          <input type="checkbox" onchange="togglePassword(this)" />
+          Afficher le mot de passe
+        </label>
+
+        <div class="modal-buttons">
+          <button class="btn-save" onclick="sendWifiConnect()">
+            Connecter
+          </button>
+
+          <button class="btn-cancel" onclick="closeWifiModal()">Annuler</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="index.js"></script>
+
+    <script>
+      let selectedSSID = "";
+
+      function signalClass(rssi) {
+        if (rssi > -65) return "signal-good";
+        if (rssi > -80) return "signal-mid";
+        return "signal-bad";
+      }
+
+      function scanWifi() {
+        const res = document.getElementById("scan-results");
+
+        res.innerHTML =
+          '<div><span class="spinner"></span>Scan en cours...</div>';
+
+        fetch("/api/wifi/scan")
+          .then((r) => r.json())
+          .then((networks) => {
+            res.innerHTML = networks
+              .map(
+                (n) => `
+<div class="wifi-entry"
+onclick="openWifiModal('${n.ssid.replace(/'/g, "\\'")}')">
+
+<div class="wifi-left">
+<span>${n.auth ? "🔒" : ""}</span>
+<span>${n.ssid}</span>
+</div>
+
+<div class="rssi ${signalClass(n.rssi)}">
+${n.rssi} dBm (Ch.${n.chan})
+</div>
+
+</div>
+`,
+              )
+              .join("");
+          })
+          .catch(() => {
+            res.innerHTML = "Erreur scan";
+          });
+      }
+
+      function openWifiModal(ssid) {
+        selectedSSID = ssid;
+        document.getElementById("selectedSsid").innerText = ssid;
+        document.getElementById("wifiPassword").value = "";
+        document.getElementById("wifiModal").classList.add("show");
+      }
+
+      function closeWifiModal() {
+        document.getElementById("wifiModal").classList.remove("show");
+      }
+
+      function togglePassword(box) {
+        document.getElementById("wifiPassword").type = box.checked
+          ? "text"
+          : "password";
+      }
+
+      async function sendWifiConnect() {
+        const password = document.getElementById("wifiPassword").value;
+
+        closeWifiModal();
+
+        document.getElementById("wifi-status").innerHTML =
+          `<span class="spinner"></span>
+Connexion à ${selectedSSID}...`;
+
+        try {
+          let r = await fetch("/api/wifi/connect", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              ssid: selectedSSID,
+              password: password,
+            }),
+          });
+
+          let data = await r.json();
+
+          document.getElementById("wifi-status").innerHTML = data.message;
+
+          setTimeout(updateWifi, 5000);
+        } catch (e) {
+          document.getElementById("wifi-status").innerHTML = "Erreur connexion";
+        }
+      }
+
+      function updateWifi() {
+        fetch("/api/wifi")
+          .then((r) => r.json())
+          .then((data) => {
+            ip_sta.innerText = data.ip_sta;
+            ip_ap.innerText = data.ip_ap;
+            rssi_val.innerText = data.rssi + " dBm";
+            chan.innerText = data.chan;
+            clients_count.innerText = data.clients;
+            mac.innerText = data.mac;
+            auth.innerText = data.auth;
+
+            let q = "Excellent";
+            let color = "#00cc66";
+
+            if (data.rssi < -85) {
+              q = "Très faible";
+              color = "#ff4444";
+            } else if (data.rssi < -75) {
+              q = "Faible";
+              color = "#ffaa00";
+            } else if (data.rssi < -60) {
+              q = "Moyen";
+              color = "orange";
+            }
+
+            quality.innerText = q;
+            quality.style.color = color;
+          })
+          .catch((e) => console.log(e));
+      }
+
+      setInterval(updateWifi, 5000);
+      updateWifi();
+    </script>
+  </body>
+</html>

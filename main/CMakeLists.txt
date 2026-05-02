@@ -1,4 +1,6 @@
 idf_component_register(
     SRCS "main.c"
-    REQUIRES wifi
-    )
+    INCLUDE_DIRS "."
+    PRIV_REQUIRES esp_http_server joltwallet__littlefs
+    REQUIRES wifi web_server time_utils led_ctrl 
+)
