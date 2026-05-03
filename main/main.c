@@ -9,6 +9,7 @@
 #include "time_utils.h"
 #include "led_ctrl.h"  // Module LED refactorisé
 #include "esp_littlefs.h"
+#include "alert_manager.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -83,6 +84,16 @@ static void time_log_task(void *pvParameters) {
     }
 }
 
+void check_system(void) {
+    board_health_t health = alert_get_board_health();
+    ESP_LOGI("SYS", "État du système : %s", alert_health_to_str(health));
+    
+    if (health >= HEALTH_CRITICAL) {
+        // Logique de sécurité : par exemple, couper le relais du chauffage
+        // heating_emergency_stop();
+    }
+}
+
 void app_main(void) {
     ESP_LOGI(TAG, "Démarrage du système...");
 
@@ -136,6 +147,8 @@ void app_main(void) {
     // Si vous voulez garder une boucle, utilisez un délai pour éviter de bloquer le CPU
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));  // Délai de 10 secondes
-        ESP_LOGI(TAG, "Système opérationnel...");
+        alert_get_history();
+        check_system();
+
     }
 }

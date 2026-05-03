@@ -18,4 +18,5 @@ idf_component_register(
         esp_partition
         led_strip
         joltwallet__littlefs
+        alert_manager
 )

@@ -36,7 +36,7 @@ esp_err_t time_utils_init(void)
     tzset();
 
     // On ajoute l'alerte dès le début de l'attente
-    alert_add("NTP Wait");
+    alert_add("Attente NTP");
 
     // Attendre la synchro (max 10 essais)
     bool synced = false;
@@ -54,12 +54,12 @@ esp_err_t time_utils_init(void)
     if (synced) {
         ESP_LOGI(TAG, "Synchro réussie !");
         // On retire l'alerte d'attente
-        alert_remove("NTP Wait");
+        alert_remove("Attente NTP");
     } else {
         ESP_LOGE(TAG, "Échec de synchro SNTP après 10 essais.");
         // Optionnel : on remplace l'attente par une alerte d'erreur permanente
-        alert_remove("NTP Wait");
-        alert_add("Time Error"); 
+        alert_remove("Attente NTP");
+        alert_add("Panne NTP"); 
     }
 
     return synced ? ESP_OK : ESP_FAIL;

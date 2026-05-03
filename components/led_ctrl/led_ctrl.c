@@ -8,6 +8,7 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include <math.h>
+#include "alert_manager.h"
 
 static const char *TAG = "LED_CTRL";
 
@@ -16,55 +17,61 @@ static led_mode_t current_bg_mode = LED_MODE_FIXED;
 static led_color_t current_bg_color = {0, 0, 0};
 static QueueHandle_t alarm_queue = NULL;
 
-// Tâche LED
+// On définit une période fixe pour ne pas modifier la structure stored_alarm_t
+#define FIXED_BLINK_DELAY_MS 250 
+
 static void led_task(void *pvParameters) {
-    alarm_event_t evt = {0};
     uint32_t step = 0;
-    led_color_t last_displayed_color = {255, 255, 255}; // Valeur initiale impossible
+    led_color_t last_displayed_color = {0, 0, 0}; 
+    bool first_run = true;
 
     while (1) {
-        // 1. Priorité aux alarmes
-        if (alarm_queue && xQueueReceive(alarm_queue, &evt, 0) == pdTRUE) {
-            for (int i = 0; i < evt.blinks; i++) {
-                led_driver_set_pixel(evt.color);
-                led_driver_refresh();
-                vTaskDelay(pdMS_TO_TICKS(200));
-                led_driver_clear();
-                led_driver_refresh();
-                vTaskDelay(pdMS_TO_TICKS(200));
-            }
-            // Force la mise à jour du fond après l'alarme
-            last_displayed_color.r = 254;
+        // 1. On récupère l'index de l'alarme prioritaire
+        int alarm_idx = alert_get_top_priority();
+        
+        // 2. On calcule la couleur de fond actuelle
+        led_color_t bg_color = {0, 0, 0};
+        if (current_bg_mode == LED_MODE_FIXED) {
+            bg_color = current_bg_color;
+        } else if (current_bg_mode == LED_MODE_BREATH) {
+            float brightness = (sinf(step * 0.05f - 1.57f) + 1.0f) / 2.0f;
+            bg_color.r = (uint8_t)(current_bg_color.r * brightness);
+            bg_color.g = (uint8_t)(current_bg_color.g * brightness);
+            bg_color.b = (uint8_t)(current_bg_color.b * brightness);
+            step++;
         }
-        // 2. Mode de fond
-        else {
-            if (current_bg_mode == LED_MODE_FIXED) {
-                if (current_bg_color.r != last_displayed_color.r ||
-                    current_bg_color.g != last_displayed_color.g ||
-                    current_bg_color.b != last_displayed_color.b) {
-                    led_driver_set_pixel(current_bg_color);
+
+        // 3. Logique d'affichage
+        if (alarm_idx != -1) {
+            // MODE ALARME
+            stored_alarm_t *alarm = led_db_get_alarm_by_idx(alarm_idx);
+            if (alarm) {
+                for (int i = 0; i < alarm->blinks; i++) {
+                    // Phase ON
+                    led_driver_set_pixel(alarm->color);
                     led_driver_refresh();
-                    last_displayed_color = current_bg_color;
-                    ESP_LOGI(TAG, "LED Update (Fixed): R:%d G:%d B:%d",
-                             current_bg_color.r, current_bg_color.g, current_bg_color.b);
+                    vTaskDelay(pdMS_TO_TICKS(FIXED_BLINK_DELAY_MS));
+
+                    // Phase OFF (repas sur le fond)
+                    led_driver_set_pixel(bg_color);
+                    led_driver_refresh();
+                    vTaskDelay(pdMS_TO_TICKS(FIXED_BLINK_DELAY_MS));
                 }
-                vTaskDelay(pdMS_TO_TICKS(50));
+                vTaskDelay(pdMS_TO_TICKS(1000));
             }
-            else if (current_bg_mode == LED_MODE_BREATH) {
-                float brightness = (sinf(step * 0.05f - 1.57f) + 1.0f) / 2.0f;
-                led_color_t breath_color = {
-                    (uint8_t)(current_bg_color.r * brightness),
-                    (uint8_t)(current_bg_color.g * brightness),
-                    (uint8_t)(current_bg_color.b * brightness)
-                };
-                led_driver_set_pixel(breath_color);
+        } 
+        else {
+            // MODE NORMAL
+            if (bg_color.r != last_displayed_color.r || 
+                bg_color.g != last_displayed_color.g || 
+                bg_color.b != last_displayed_color.b || first_run) {
+                
+                led_driver_set_pixel(bg_color);
                 led_driver_refresh();
-                step++;
-                vTaskDelay(pdMS_TO_TICKS(20));
+                last_displayed_color = bg_color;
+                first_run = false;
             }
-            else {
-                vTaskDelay(pdMS_TO_TICKS(100));
-            }
+            vTaskDelay(pdMS_TO_TICKS(current_bg_mode == LED_MODE_BREATH ? 20 : 100));
         }
     }
 }
