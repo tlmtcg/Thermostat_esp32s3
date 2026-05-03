@@ -127,7 +127,7 @@ const char* alert_health_to_str(board_health_t health) {
  * Attribue un score de sévérité selon le nom de l'alarme
  * 0: OK, 1: Warning, 2: Critique, 3: Fatal
  */
-static int get_alarm_severity(const char* name) {
+int get_alarm_severity(const char* name) {
     if (strcmp(name, "Panne capteur") == 0) return 3;  // Fatal: on ne peut plus réguler
     if (strcmp(name, "Surchauffe") == 0)     return 3;  // Fatal: danger thermique
     if (strcmp(name, "Panne wifi") == 0)   return 1;  // Warning: le thermostat tourne encore

@@ -37,7 +37,7 @@ int alert_get_top_priority(void);
 
 void alert_get_history(void); // Pour afficher l'historique dans la console
 const char* alert_health_to_str(board_health_t health);
-static int get_alarm_severity(const char* name);
+int get_alarm_severity(const char* name);
 board_health_t alert_get_board_health(void);
 
 #endif

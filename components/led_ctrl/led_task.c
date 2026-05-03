@@ -8,6 +8,10 @@
 
 static const char *TAG = "LED_TASK";
 
+#ifndef CONFIG_LED_STRIP_GPIO
+#define CONFIG_LED_STRIP_GPIO 48
+#endif
+
 led_strip_handle_t g_strip = NULL;
 
 static QueueHandle_t alarm_queue = NULL;

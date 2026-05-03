@@ -1,0 +1,9 @@
+menu "LED Control Configuration"
+
+config LED_STRIP_GPIO
+    int "LED strip GPIO"
+    default 48
+    help
+        GPIO used for the LED strip
+
+endmenu
