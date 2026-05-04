@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Gestion des Alarmes</title>
+    <style>
+      /* Adaptation au style sombre de l'index */
+      body {
+        background-color: #121212;
+        color: #ffffff;
+        margin: 20px;
+        font-family: Arial, sans-serif;
+      }
+      h1 {
+        color: #ffcc00;
+      }
+      .card {
+        background: #2b2b2b;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+      }
+      button {
+        background: #ff4444;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background: #cc0000;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        padding: 6px 0;
+        border-bottom: 1px solid #444;
+      }
+      .timestamp {
+        color: #999;
+        font-size: 12px;
+      } /* Ajout du style pour les badges et alertes */
+      .badge {
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: bold;
+      }
+      .bg-active {
+        background: #d32f2f;
+        color: white;
+      } /* Alarme active */
+      .bg-resolved {
+        background: #444;
+        color: #999;
+      } /* Alarme résolue */
+      .danger {
+        color: #ff5252;
+        font-weight: bold;
+        animation: blink 1s infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.5;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gestion des Alarmes</h1>
+    <div class="card">
+      <h2>Alarmes Actives</h2>
+      <ul id="active-alerts"></ul>
+    </div>
+    <div class="card">
+      <h2>Historique des Alarmes</h2>
+      <ul id="alert-history"></ul>
+    </div>
+    <div class="card">
+      <button onclick="clearAlerts()">Effacer toutes les alarmes</button>
+    </div>
+    <script>
+      async function loadActiveAlerts() {
+        const res = await fetch("/api/alerts/active");
+        const data = await res.json();
+        const list = document.getElementById("active-alerts");
+        list.innerHTML = "";
+        if (data.length === 0) {
+          list.innerHTML = "<li>Aucune alarme active</li>";
+          return;
+        }
+        data.forEach((a) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span class="badge bg-active">ACTIVE</span> ${a}`;
+          list.appendChild(li);
+        });
+      }
+      async function loadAlertHistory() {
+        const res = await fetch("/api/alerts/history");
+        const data = await res.json();
+        const list = document.getElementById("alert-history");
+        list.innerHTML = "";
+        data.forEach((entry) => {
+          const badgeClass = entry.activated ? "bg-active" : "bg-resolved";
+          const statusText = entry.activated ? "ACTIVÉE" : "RÉSOLUE";
+          const li = document.createElement("li");
+          li.innerHTML = `<span class="badge ${badgeClass}">${statusText}</span> <strong>${entry.name}</strong><br>                         <span class="timestamp">${new Date(entry.timestamp * 1000).toLocaleString()}</span>`;
+          list.appendChild(li);
+        });
+      }
+      async function clearAlerts() {
+        await fetch("/api/alerts/clear", { method: "POST" });
+        loadActiveAlerts();
+      } // Rafraîchissement automatique toutes les 5 secondes setInterval(() => {     loadActiveAlerts();     loadAlertHistory(); }, 5000);  // Chargement initial loadActiveAlerts(); loadAlertHistory();
+    </script>
+  </body>
+</html>

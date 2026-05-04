@@ -24,8 +24,10 @@ extern const uint8_t time_html_start[] asm("_binary_time_html_start");
 extern const uint8_t time_html_end[] asm("_binary_time_html_end");
 extern const uint8_t led_html_start[] asm("_binary_led_html_start");
 extern const uint8_t led_html_end[] asm("_binary_led_html_end");
-// extern const uint8_t weather_html_start[] asm("_binary_weather_html_start");
-// extern const uint8_t weather_html_end[] asm("_binary_weather_html_end");
+extern const uint8_t alarms_html_start[] asm("_binary_alarms_html_start");
+extern const uint8_t alarms_html_end[] asm("_binary_alarms_html_end");
+extern const uint8_t weather_html_start[] asm("_binary_weather_html_start");
+extern const uint8_t weather_html_end[] asm("_binary_weather_html_end");
 // extern const uint8_t freebox_html_start[] asm("_binary_freebox_html_start");
 // extern const uint8_t freebox_html_end[] asm("_binary_freebox_html_end");
 // extern const uint8_t logs_html_start[] asm("_binary_logs_html_start");
@@ -98,13 +100,19 @@ static esp_err_t led_page_handler(httpd_req_t *req)
     return send_embedded_file(req, led_html_start, led_html_end, "text/html");
 }
 
-// static esp_err_t meteo_html_handler(httpd_req_t *req)
-// {
-//     // Version manuelle pour l'exemple (identique à send_embedded_file)
-//     const size_t sz = (weather_html_end - weather_html_start);
-//     httpd_resp_set_type(req, "text/html; charset=utf-8");
-//     return httpd_resp_send(req, (const char *)weather_html_start, sz);
-// }
+static esp_err_t alarms_page_handler(httpd_req_t *req)
+{
+    return send_embedded_file(req, alarms_html_start, alarms_html_end, "text/html");
+}
+
+static esp_err_t weather_html_handler(httpd_req_t *req)
+{
+    // Version manuelle pour l'exemple (identique à send_embedded_file)
+    // const size_t sz = (weather_html_end - weather_html_start);
+    // httpd_resp_set_type(req, "text/html; charset=utf-8");
+    // return httpd_resp_send(req, (const char *)weather_html_start, sz);
+     return send_embedded_file(req, weather_html_start, weather_html_end, "text/html");
+}
 
 // static esp_err_t get_freebox(httpd_req_t *req)
 // {
@@ -121,7 +129,6 @@ static esp_err_t led_page_handler(httpd_req_t *req)
 //     return send_embedded_file(req, sys_html_start, sys_html_end, "text/html");
 // }
 
-
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -136,8 +143,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_js = {.uri = "/index.js", .method = HTTP_GET, .handler = get_js};
     httpd_uri_t uri_nav = {.uri = "/nav.html", .method = HTTP_GET, .handler = get_nav};
     httpd_uri_t uri_time = {.uri = "/time", .method = HTTP_GET, .handler = get_time};
-        httpd_uri_t led_ui_uri = {.uri = "/led", .method = HTTP_GET, .handler = led_page_handler};
-    // httpd_uri_t uri_weather = {.uri = "/weather", .method = HTTP_GET, .handler = meteo_html_handler};
+    httpd_uri_t led_ui_uri = {.uri = "/led", .method = HTTP_GET, .handler = led_page_handler};
+    httpd_uri_t uri_weather = {.uri = "/weather", .method = HTTP_GET, .handler = weather_html_handler};
     // httpd_uri_t uri_freebox = {.uri = "/freebox", .method = HTTP_GET, .handler = get_freebox};
     // httpd_uri_t uri_logs = {.uri = "/logs", .method = HTTP_GET, .handler = get_logs};
     // httpd_uri_t uri_sys_page = {.uri = "/sys", .method = HTTP_GET, .handler = get_sys};
@@ -150,7 +157,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_js);
     httpd_register_uri_handler(server, &uri_time);
     httpd_register_uri_handler(server, &led_ui_uri);
-    // httpd_register_uri_handler(server, &uri_weather);
+    httpd_register_uri_handler(server, &uri_weather);
     // httpd_register_uri_handler(server, &uri_freebox);
     // httpd_register_uri_handler(server, &uri_logs);
     // httpd_register_uri_handler(server, &uri_sys_page);

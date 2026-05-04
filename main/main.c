@@ -10,6 +10,7 @@
 #include "led_ctrl.h"  // Module LED refactorisé
 #include "esp_littlefs.h"
 #include "alert_manager.h"
+#include "task_manager.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -141,6 +142,9 @@ void app_main(void) {
 
     // --- 7. Afficher l'état de la base de données
     led_db_print_status();
+
+    // --- 8. Initialisation des tâches
+    task_manager_init();
 
     // --- 8. Boucle principale (optionnelle) ---
     // Dans ce cas, tout est géré par des tâches FreeRTOS, donc on peut supprimer la boucle while(1)

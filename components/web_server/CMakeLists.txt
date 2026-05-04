@@ -5,6 +5,7 @@ idf_component_register(
         "wifi/ws_api_wifi.c"
         "wifi/wifi_service.c"
         "ws_api_time.c"
+        "ws_api_weather.c"
         "led/ws_api_led.c"   
         "led/led_service.c"  
 
@@ -19,6 +20,8 @@ idf_component_register(
         wifi
         time_utils
         led_ctrl
+        weather
+        weather_store
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 

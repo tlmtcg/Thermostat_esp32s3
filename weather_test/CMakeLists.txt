@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "test_weather_description.c"
+        "test_runner.c"
+    INCLUDE_DIRS
+        "."
+    PRIV_REQUIRES
+        unity
+        weather
+)

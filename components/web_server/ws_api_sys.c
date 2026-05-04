@@ -3,38 +3,9 @@
 #include "esp_system.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 
 static const char *TAG = "WS_API_SYS";
-
-// static esp_err_t sys_status_handler(httpd_req_t *req) {
-//     httpd_resp_set_type(req, "text/plain");
-
-//     // 1. Récupérer les stats CPU des tâches
-//     // On alloue un buffer temporaire pour vTaskList (environ 40 octets par tâche)
-//     char *buffer = malloc(1024);
-//     if (buffer) {
-//         vTaskList(buffer); 
-//         httpd_resp_send_chunk(req, "--- TASK LIST (Name | Status | Prio | Stack | TaskNum) ---\n",-1);
-//         httpd_resp_send_chunk(req, buffer, -1);
-        
-//         vTaskGetRunTimeStats(buffer);
-//         httpd_resp_send_chunk(req, "\n--- CPU USAGE ---\n", -1);
-//         httpd_resp_send_chunk(req, buffer, -1);
-//         free(buffer);
-//     }
-
-//     // 2. Récupérer la mémoire (Heap)
-//     char heap_info[128];
-//     uint32_t free_heap = esp_get_free_heap_size();
-//     uint32_t min_free = esp_get_minimum_free_heap_size();
-//     snprintf(heap_info, sizeof(heap_info), "\n--- MEMORY ---\nFree Heap: %lu bytes\nMin Ever Free: %lu bytes\n", free_heap, min_free);
-//     httpd_resp_send_chunk(req, heap_info, -1);
-
-//     httpd_resp_send_chunk(req, NULL, 0); // Fin de réponse
-//     return ESP_OK;
-// }
-
-#include "esp_heap_caps.h"
 
 static esp_err_t sys_status_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "application/json");
