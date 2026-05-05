@@ -6,7 +6,9 @@
 #include "weather_utils.h"
 // #include "jeedom.h"
 #include "task_manager.h"
+#include "time_utils.h"
 #include <time.h>
+#include "esp_sntp.h"
 
 static const char *TAG = "TASK_MGR";
 
@@ -93,6 +95,29 @@ static void jeedom_send_task(void *pvParameters)
 }
 
 /* -------------------------------------------------------------------------- */
+/*                   TÂCHE : Mise à jour ntp                                  */
+/* -------------------------------------------------------------------------- */
+
+static void ntp_monitor_task(void *pvParameters)
+{
+    while (1)
+    {
+        time_t now;
+        time(&now);
+
+        time_t last = time_utils_get_last_sync();
+
+        if (last == 0 || (now - last) > 3600)
+        {
+            ESP_LOGI(TAG, "SNTP init (auto recovery)");
+            esp_sntp_init();  // suffit
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(60000));
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                           INITIALISATION DU MODULE                         */
 /* -------------------------------------------------------------------------- */
 
@@ -108,4 +133,7 @@ void task_manager_init(void)
 
     /* Tâche Jeedom (toutes les 1 minute) */
     xTaskCreate(jeedom_send_task, "jeedom_task", 4096, NULL, 5, NULL);
+
+    /* Tâche Mise à jour ntp (toute les 1 minutes) */
+    xTaskCreate(ntp_monitor_task, "ntp_task", 4096, NULL, 5, NULL);
 }

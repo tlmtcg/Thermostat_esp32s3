@@ -23,10 +23,21 @@ dependencies:
     source:
       type: idf
     version: 6.0.0
+  joltwallet/littlefs:
+    component_hash: 29eff7921c4e8bce021aeb7fff2723bfcafed661756de700646ea0f6223c2a32
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.21.1
 direct_dependencies:
 - espressif/cjson
 - espressif/led_strip
 - idf
-manifest_hash: d17476cb745b7330cb36fbe08d3f267a2ec29532c472c4449ec7856bae6169c4
+- joltwallet/littlefs
+manifest_hash: 4c95392dc5f917e694d618a50aa5a22a9eca0bb878f5d0e9ea97ddb580dc5441
 target: esp32s3
 version: 3.0.0

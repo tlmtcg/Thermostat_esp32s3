@@ -1,15 +1,15 @@
-# The following lines of boilerplate have to be in your project's
-# CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.22)
+
+# Obligatoire : charge la version IDF
 include($ENV{IDF_PATH}/tools/cmake/version.cmake)
 
-# Add newly added components to one of these lines:
-# 1. Add here if the component is compatible with IDF >= v4.3
+# Ajout des composants externes AVANT project()
 set(EXTRA_COMPONENT_DIRS
-    "../components/alert_manager"
+    "${CMAKE_CURRENT_LIST_DIR}/../components"
 )
 
-set(TEST_COMPONENTS "alert_manager")
-
+# Obligatoire : charge le système de build IDF
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
+# Nom du projet Unity
 project(example_test_app)

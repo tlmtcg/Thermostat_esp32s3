@@ -8,7 +8,7 @@ static const char *TAG = "WS_API_WEATHER";
 
 static esp_err_t meteo_api_handler(httpd_req_t *req)
 {
-    static char json_buf[4096];
+    char *json_buf = malloc(4096);
     if (!json_buf) return ESP_ERR_NO_MEM;
 
     weather_data_t data;

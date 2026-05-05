@@ -8,6 +8,7 @@ idf_component_register(
         "ws_api_weather.c"
         "led/ws_api_led.c"   
         "led/led_service.c"  
+        "ws_api_alarms.c" 
 
     INCLUDE_DIRS 
         "include"
@@ -22,6 +23,7 @@ idf_component_register(
         led_ctrl
         weather
         weather_store
+        
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -36,6 +38,7 @@ idf_component_register(
         "www/wifi.html"
         "www/weather.html"
         "www/freebox.html"
+        "www/alarms.html"
         "www/led.html" 
         "www/sys.html"
         "www/nav.html"

@@ -6,6 +6,7 @@
 #include "cJSON.h"
 #include "weather.h"
 #include "esp_crt_bundle.h"
+#include "alert_manager.h"
 
 static const char *TAG = "WEATHER_SERVICE";
 static char *response_data = NULL;
@@ -14,8 +15,8 @@ static int response_len = 0;
 
 weather_data_t latest_weather;
 
-// Ce code accumule les données reçues par fragments lors d’une requête HTTP 
-// et les stocke dans un buffer dynamique (response_data) 
+// Ce code accumule les données reçues par fragments lors d’une requête HTTP
+// et les stocke dans un buffer dynamique (response_data)
 // jusqu’à atteindre une taille maximale.
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
@@ -58,11 +59,12 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     // response_len (taille accumulée)
     // Evite les fuites mémoire entre deux appels.
 
-    if (response_data) free(response_data);
+    if (response_data)
+        free(response_data);
     response_data = NULL;
     response_len = 0;
 
-    // Configuration du client http 
+    // Configuration du client http
     esp_http_client_config_t config = {
         .url = url,
         .event_handler = _http_event_handler, // accumule les fragments de réponse
@@ -81,12 +83,16 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     esp_http_client_cleanup(client);
 
     if (err != ESP_OK)
+    {
+        alert_add("Absence météo"); // La LED clignote en erreur
         return err;
+    }
 
     // Vérification que la réponse existe
     if (response_data == NULL)
         return ESP_FAIL;
 
+    alert_remove("Absence météo"); // La LED clignote en erreur
     return ESP_OK;
 }
 
@@ -134,7 +140,8 @@ const char *get_weather_description(int code)
 esp_err_t weather_update(weather_data_t *data)
 {
     // Sécurité : si le pointeur est NULL → erreur immédiate
-    if (!data) return ESP_ERR_INVALID_ARG;
+    if (!data)
+        return ESP_ERR_INVALID_ARG;
 
     // URL optimisée pour un seul appel.
     // current : température, humidité, code météo
@@ -149,9 +156,10 @@ esp_err_t weather_update(weather_data_t *data)
         "&daily=weather_code,temperature_2m_max,relative_humidity_2m_max"
         "&timezone=auto&timeformat=unixtime";
 
-    // Appel de la fonction commune 
+    // Appel de la fonction commune
     esp_err_t err = http_get_to_buffer(url, 20000);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
     // Parsing JSON
     cJSON *root = cJSON_Parse(response_data);
@@ -233,20 +241,21 @@ esp_err_t weather_update(weather_data_t *data)
 
 esp_err_t jeedom_temp_update(weather_data_t *data)
 {
-    if (!data) return ESP_ERR_INVALID_ARG;
+    if (!data)
+        return ESP_ERR_INVALID_ARG;
 
     const char *url =
         "http://trever.freeboxos.fr:14254/core/api/jeeApi.php?"
         "apikey=d8RaIZcJA0iAaUkQGMVyLhk0rAZq2nGl&type=cmd&id=16109";
 
     esp_err_t err = http_get_to_buffer(url, 10000);
-    if (err != ESP_OK) return err;
+    if (err != ESP_OK)
+        return err;
 
-     // Conversion de la réponse texte ("8.4") en float
-     ESP_LOGI(TAG, "Réponse brute Jeedom : '%s'", response_data);
+    // Conversion de la réponse texte ("8.4") en float
+    ESP_LOGI(TAG, "Réponse brute Jeedom : '%s'", response_data);
     data->current.jee_temp = atof(response_data);
     ESP_LOGI(TAG, "Valeur Jeedom reçue : %.2f", data->current.jee_temp);
-    
 
     free(response_data);
     response_data = NULL;

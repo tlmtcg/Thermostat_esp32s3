@@ -11,6 +11,7 @@
 #include "esp_littlefs.h"
 #include "alert_manager.h"
 #include "task_manager.h"
+#include "serial_manager.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -138,7 +139,7 @@ void app_main(void) {
     time_utils_init();
 
     // --- 6. Démarrage de la tâche d'affichage de l'heure (optionnelle) ---
-    xTaskCreate(time_log_task, "TimeLogTask", 2048, NULL, 1, NULL);
+    // xTaskCreate(time_log_task, "TimeLogTask", 2048, NULL, 1, NULL);
 
     // --- 7. Afficher l'état de la base de données
     led_db_print_status();
@@ -146,13 +147,16 @@ void app_main(void) {
     // --- 8. Initialisation des tâches
     task_manager_init();
 
-    // --- 8. Boucle principale (optionnelle) ---
+    // --- 9. Initialisation du serial manager
+    serial_manager_init();
+
+    // --- 10. Boucle principale (optionnelle) ---
     // Dans ce cas, tout est géré par des tâches FreeRTOS, donc on peut supprimer la boucle while(1)
     // Si vous voulez garder une boucle, utilisez un délai pour éviter de bloquer le CPU
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));  // Délai de 10 secondes
-        alert_get_history();
-        check_system();
+        // alert_get_history();
+        // check_system();
 
     }
 }

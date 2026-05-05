@@ -33,11 +33,17 @@ bool alert_add(const char *name);
 bool alert_remove(const char *name);
 int  alert_get_count(void);
 int alert_get_top_priority(void);
-
+const char* get_alarms_list();
 
 void alert_get_history(void); // Pour afficher l'historique dans la console
 const char* alert_health_to_str(board_health_t health);
-static int get_alarm_severity(const char* name);
+int get_alarm_severity(const char* name);
 board_health_t alert_get_board_health(void);
-
+void alert_clear_all(void);
+const alert_log_t* alert_get_by_index(int i);
+extern alert_log_t alert_history[MAX_ALERT_LOGS];
+int alert_get_top_priority(void);
+int alert_get_active_count(void);
+const int* alert_get_active_list(void);
+int get_active_alarms(alert_log_t *out, int max);
 #endif

@@ -191,3 +191,11 @@ void wifi_manager_try_connect(const char *ssid, const char *pass)
     s_test_mode = false;
     wifi_mode_update(s_sta_connected, s_ap_clients, s_test_mode);
 }
+
+void wifi_manager_force_disconnect(void)
+{
+    ESP_LOGW(TAG, "Simulation de panne : Déconnexion forcée...");
+    // On arrête le timer de retry pour éviter qu'il ne se reconnecte tout seul
+    xTimerStop(s_wifi_retry_timer, 0); 
+    esp_wifi_disconnect();
+}
