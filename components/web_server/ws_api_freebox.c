@@ -1,157 +1,192 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
-// #include "fb_storage.h"
+#include "freebox_ftp.h" // Nouvelle inclusion
 #include "cJSON.h"
+#include <stdlib.h>
 
 static const char *TAG = "WS_API_FB";
 
 // --- HANDLER : LISTER ---
-esp_err_t get_fb_list_handler(httpd_req_t *req) {
-    // 1. Récupération de la liste allouée
-    char* list = list_freebox_files();
-
-    if (list == NULL) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "FTP Error");
+esp_err_t get_fb_list_handler(httpd_req_t *req)
+{
+    // Allocation d'un buffer pour recevoir la liste brute (ls -l)
+    char *list_buf = malloc(4096);
+    if (list_buf == NULL)
+    {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "RAM Error");
         return ESP_FAIL;
     }
 
-    // 2. Envoi de la réponse
+    if (freebox_ftp_list(list_buf, 4096) != ESP_OK)
+    {
+        free(list_buf);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "FTP List Error");
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "text/plain");
-    esp_err_t res = httpd_resp_sendstr(req, list);
+    esp_err_t res = httpd_resp_sendstr(req, list_buf);
 
-    // 3. Libération UNIQUE et mise à NULL
-    ESP_LOGI(TAG, "Libération de la liste FTP...");
-    free(list);
-    list = NULL; // Sécurité pour éviter toute réutilisation
-
+    free(list_buf);
     return res;
 }
 
 // --- HANDLER : LIRE ---
-esp_err_t get_fb_read_handler(httpd_req_t *req) {
+esp_err_t get_fb_read_handler(httpd_req_t *req)
+{
     char filename[64];
     char query[128];
 
-    // 1. Extraire la chaîne de requête (tout ce qui est après le '?')
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
-        // 2. Chercher la clé "file" dans cette chaîne
-        if (httpd_query_key_value(query, "file", filename, sizeof(filename)) == ESP_OK) {
-            
-            // Nettoyage de sécurité (supprime d'éventuels \r ou \n)
-            strtok(filename, "\r\n");
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK)
+    {
+        if (httpd_query_key_value(query, "file", filename, sizeof(filename)) == ESP_OK)
+        {
 
-            ESP_LOGI("API_FREEBOX", "Demande de lecture : '%s'", filename);
-            
-            char* data = read_from_freebox(filename);
-            if (data) {
+            strtok(filename, "\r\n "); // Nettoyage simple
+
+            // Allocation d'un buffer pour le contenu du fichier
+            size_t buf_size = 4096;
+            char *data = malloc(buf_size);
+            size_t bytes_read = 0;
+
+            if (!data)
+                return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "RAM Error");
+
+            ESP_LOGI(TAG, "Lecture FTP : '%s'", filename);
+
+            if (freebox_ftp_download(filename, data, buf_size, &bytes_read) == ESP_OK)
+            {
                 httpd_resp_set_type(req, "text/plain");
-                esp_err_t res = httpd_resp_sendstr(req, data);
-                free(data); // Libération après envoi
+                esp_err_t res = httpd_resp_send(req, data, bytes_read);
+                free(data);
                 return res;
-            } else {
-                ESP_LOGE("API_FREEBOX", "Contenu vide ou erreur FTP pour %s", filename);
             }
+            free(data);
         }
     }
 
-    ESP_LOGW("API_FREEBOX", "Fichier non trouvé ou URL malformée");
-    httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Fichier non trouvé");
-    return ESP_FAIL;
+    return httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Fichier non trouvé");
 }
 
 // --- HANDLER : SAUVEGARDER ---
-esp_err_t post_fb_save_handler(httpd_req_t *req) {
+esp_err_t post_fb_save_handler(httpd_req_t *req)
+{
     int total_len = req->content_len;
-    int cur_len = 0;
-    int received = 0;
 
-    // 1. Vérification de sécurité sur la taille
-    if (total_len >= 4096) { // Limite arbitraire pour protéger la RAM
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Fichier trop volumineux");
+    if (total_len <= 0 || total_len >= 8192)
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Taille invalide");
         return ESP_FAIL;
     }
 
-    // 2. Allocation dynamique sécurisée
     char *buf = malloc(total_len + 1);
-    if (!buf) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur RAM");
-        return ESP_FAIL;
-    }
+    if (!buf)
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "RAM Error");
 
-    // 3. Réception robuste (boucle pour s'assurer de tout lire)
-    while (cur_len < total_len) {
-        received = httpd_req_recv(req, buf + cur_len, total_len - cur_len);
-        if (received <= 0) {
-            if (received == HTTPD_SOCK_ERR_TIMEOUT) continue;
-            free(buf);
-            return ESP_FAIL;
-        }
-        cur_len += received;
+    int received = httpd_req_recv(req, buf, total_len);
+    if (received <= 0)
+    {
+        free(buf);
+        return ESP_FAIL;
     }
     buf[total_len] = '\0';
 
-    // 4. Parsing JSON
     cJSON *root = cJSON_Parse(buf);
-    if (root) {
+    esp_err_t ret = ESP_FAIL;
+
+    if (root)
+    {
         cJSON *file_item = cJSON_GetObjectItem(root, "file");
         cJSON *content_item = cJSON_GetObjectItem(root, "content");
 
-        if (cJSON_IsString(file_item) && cJSON_IsString(content_item)) {
-            ESP_LOGI(TAG, "Sauvegarde de : %s", file_item->valuestring);
-            write_to_freebox(file_item->valuestring, content_item->valuestring);
-            httpd_resp_sendstr(req, "Sauvegarde terminée");
-        } else {
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON invalide");
+        if (cJSON_IsString(file_item) && cJSON_IsString(content_item))
+        {
+            ESP_LOGI(TAG, "Upload FTP : %s", file_item->valuestring);
+
+            if (freebox_ftp_upload(file_item->valuestring,
+                                   content_item->valuestring,
+                                   strlen(content_item->valuestring)) == ESP_OK)
+            {
+                httpd_resp_sendstr(req, "Upload OK");
+                ret = ESP_OK;
+            }
+            else
+            {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "FTP Upload Failed");
+            }
         }
         cJSON_Delete(root);
-    } else {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Erreur parsing JSON");
     }
 
     free(buf);
-    return ESP_OK;
+    return ret;
 }
 
 // --- HANDLER : EFFACER ---
-esp_err_t delete_fb_handler(httpd_req_t *req) {
+esp_err_t delete_fb_handler(httpd_req_t *req)
+{
     char filename[64];
     char query[128];
 
-    // 1. On récupère d'abord la query string (ce qui est après le ?)
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK) {
-        // 2. On extrait le nom du fichier
-        if (httpd_query_key_value(query, "file", filename, sizeof(filename)) == ESP_OK) {
-            
-            // Nettoyage radical des caractères invisibles (\r, \n ou espaces)
-            for(int i = 0; filename[i]; i++) {
-                if(filename[i] == '\r' || filename[i] == '\n' || filename[i] == ' ') {
-                    filename[i] = '\0';
-                    break;
-                }
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK)
+    {
+        if (httpd_query_key_value(query, "file", filename, sizeof(filename)) == ESP_OK)
+        {
+
+            strtok(filename, "\r\n "); // Nettoyage
+
+            ESP_LOGI(TAG, "Suppression FTP : %s", filename);
+
+            if (freebox_ftp_delete(filename) == ESP_OK)
+            {
+                return httpd_resp_sendstr(req, "Fichier effacé");
             }
-
-            ESP_LOGI("API_DEL", "Fichier à supprimer : [%s]", filename);
-
-            if (delete_from_freebox(filename) == ESP_OK) {
-                return httpd_resp_sendstr(req, "Fichier effacé avec succès");
-            } else {
+            else
+            {
                 return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur FTP DELE");
             }
         }
     }
-
-    ESP_LOGW("API_DEL", "Requête malformée");
-    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Nom de fichier manquant");
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Nom manquant");
 }
 
-void ws_register_freebox_api(httpd_handle_t server) {
-    httpd_uri_t uri_fb_list = { .uri = "/api/freebox/list", .method = HTTP_GET, .handler = get_fb_list_handler };
-    httpd_uri_t uri_fb_read = { .uri = "/api/freebox/read", .method = HTTP_GET, .handler = get_fb_read_handler };
-    httpd_uri_t uri_fb_save = { .uri = "/api/freebox/save", .method = HTTP_POST, .handler = post_fb_save_handler };
-    httpd_uri_t uri_fb_del  = { .uri = "/api/freebox/delete", .method = HTTP_DELETE, .handler = delete_fb_handler };
+// --- HANDLER : RENOMMER ---
+esp_err_t post_fb_rename_handler(httpd_req_t *req)
+{
+    char buf[256];
+    httpd_req_recv(req, buf, req->content_len);
+    buf[req->content_len] = '\0';
+
+    cJSON *root = cJSON_Parse(buf);
+    if (root)
+    {
+        cJSON *old_n = cJSON_GetObjectItem(root, "old_name");
+        cJSON *new_n = cJSON_GetObjectItem(root, "new_name");
+        if (cJSON_IsString(old_n) && cJSON_IsString(new_n))
+        {
+            freebox_ftp_rename(old_n->valuestring, new_n->valuestring);
+            httpd_resp_sendstr(req, "OK");
+        }
+        cJSON_Delete(root);
+    }
+    return ESP_OK;
+}
+
+esp_err_t ws_register_freebox_api(httpd_handle_t server)
+{
+    ESP_LOGI(TAG, "Enregistrement de l'API Freebox...");
+
+    httpd_uri_t uri_fb_list = {.uri = "/api/freebox/list", .method = HTTP_GET, .handler = get_fb_list_handler};
+    httpd_uri_t uri_fb_read = {.uri = "/api/freebox/read", .method = HTTP_GET, .handler = get_fb_read_handler};
+    httpd_uri_t uri_fb_save = {.uri = "/api/freebox/save", .method = HTTP_POST, .handler = post_fb_save_handler};
+    httpd_uri_t uri_fb_rename = {.uri = "/api/freebox/rename", .method = HTTP_POST, .handler = post_fb_rename_handler};
+    httpd_uri_t uri_fb_del = {.uri = "/api/freebox/delete", .method = HTTP_DELETE, .handler = delete_fb_handler};
 
     httpd_register_uri_handler(server, &uri_fb_list);
     httpd_register_uri_handler(server, &uri_fb_read);
     httpd_register_uri_handler(server, &uri_fb_save);
+    httpd_register_uri_handler(server, &uri_fb_rename);
     httpd_register_uri_handler(server, &uri_fb_del);
+
+    return ESP_OK;
 }

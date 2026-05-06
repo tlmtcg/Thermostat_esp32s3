@@ -3,6 +3,6 @@
 
 #include "esp_http_server.h"
 
-void ws_register_freebox_api(httpd_handle_t server);
+esp_err_t ws_register_freebox_api(httpd_handle_t server);
 
 #endif

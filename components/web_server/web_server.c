@@ -8,8 +8,8 @@
 #include "ws_api_led.h"
 #include "ws_api_weather.h"
 #include "ws_api_alarms.h"
+#include "ws_api_freebox.h"
 // #include "ws_logs.h"
-// #include "ws_api_freebox.h"
 // #include "ws_api_sys.h"
 
 static const char *TAG = "WEB_SERVER";
@@ -59,8 +59,8 @@ httpd_handle_t start_webserver(void)
     register_module(server, "led", ws_register_led_api);
     register_module(server, "weather", ws_register_weather_api);
     register_module(server, "alarms", ws_register_alarms_api);
+    register_module(server, "freebox", ws_register_freebox_api);
     // register_module(server, "logs",     ws_register_logs_api);
-    // register_module(server, "freebox",  ws_register_freebox_api);
     // register_module(server, "sys",      ws_register_sys_api);
 
     ESP_LOGI(TAG, "Serveur Web prêt.");

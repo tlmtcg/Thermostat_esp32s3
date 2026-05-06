@@ -1,112 +1,170 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="common.css" />
-    <title>Gestionnaire Freebox</title>
-  </head>
-  <body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="common.css">
+    <title>Freebox FTP Manager</title>
+    <style>
+        /* Style spécifique pour densifier la liste */
+        .ftp-list-item {
+            border-bottom: 1px solid #333;
+            padding: 4px 0; /* Espacement très réduit */
+            font-size: 0.82em;
+            display: flex;
+            align-items: center;
+        }
+        .ftp-header {
+            font-weight: bold;
+            color: #888;
+            font-size: 0.7em;
+            border-bottom: 1px solid #444;
+            padding-bottom: 2px;
+            display: flex;
+        }
+        .col-rights { width: 80px; font-family: monospace; color: #666; }
+        .col-name   { flex: 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 5px; }
+        .col-size   { width: 70px; text-align: center; color: #aaa; }
+        .col-date   { width: 100px; text-align: right; color: #aaa; }
+        .col-action { width: 60px; text-align: right; }
+    </style>
+</head>
+<body>
     <div id="navbar"></div>
-
-    <h1 class="page-title">Fichiers Freebox</h1>
+    <h1 class="page-title">FTP Freebox</h1>
 
     <div class="box">
-      <h2>Explorateur de fichiers</h2>
-      <div class="line" style="margin-bottom: 15px;">
-        <button class="btn" onclick="loadFileList()">🔄 Rafraîchir la liste</button>
-      </div>
-      <ul id="files-list" style="list-style: none; padding: 0;">
+        <div class="line" style="margin-bottom: 10px;">
+            <button class="btn" onclick="loadFileList()" style="padding: 5px 15px;">🔄 Rafraîchir</button>
+        </div>
+        
+        <ul id="files-list" style="list-style: none; padding: 0;">
+            <!-- Contenu dynamique -->
         </ul>
     </div>
 
     <div class="box">
-      <h2>Éditeur de contenu</h2>
-      <div class="line">
-        <span class="label">Fichier :</span>
-        <input type="text" id="filename" placeholder="nom_du_fichier.json" style="flex: 1; margin-left: 10px;">
-      </div>
-      <textarea id="editor" style="width:100%; height:300px; margin-top: 15px; font-family: monospace; background: #222; color: #0f0; border: 1px solid var(--border-color); border-radius: 4px; padding: 10px;"></textarea>
-      
-      <div class="line" style="margin-top: 15px; justify-content: flex-end; gap: 10px;">
-        <button class="btn" style="background: var(--red);" onclick="deleteFileUI()">Effacer</button>
-        <button class="btn" style="background: var(--green);" onclick="saveContent()">Sauvegarder</button>
-      </div>
+        <div class="line">
+            <input type="text" id="filename" readonly placeholder="Aucun fichier sélectionné"
+                   style="flex: 1; background: #222; color: #ccc; border: 1px solid #444; font-size: 0.9em; padding: 5px;">
+        </div>
+        <textarea id="editor" 
+            style="width:100%; height:250px; margin-top: 10px; font-family: 'Courier New', monospace; 
+                   background: #111; color: #0f0; border: 1px solid #444; border-radius: 4px; 
+                   padding: 8px; font-size: 0.9em;"></textarea>
+        
+        <div class="line" style="margin-top: 10px; justify-content: flex-end; gap: 8px;">
+            <button class="btn" style="background: #d32f2f; padding: 5px 12px;" onclick="deleteFileUI()">Effacer</button>
+            <button class="btn" style="background: #f57c00; padding: 5px 12px;" onclick="renameFileUI()">Renommer</button>
+            <button class="btn" style="background: #388e3c; padding: 5px 12px;" onclick="saveContent()">Sauvegarder</button>
+        </div>
     </div>
 
-    <script src="index.js"></script>
     <script>
-      // Au chargement, on initialise la page
-      window.addEventListener('DOMContentLoaded', () => {
-        // Charge le menu (fonction standard de ton projet)
-        if (typeof loadNavbar === 'function') {
-            loadNavbar();
-        } else {
-            // Fallback si loadNavbar n'est pas dans index.js
-            fetch('/nav.html').then(res => res.text()).then(html => {
-                document.getElementById('navbar').innerHTML = html;
-            });
-        }
-        loadFileList();
-      });
-
-      async function loadFileList() {
-        const listEl = document.getElementById('files-list');
-        listEl.innerHTML = "<li>Chargement...</li>";
-        
-        try {
-          const res = await fetch('/api/freebox/list');
-          const text = await res.text();
-          // On sépare par ligne et on ignore les lignes vides
-          const files = text.split('\n').filter(f => f.trim() !== '');
-          
-          listEl.innerHTML = files.map(f => `
-            <li class="line" style="border-bottom: 1px solid #333; padding: 8px 0;">
-              <span class="label">${f.trim()}</span>
-              <button class="btn" style="padding: 2px 10px;" onclick="loadFile('${f.trim()}')">Ouvrir</button>
-            </li>
-          `).join('');
-        } catch (e) {
-          listEl.innerHTML = "<li style='color:red'>Erreur de connexion</li>";
-        }
-      }
-
-      async function loadFile(name) {
-        document.getElementById('filename').value = name;
-        const res = await fetch(`/api/freebox/read?file=${name}`);
-        const data = await res.text();
-        document.getElementById('editor').value = data;
-      }
-
-      async function saveContent() {
-        const file = document.getElementById('filename').value;
-        const content = document.getElementById('editor').value;
-        
-        if(!file) return alert("Nom de fichier manquant");
-
-        const res = await fetch('/api/freebox/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file: file, content: content })
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof loadNavbar === 'function') loadNavbar();
+            loadFileList();
         });
 
-        if(res.ok) {
-          alert('Sauvegarde réussie !');
-          loadFileList();
-        }
-      }
+        async function loadFileList() {
+            const listEl = document.getElementById('files-list');
+            listEl.innerHTML = "<li><small>Lecture FTP...</small></li>";
+            
+            try {
+                const res = await fetch('/api/freebox/list');
+                const text = await res.text();
+                const lines = text.split('\n').filter(l => l.trim() !== '');
+                
+                listEl.innerHTML = `
+                    <li class="ftp-header">
+                        <span class="col-rights">DROITS</span>
+                        <span class="col-name">NOM</span>
+                        <span class="col-size">TAILLE</span>
+                        <span class="col-date">DATE</span>
+                        <span class="col-action"></span>
+                    </li>`;
 
-      async function deleteFileUI() {
-        const file = document.getElementById('filename').value.trim();
-        if(!file || !confirm(`Supprimer ${file} ?`)) return;
+                lines.forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length < 9) return;
 
-        const res = await fetch(`/api/freebox/delete?file=${file}`, { method: 'DELETE' });
-        if(res.ok) {
-          document.getElementById('filename').value = "";
-          document.getElementById('editor').value = "";
-          loadFileList();
+                    const rights = parts[0];
+                    const sizeBytes = parseInt(parts[4]);
+                    const sizeFormatted = (sizeBytes / 1024).toFixed(1) + "K";
+                    const dateStr = `${parts[5]} ${parts[6]}`;
+                    const fileName = parts.slice(8).join(' ');
+
+                    // FILTRE : Supprime le dossier parent ".." et les répertoires (commençant par 'd')
+                    if (fileName === ".." || fileName === "." || rights.startsWith('d')) return;
+
+                    listEl.innerHTML += `
+                        <li class="ftp-list-item">
+                            <span class="col-rights">${rights}</span>
+                            <span class="col-name" title="${fileName}">${fileName}</span>
+                            <span class="col-size">${sizeFormatted}</span>
+                            <span class="col-date">${dateStr}</span>
+                            <div class="col-action">
+                                <button class="btn" style="padding: 1px 6px; font-size: 0.8em;" onclick="loadFile('${fileName}')">Ouvrir</button>
+                            </div>
+                        </li>`;
+                });
+            } catch (e) {
+                listEl.innerHTML = `<li style="color:#d32f2f">Erreur FTP</li>`;
+            }
         }
-      }
+
+        async function loadFile(name) {
+            const editor = document.getElementById('editor');
+            document.getElementById('filename').value = name;
+            editor.value = "Chargement...";
+            try {
+                const res = await fetch(`/api/freebox/read?file=${encodeURIComponent(name.trim())}`);
+                editor.value = await res.text();
+            } catch (e) { alert("Erreur de lecture"); }
+        }
+
+        async function saveContent() {
+            const file = document.getElementById('filename').value.trim();
+            const content = document.getElementById('editor').value;
+            if(!file) return;
+            try {
+                const res = await fetch('/api/freebox/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file, content })
+                });
+                if(res.ok) { alert('Sauvegardé'); loadFileList(); }
+            } catch (e) { alert("Erreur sauvegarde"); }
+        }
+
+        async function renameFileUI() {
+            const oldName = document.getElementById('filename').value.trim();
+            if (!oldName) return;
+            const newName = prompt("Nouveau nom :", oldName);
+            if (!newName || newName === oldName) return;
+            try {
+                await fetch('/api/freebox/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_name: oldName, new_name: newName })
+                });
+                document.getElementById('filename').value = newName;
+                loadFileList();
+            } catch (e) { alert("Erreur renommage"); }
+        }
+
+        async function deleteFileUI() {
+            const file = document.getElementById('filename').value.trim();
+            if(!file || !confirm(`Supprimer ${file} ?`)) return;
+            try {
+                const res = await fetch(`/api/freebox/delete?file=${encodeURIComponent(file)}`, { method: 'DELETE' });
+                if(res.ok) {
+                    document.getElementById('filename').value = "";
+                    document.getElementById('editor').value = "";
+                    loadFileList();
+                }
+            } catch (e) { alert("Erreur suppression"); }
+        }
     </script>
-  </body>
+</body>
 </html>
