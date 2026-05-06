@@ -1,0 +1,150 @@
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include "esp_log.h"
+#include "esp_err.h"
+#include "freebox_core.h"
+
+static const char *TAG = "FTP_CORE";
+
+#define BUF_SIZE 1024
+
+// -------------------------
+// Lecture FTP simple (safe)
+// -------------------------
+int receive_all(int sock, char *res, size_t max_size)
+{
+    if (!res || max_size < 2) return -1;
+
+    memset(res, 0, max_size);
+
+    int len = recv(sock, res, max_size - 1, 0);
+    if (len <= 0) return len;
+
+    res[len] = '\0';
+    return len;
+}
+
+// -------------------------
+// Envoi commande FTP
+// -------------------------
+int send_command(int sock,
+                 const char *cmd,
+                 const char *arg,
+                 char *res,
+                 size_t res_size)
+{
+    char buffer[BUF_SIZE];
+
+    if (arg)
+        snprintf(buffer, sizeof(buffer), "%s %s\r\n", cmd, arg);
+    else
+        snprintf(buffer, sizeof(buffer), "%s\r\n", cmd);
+
+    ESP_LOGI(TAG, "> %s", buffer);
+
+    if (send(sock, buffer, strlen(buffer), 0) < 0)
+        return -1;
+
+    int r = receive_all(sock, res, res_size);
+
+    ESP_LOGI(TAG, "< %s", res);
+
+    return r;
+}
+
+// -------------------------
+// Connexion FTP + login + CWD
+// -------------------------
+esp_err_t ftp_connect(ftp_client_t *cli, char *res)
+{
+    if (!cli || !res) return ESP_ERR_INVALID_ARG;
+
+    cli->ctrl_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (cli->ctrl_sock < 0) return ESP_FAIL;
+
+    setsockopt(cli->ctrl_sock, SOL_SOCKET, SO_RCVTIMEO,
+               &cli->timeout, sizeof(cli->timeout));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(FTP_PORT),
+        .sin_addr.s_addr = inet_addr(FREEBOX_IP),
+    };
+
+    ESP_LOGI(TAG, "Connecting FTP %s:%d", FREEBOX_IP, FTP_PORT);
+
+    if (connect(cli->ctrl_sock, (struct sockaddr *)&addr, sizeof(addr)) != 0)
+        return ESP_FAIL;
+
+    if (receive_all(cli->ctrl_sock, res, BUF_SIZE) <= 0 ||
+        strstr(res, "220") == NULL)
+        return ESP_FAIL;
+
+    if (send_command(cli->ctrl_sock, "USER", FTP_USER, res, BUF_SIZE) < 0)
+        return ESP_FAIL;
+
+    if (send_command(cli->ctrl_sock, "PASS", FTP_PASS, res, BUF_SIZE) < 0)
+        return ESP_FAIL;
+
+    if (!strstr(res, "230"))
+        return ESP_FAIL;
+
+    // -------------------------
+    // CWD SAFE (IMPORTANT)
+    // -------------------------
+    char cwd[128];
+
+    snprintf(cwd, sizeof(cwd),
+             "CWD %s",
+             FTP_PATH);
+
+    if (send_command(cli->ctrl_sock, cwd, NULL, res, BUF_SIZE) < 0 ||
+        !strstr(res, "250"))
+    {
+        ESP_LOGE(TAG, "CWD failed: %s", res);
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
+// -------------------------
+// PASV + socket data
+// -------------------------
+esp_err_t ftp_enter_pasv(ftp_client_t *cli, char *res)
+{
+    if (send_command(cli->ctrl_sock, "PASV", NULL, res, BUF_SIZE) < 0)
+        return ESP_FAIL;
+
+    int a,b,c,d,p1,p2;
+
+    char *p = strchr(res, '(');
+    if (!p || sscanf(p+1,
+        "%d,%d,%d,%d,%d,%d",
+        &a,&b,&c,&d,&p1,&p2) != 6)
+        return ESP_FAIL;
+
+    char ip[16];
+    snprintf(ip, sizeof(ip), "%d.%d.%d.%d", a,b,c,d);
+
+    int port = (p1 << 8) | p2;
+
+    cli->data_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (cli->data_sock < 0) return ESP_FAIL;
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(port),
+        .sin_addr.s_addr = inet_addr(ip),
+    };
+
+    return (connect(cli->data_sock,
+            (struct sockaddr*)&addr,
+            sizeof(addr)) == 0)
+        ? ESP_OK : ESP_FAIL;
+}

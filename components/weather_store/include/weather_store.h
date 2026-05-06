@@ -10,5 +10,5 @@ void weather_store_set_all(const weather_data_t *src);
 
 // getters
 void weather_store_get_all(weather_data_t *dst);
-const weather_entry_t *weather_store_get_current(void);
+weather_entry_t weather_store_get_current(void);
 float weather_store_get_jee_temp(void);

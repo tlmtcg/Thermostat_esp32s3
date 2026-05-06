@@ -155,4 +155,38 @@ menu "LED Control Configuration"
 
 endmenu
 
+menu "Freebox FTP Configuration"
+
+    config FREEBOX_FTP_USER
+        string "FTP Username"
+        default "freebox"
+        help
+            Nom d'utilisateur pour se connecter au FTP de la Freebox.
+
+    config FREEBOX_FTP_PASSWORD
+        string "FTP Password"
+        default "Tr2s_76142505"
+        help
+            Mot de passe du compte FTP.
+
+    config FREEBOX_FTP_IP
+        string "Freebox IP Address"
+        default "192.168.0.254"
+        help
+            Adresse IP locale de votre Freebox.
+
+    config FREEBOX_FTP_PORT
+        int "FTP Port"
+        default 21
+        help
+            Port utilisé pour la connexion FTP (généralement 21).
+
+    config FREEBOX_FTP_PATH
+        string "FTP Target Folder"
+        default "Freebox/Logs"
+        help
+            Dossier sur la Freebox où les fichiers seront stockés via FTP.
+            
+endmenu
+
 endmenu

@@ -1,0 +1,40 @@
+#pragma once
+
+#include <stddef.h>
+#include <sys/time.h>
+#include "esp_err.h"
+
+#define BUF_SIZE 1024
+
+// ----------------------
+// Config FTP (à adapter)
+// ----------------------
+#define FREEBOX_IP   "192.168.0.254"
+#define FTP_PORT     21
+#define FTP_USER     "freebox"
+#define FTP_PASS     "freebox"
+#define FTP_PATH     "/"
+
+// ----------------------
+// Client FTP
+// ----------------------
+typedef struct {
+    int ctrl_sock;
+    int data_sock;
+    struct timeval timeout;
+} ftp_client_t;
+
+// ----------------------
+// Core FTP functions
+// ----------------------
+int receive_all(int sock, char *res, size_t max_size);
+
+int send_command(int sock,
+                 const char *cmd,
+                 const char *arg,
+                 char *res,
+                 size_t res_size);
+
+esp_err_t ftp_connect(ftp_client_t *cli, char *res);
+
+esp_err_t ftp_enter_pasv(ftp_client_t *cli, char *res);
