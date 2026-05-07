@@ -13,6 +13,7 @@
 #include "ws_api_sys.h"
 #include "ws_api_program.h"
 #include "ws_api_jeedom.h"
+#include "ws_api_relay.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -68,7 +69,8 @@ httpd_handle_t start_webserver(void)
     register_module(server, "program", ws_register_program_api);
     register_module(server, "sys", ws_register_sys_api);
     register_module(server, "jeedom", register_jeedom_web_api);
-
+    register_module(server, "relay", ws_register_relay_api);
+    
     ESP_LOGI(TAG, "Serveur Web prêt.");
     return server;
 }

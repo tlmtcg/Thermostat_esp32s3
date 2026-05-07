@@ -38,6 +38,6 @@ direct_dependencies:
 - espressif/led_strip
 - idf
 - joltwallet/littlefs
-manifest_hash: 82728c0e232839f19aeee3626dad87cb2e3be355ac34dd3feabe62ff77c959fd
+manifest_hash: 2e12e1481f97a40f118999aa548d0e6134611da300fe8f8a32a74113d70099c6
 target: esp32s3
 version: 3.0.0

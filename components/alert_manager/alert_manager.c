@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdio.h>
+#include "sdkconfig.h"
 
 static const char *TAG = "ALERT_MGR";
 

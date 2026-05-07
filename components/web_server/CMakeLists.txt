@@ -14,6 +14,7 @@ idf_component_register(
         "ws_api_sys.c" 
         "ws_api_program.c"
         "ws_api_jeedom.c"
+        "ws_api_relay.c"
 
     INCLUDE_DIRS 
         "include"
@@ -31,6 +32,7 @@ idf_component_register(
         freebox_ftp
         heating_program
         jeedom
+        relay
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -49,6 +51,7 @@ idf_component_register(
         "www/led.html" 
         "www/sys.html"
         "www/program.html"
+        "www/relay.html"
         "www/nav.html"
         "www/logs.html"
         "www/jeedom.html"

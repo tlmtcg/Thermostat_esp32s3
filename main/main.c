@@ -15,7 +15,6 @@
 #include "freebox_ftp.h"
 #include "heating_program.h"
 
-
 static const char *TAG = "MAIN_APP";
 
 void app_main(void) {
@@ -50,7 +49,7 @@ void app_main(void) {
         led_set_background(LED_MODE_FIXED, (led_color_t){255, 0, 0}, 1000);  // Rouge = erreur
     } else {
         ESP_LOGI(TAG, "Serveur Web opérationnel.");
-        led_set_background(LED_MODE_FIXED, (led_color_t){0, 50, 0}, 1000);  // Vert = OK
+        // led_set_background(LED_MODE_FIXED, (led_color_t){0, 50, 0}, 1000);  // Vert = OK
     }
 
     // --- 5. Initialisation du SNTP ---
@@ -69,6 +68,7 @@ void app_main(void) {
     // --- 8. Test du programme de chauffage ---
     ESP_LOGI(TAG,"Chargement du programme de chauffage ...");
     heating_init(&config);
+
 
     // // --- 10. Boucle principale (optionnelle) ---
     // // Si tu veux surveiller l'état du système périodiquement :

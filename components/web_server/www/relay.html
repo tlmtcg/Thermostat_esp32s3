@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relais</title>
+
+    <style>
+      :root {
+        --bg: #1e1e1e;
+        --card: #252526;
+        --text: #cccccc;
+        --accent: #ff8c00; /* ORANGE */
+        --green: #4ec9b0;
+        --red: #f44747;
+        --yellow: #ffcc00;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: auto;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+
+      h3 {
+        color: var(--accent);
+        margin-top: 0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      input, select {
+        background: #3c3c3c;
+        border: 1px solid #555;
+        color: white;
+        padding: 8px;
+        border-radius: 2px;
+      }
+
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 10px;
+        cursor: pointer;
+        border-radius: 2px;
+        font-weight: bold;
+      }
+
+      button:hover {
+        background: #cc6f00;
+      }
+
+      .status-icon {
+        font-size: 2.2em;
+        vertical-align: middle;
+        margin-left: 10px;
+      }
+
+      .error {
+        color: var(--red);
+        font-weight: bold;
+      }
+
+      .success {
+        color: var(--green);
+      }
+
+      pre {
+        background: #000;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        color: var(--green);
+        border: 1px solid #333;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+
+      <!-- CARD 1 : CONTROLE -->
+      <div class="card">
+        <h3>Contrôle du relais</h3>
+
+        <p>
+          État actuel :
+          <span id="relay-state" class="success">--</span>
+          <span id="relay-icon" class="status-icon">⚫</span>
+        </p>
+
+        <p>GPIO utilisé : <span id="relay-gpio">--</span></p>
+        <p>Inversion : <span id="relay-inverted">--</span></p>
+        <p>Délai minimum : <span id="relay-delay">--</span></p>
+        <p>Délai restant : <span id="relay-remaining">--</span></p>
+        <p>Erreur : <span id="relay-error" class="error">--</span></p>
+
+        <button onclick="relayOn()">Allumer</button>
+        <button onclick="relayOff()">Éteindre</button>
+        <button onclick="fetchRelay()">Rafraîchir</button>
+      </div>
+
+      <!-- CARD 2 : CONFIG -->
+      <div class="card">
+        <h3>Configuration</h3>
+
+        <div class="grid">
+          <select id="cfg-state">
+            <option value="KEEP">État : Ne pas changer</option>
+            <option value="ON">Forcer ON</option>
+            <option value="OFF">Forcer OFF</option>
+          </select>
+
+          <input type="number" id="cfg-delay" placeholder="Délai minimum (sec)" min="0" />
+
+          <input type="number" id="cfg-gpio" placeholder="GPIO (0-48)" min="0" max="48" />
+
+          <select id="cfg-inverted">
+            <option value="KEEP">Inversion : Ne pas changer</option>
+            <option value="true">Inversé (actif à 0)</option>
+            <option value="false">Normal (actif à 1)</option>
+          </select>
+        </div>
+
+        <button onclick="applyConfig()">Appliquer la configuration</button>
+        <p id="apply-result"></p>
+      </div>
+
+      <!-- CARD 3 : JSON -->
+      <div class="card">
+        <h3>Données JSON détaillées</h3>
+        <pre id="json-raw">// En attente...</pre>
+      </div>
+
+    </div>
+
+    <script>
+      async function fetchRelay() {
+        try {
+          const res = await fetch('/api/relay');
+          const data = await res.json();
+
+          const isOn = data.runtime.state;
+          document.getElementById('relay-state').textContent = isOn ? "ON" : "OFF";
+          document.getElementById('relay-state').className = isOn ? "success" : "error";
+          document.getElementById('relay-icon').textContent = isOn ? "🟢" : "⚫";
+
+          document.getElementById('relay-gpio').textContent = data.config.gpio;
+          document.getElementById('relay-inverted').textContent =
+            data.config.inverted ? "Inversé" : "Normal";
+          document.getElementById('relay-delay').textContent =
+            data.config.min_delay_s + " sec";
+          document.getElementById('relay-remaining').textContent =
+            data.runtime.remaining_s + " sec";
+          document.getElementById('relay-error').textContent =
+            data.runtime.last_error || "Aucune";
+
+          document.getElementById('json-raw').textContent =
+            JSON.stringify(data, null, 4);
+
+          document.getElementById('cfg-delay').placeholder =
+            data.config.min_delay_s + " (actuel)";
+          document.getElementById('cfg-gpio').placeholder =
+            data.config.gpio + " (actuel)";
+        } catch (err) {
+          document.getElementById('json-raw').textContent = "Erreur GET /api/relay";
+        }
+      }
+
+      async function relayOn() {
+        await fetch('/api/relay/on', { method: 'POST' });
+        fetchRelay();
+      }
+
+      async function relayOff() {
+        await fetch('/api/relay/off', { method: 'POST' });
+        fetchRelay();
+      }
+
+      async function applyConfig() {
+        const payload = {};
+        const resultEl = document.getElementById('apply-result');
+        resultEl.textContent = "";
+        resultEl.className = "";
+
+        const st = document.getElementById('cfg-state').value;
+        if (st === "ON")  payload.state = true;
+        if (st === "OFF") payload.state = false;
+
+        const delay = document.getElementById('cfg-delay').value.trim();
+        if (delay !== "") payload.min_delay = parseInt(delay);
+
+        const gpio = document.getElementById('cfg-gpio').value.trim();
+        if (gpio !== "") payload.gpio = parseInt(gpio);
+
+        const inv = document.getElementById('cfg-inverted').value;
+        if (inv === "true")  payload.inverted = true;
+        if (inv === "false") payload.inverted = false;
+
+        try {
+          const res = await fetch('/api/relay', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json();
+          if (!data.success) {
+            resultEl.textContent = "Erreur : " + data.error;
+            resultEl.className = "error";
+          } else {
+            resultEl.textContent = "Configuration appliquée";
+            resultEl.className = "success";
+          }
+
+          fetchRelay();
+        } catch (err) {
+          resultEl.textContent = "Erreur POST /api/relay";
+          resultEl.className = "error";
+        }
+      }
+
+      fetchRelay();
+    </script>
+  </body>
+</html>
+

@@ -1,50 +1,143 @@
 menu "Configuration Thermostat"
 
-    menu "Point d'Accès de Secours (SoftAP)"
-        comment "Paramètres du réseau diffusé par l'ESP32"
+    menu "LED Control Configuration"
 
-        config ESP_WIFI_AP_SSID
-            string "Nom du réseau (SSID)"
-            default "Thermostat"
+    config LED_STRIP_GPIO
+            int "GPIO number for the RGB LED"
+            range 0 48
+            default 48
             help
-                Nom du WiFi émis par l'appareil pour la configuration initiale ou le secours.
+                The GPIO pin connected to the WS2812/NeoPixel LED. 
+                Default is 48 on most ESP32-S3 DevKits.
 
-        config ESP_WIFI_AP_PASSWORD
-            string "Mot de passe SoftAP"
-            default "12345678"
+        config LED_STRIP_BRIGHTNESS
+            int "Maximum LED Brightness (0-255)"
+            range 0 255
+            default 50
             help
-                Le mot de passe doit comporter au moins 8 caractères.
-                Par défaut : 12345678.
+                Global brightness limit to prevent eye strain and high current draw.
+                A value of 50 is usually sufficient for indoor use.
 
-        config ESP_WIFI_AP_CHANNEL
-            int "Canal WiFi"
-            range 1 13
-            default 1
+        config LED_ALARM_COLOR_RED
+            int "Alarm Red Intensity"
+            range 0 255
+            default 255
             help
-                Canal utilisé par le SoftAP. Évitez les canaux encombrés par votre box.
+                Red component intensity during alarm blinks.
 
-        config ESP_MAX_STA_CONN_AP
-            int "Nombre max de clients"
-            range 1 10
-            default 4
+        config LED_ALARM_BLINK_SPEED_MS
+            int "Alarm Blink Speed (ms)"
+            default 200
             help
-                Nombre maximum de téléphones ou PC connectés simultanément à l'ESP32.
+                Duration of the 'on' and 'off' phases during an alarm blink.
+
     endmenu
 
-    menu "Connexion Box Internet (Station)"
-        comment "Paramètres de connexion à votre routeur"
+    menu "Alerts Configuration"
+
+    config MAX_ALERT_LOGS
+        int "MAX ALERT LOGS"
+        default 10
+        help
+            Max number of alert logs.
+
+    config MAX_ACTIVE_ALERTS
+        int "MAX ACTIVE ALERTS"
+        default 5
+        help
+            Max number of active alerts.
+        
+    endmenu
+
+    menu "Freebox FTP Configuration"
+
+        config FB_FTP_HOST
+            string "IP de la Freebox"
+            default "192.168.0.254"
+            help
+                L'adresse IP locale de votre Freebox.
+
+        config FREEBOX_FTP_USER
+            string "FTP Username"
+            default "freebox"
+
+        config FREEBOX_FTP_PASS
+            string "FTP Password"
+            default "Tr2s_76142505"
+
+        config FB_FTP_PORT
+            int "Port FTP"
+            default 21
+            help
+                Le port standard est 21.
+
+        config FB_FTP_PATH
+            string "Dossier cible"
+            default "Freebox/Logs"
+            help
+                Le dossier sur la Freebox où les fichiers seront stockés.
+
+
+    endmenu
+
+    menu "Jeedom Configuration"
+
+    config API_KEY
+        string "API KEY"
+        default "Your Jeedom API Key"
+        help
+            Your API key.
+
+    config JEEDOM_ENABLE
+        bool "Enable Jeedom Integration"
+        default false
+        help
+            Enable Jeedom Integration.
+
+    config JEEDOM_HOST
+        string "Jeedom Host"
+        default "http://jeedom.local"
+        help
+            Jeedom Host URL.
+
+    config JEEDOM_PORT
+        int "Jeedom Port"
+        default 80
+        help
+            Jeedom Port.
+
+    config JEEDOM_PATH
+        string "Jeedom Path"
+        default "/core/api/jeeApi.php"
+        help
+            Jeedom API Path.
+        
+    endmenu
+
+    menu "Serial Manager"
+
+    config SERIAL_MANAGER_ENABLED
+        bool "Enable Serial Manager"
+        default y
+
+    endmenu
+
+    menu "WiFi Manager Configuration"
+        comment "Parametres du reseau diffuse par l'ESP32"
 
         config ESP_WIFI_STA_SSID
-            string "SSID de votre Box"
-            default "mySSID"
-            help
-                Nom du réseau WiFi auquel l'ESP32 doit se connecter.
+            string "Station SSID"
+            default "myssid"
 
         config ESP_WIFI_STA_PASSWORD
-            string "Code WiFi de votre Box"
-            default "MyPassword"
+            string "Station password"
+            default "mypassword"
+
+        config ESP_WIFI_AP_SSID
+            string "AP SSID"
+            default "esp32_ap"
             help
-                Mot de passe de votre réseau domestique.
+                Nom du WiFi emis par l'appareil pour la configuration initiale ou le secours.
 
         config ESP_MAXIMUM_STA_RETRY
             int "Nombre de tentatives de reconnexion"
@@ -52,19 +145,19 @@ menu "Configuration Thermostat"
             default 5
             help
                 Nombre de tentatives avant d'activer l'AP de secours.
-                Une valeur de 5 est un bon compromis stabilité/vitesse.
+                Une valeur de 5 est un bon compromis stabilite/vitesse.
 
         choice ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD
-            prompt "Sécurité minimale acceptée"
+            prompt "Securite minimale acceptee"
             default ESP_WIFI_AUTH_WPA2_PSK
             help
-                Niveau de sécurité minimal pour autoriser la connexion. 
+                Niveau de securite minimal pour autoriser la connexion. 
                 WPA2 PSK est la norme actuelle pour la plupart des box.
 
             config ESP_WIFI_AUTH_OPEN
                 bool "Ouvert (Aucune)"
             config ESP_WIFI_AUTH_WEP
-                bool "WEP (Obsolète)"
+                bool "WEP (Obsolete)"
             config ESP_WIFI_AUTH_WPA_PSK
                 bool "WPA PSK"
             config ESP_WIFI_AUTH_WPA2_PSK
@@ -76,83 +169,60 @@ menu "Configuration Thermostat"
             config ESP_WIFI_AUTH_WPA2_WPA3_PSK
                 bool "WPA2/WPA3 PSK"
         endchoice
-    endmenu
 
-    menu "Paramètres Avancés"
         config ESP_WIFI_RETRY_INTERVAL_MS
             int "Intervalle entre retries (ms)"
             range 500 10000
             default 3000
             help
-                Délai de "respiration" radio entre deux tentatives de connexion.
+                Delai de "respiration" radio entre deux tentatives de connexion.
                 Augmenter cette valeur rend le SoftAP de secours plus visible.
-    endmenu
 
-    menu "Freebox FTP Configuration"
+        config ESP_WIFI_AP_PASSWORD
+            string "AP password"
+            default "12345678"
+            help
+                Le mot de passe doit comporter au moins 8 caracteres.
+                Par defaut : 12345678.
 
-    config FB_FTP_HOST
-        string "IP de la Freebox"
-        default "192.168.0.254"
-        help
-            L'adresse IP locale de votre Freebox.
+        config ESP_WIFI_AP_CHANNEL
+            int "AP channel"
+            range 1 13
+            default 1
+            help
+                Canal utilise par le SoftAP. Evitez les canaux encombres par votre box.
 
-    config FREEBOX_FTP_USER
-        string "Utilisateur FTP"
-        default "freebox"
-        help
-            Le nom d'utilisateur configuré dans l'interface Freebox OS.
-
-    config FREEBOX_FTP_PASS
-        string "Mot de passe FTP"
-        default "Tr2s_76142505"
-        help
-            Le mot de passe associé au compte FTP.
-
-    config FB_FTP_PORT
-        int "Port FTP"
-        default 21
-        help
-            Le port standard est 21.
-
-    config FB_FTP_PATH
-        string "Dossier cible"
-        default "Freebox/Logs"
-        help
-            Le dossier sur la Freebox où les fichiers seront stockés.
+        config ESP_MAX_STA_CONN_AP
+            int "Nombre max de clients sur l'AP"
+            range 1 10
+            default 4
+            help
+                Nombre maximum de téléphones ou PC connectés simultanément à l'ESP32.
 
     endmenu
 
-menu "LED Control Configuration"
+    menu "Relais Configuration"
 
-    config LED_STRIP_GPIO
-        int "GPIO number for the RGB LED"
+    config RELAY_GPIO_PIN
+        int "Relay GPIO Pin"
         range 0 48
-        default 48
+        default 18
         help
-            The GPIO pin connected to the WS2812/NeoPixel LED. 
-            Default is 48 on most ESP32-S3 DevKits.
+            Le numero du GPIO sur lequel est branche le relais de commande de la chaudiere.
 
-    config LED_STRIP_BRIGHTNESS
-        int "Maximum LED Brightness (0-255)"
-        range 0 255
-        default 50
+    config RELAY_INVERTED
+        bool "Inverser la logique du relais"
+        default n
         help
-            Global brightness limit to prevent eye strain and high current draw.
-            A value of 50 is usually sufficient for indoor use.
+            Cochez si le relais s'active avec un niveau BAS (0V).
 
-    config LED_ALARM_COLOR_RED
-        int "Alarm Red Intensity"
-        range 0 255
-        default 255
+    config RELAY_MIN_DELAY_SEC
+        int "Delai minimum entre commutations (secondes)"
+        range 0 3600
+        default 60
         help
-            Red component intensity during alarm blinks.
+            Empeche le relais de changer d'etat trop rapidement pour proteger la chaudiere.
 
-    config LED_ALARM_BLINK_SPEED_MS
-        int "Alarm Blink Speed (ms)"
-        default 200
-        help
-            Duration of the 'on' and 'off' phases during an alarm blink.
-
-endmenu
+    endmenu
 
 endmenu

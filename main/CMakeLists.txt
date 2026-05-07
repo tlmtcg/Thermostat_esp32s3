@@ -12,4 +12,5 @@ idf_component_register(
         serial_manager 
         freebox_ftp
         heating_program
+        relay
 )

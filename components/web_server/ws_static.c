@@ -38,6 +38,9 @@ extern const uint8_t program_html_start[] asm("_binary_program_html_start");
 extern const uint8_t program_html_end[] asm("_binary_program_html_end");
 extern const uint8_t jeedom_html_start[] asm("_binary_jeedom_html_start");
 extern const uint8_t jeedom_html_end[] asm("_binary_jeedom_html_end");
+extern const uint8_t relay_html_start[] asm("_binary_relay_html_start");
+extern const uint8_t relay_html_end[] asm("_binary_relay_html_end");
+
 
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
@@ -140,6 +143,11 @@ static esp_err_t get_jeedom(httpd_req_t *req)
     return send_embedded_file(req, jeedom_html_start, jeedom_html_end, "text/html");
 }   
 
+static esp_err_t get_relay(httpd_req_t *req)
+{
+    return send_embedded_file(req, relay_html_start, relay_html_end, "text/html");
+}
+
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -162,6 +170,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_sys = {.uri = "/sys", .method = HTTP_GET, .handler = get_sys};
     httpd_uri_t uri_program = {.uri = "/program", .method = HTTP_GET, .handler = get_program};
     httpd_uri_t uri_jeedom = {.uri = "/jeedom", .method = HTTP_GET, .handler = get_jeedom};
+    httpd_uri_t uri_relay = {.uri = "/relay", .method = HTTP_GET, .handler = get_relay};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -178,7 +187,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_sys);
     httpd_register_uri_handler(server, &uri_program);
     httpd_register_uri_handler(server, &uri_jeedom);
-
+    httpd_register_uri_handler(server, &uri_relay);
+    
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;
 }
