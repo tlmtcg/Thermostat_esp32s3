@@ -127,17 +127,24 @@ menu "Configuration Thermostat"
 
         config ESP_WIFI_STA_SSID
             string "Station SSID"
-            default "myssid"
+            default "freebox-TR2S"
 
         config ESP_WIFI_STA_PASSWORD
             string "Station password"
-            default "mypassword"
+            default "cordon-electronics_tr2s"
 
         config ESP_WIFI_AP_SSID
             string "AP SSID"
-            default "esp32_ap"
+            default "Thermostat"
             help
                 Nom du WiFi emis par l'appareil pour la configuration initiale ou le secours.
+
+        config ESP_WIFI_AP_PASSWORD
+            string "AP password"
+            default "12345678"
+            help
+                Le mot de passe doit comporter au moins 8 caracteres.
+                Par defaut : 12345678.
 
         config ESP_MAXIMUM_STA_RETRY
             int "Nombre de tentatives de reconnexion"
@@ -178,13 +185,6 @@ menu "Configuration Thermostat"
                 Delai de "respiration" radio entre deux tentatives de connexion.
                 Augmenter cette valeur rend le SoftAP de secours plus visible.
 
-        config ESP_WIFI_AP_PASSWORD
-            string "AP password"
-            default "12345678"
-            help
-                Le mot de passe doit comporter au moins 8 caracteres.
-                Par defaut : 12345678.
-
         config ESP_WIFI_AP_CHANNEL
             int "AP channel"
             range 1 13
@@ -222,6 +222,30 @@ menu "Configuration Thermostat"
         default 60
         help
             Empeche le relais de changer d'etat trop rapidement pour proteger la chaudiere.
+
+    endmenu
+
+    menu "Time Configuration"
+
+        config SNTP_SERVER_NAME
+            string "SNTP Server Name"
+            default "pool.ntp.org"
+            help
+                L'adresse du serveur NTP à utiliser pour la synchronisation.
+
+        config SNTP_WAIT_FOR_SYNC_MS
+            int "Wait for Sync Timeout (ms)"
+            default 2000
+            range 100 10000
+            help
+                Temps d'attente maximum en millisecondes pour une réponse du serveur.
+
+        config SNTP_MAX_RETRY
+            int "Max Retry Count"
+            default 10
+            range 1 50
+            help
+                Nombre maximal de tentatives de reconnexion en cas d'échec.
 
     endmenu
 

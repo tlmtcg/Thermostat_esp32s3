@@ -1,7 +1,7 @@
 # Enregistrement du composant Relay
 idf_component_register(
     SRCS 
-        "relay.c" "test_relay.c"
+        "relay.c"
     INCLUDE_DIRS 
         "include"
     REQUIRES 

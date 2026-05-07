@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "alert_manager.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "TIME_UTILS";
 static time_t s_last_sync = 0;
@@ -22,12 +23,14 @@ static void time_sync_notification_cb(struct timeval *tv)
 /*  INITIALISATION                                                            */
 /* -------------------------------------------------------------------------- */
 
+
 esp_err_t time_utils_init(void)
 {
     ESP_LOGI(TAG, "Initialisation du SNTP");
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(0, CONFIG_SNTP_SERVER_NAME);
+
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
     esp_sntp_init();
 
@@ -40,7 +43,7 @@ esp_err_t time_utils_init(void)
 
     // Attendre la synchro (max 10 essais)
     bool synced = false;
-    for (int retry = 0; retry < 10; retry++)
+    for (int retry = 0; retry < CONFIG_SNTP_MAX_RETRY; retry++)
     {
         if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
             synced = true;
@@ -48,7 +51,7 @@ esp_err_t time_utils_init(void)
         }
 
         ESP_LOGI(TAG, "Attente de synchro SNTP (%d/10)", retry + 1);
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(CONFIG_SNTP_WAIT_FOR_SYNC_MS));
     }
 
     if (synced) {

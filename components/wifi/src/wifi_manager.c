@@ -71,43 +71,48 @@ void wifi_manager_init(const wifi_callbacks_t *callbacks)
     // Initialisation des gestionnaires d'événements (handlers)
     wifi_events_init(callbacks);
 
-    // 5. Chargement des identifiants (NVS ou Kconfig)
-    char ssid[33] = {0}, pass[65] = {0};
-    if (!wifi_storage_load(ssid, sizeof(ssid), pass, sizeof(pass)))
+    // 5. Chargement dela config
+    if (!wifi_storage_load_all(&g_wifi_cfg))
     {
-        ESP_LOGI(TAG, "NVS vide, utilisation des identifiants par défaut du Kconfig");
-        strlcpy(ssid, CONFIG_ESP_WIFI_STA_SSID, sizeof(ssid));
-        strlcpy(pass, CONFIG_ESP_WIFI_STA_PASSWORD, sizeof(pass));
+        ESP_LOGW(TAG, "Aucune config WiFi en NVS, utilisation des valeurs Kconfig");
 
-        // On sauvegarde pour les prochains démarrages
-        wifi_storage_save(ssid, pass);
+        strlcpy(g_wifi_cfg.sta_ssid, CONFIG_ESP_WIFI_STA_SSID, sizeof(g_wifi_cfg.sta_ssid));
+        strlcpy(g_wifi_cfg.sta_pass, CONFIG_ESP_WIFI_STA_PASSWORD, sizeof(g_wifi_cfg.sta_pass));
+
+        strlcpy(g_wifi_cfg.ap_ssid, CONFIG_ESP_WIFI_AP_SSID, sizeof(g_wifi_cfg.ap_ssid));
+        strlcpy(g_wifi_cfg.ap_pass, CONFIG_ESP_WIFI_AP_PASSWORD, sizeof(g_wifi_cfg.ap_pass));
+
+        g_wifi_cfg.ap_channel = CONFIG_ESP_WIFI_AP_CHANNEL;
+        g_wifi_cfg.retry_count = CONFIG_ESP_MAXIMUM_STA_RETRY;
+        g_wifi_cfg.retry_interval_ms = CONFIG_ESP_WIFI_RETRY_INTERVAL_MS;
+        g_wifi_cfg.auth_mode = g_wifi_cfg.auth_mode;
+
+        wifi_storage_save_all(&g_wifi_cfg);
     }
 
-    ESP_LOGI(TAG, "SSID STA : %s", ssid);
+    ESP_LOGI(TAG, "SSID STA : %s", g_wifi_cfg.sta_ssid);
 
     // 6. Configuration du mode Station (Client)
     wifi_config_t sta_cfg = {0};
-    strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
-    strlcpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password));
-    sta_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    strlcpy((char *)sta_cfg.sta.ssid, g_wifi_cfg.sta_ssid, sizeof(sta_cfg.sta.ssid));
+    strlcpy((char *)sta_cfg.sta.password, g_wifi_cfg.sta_pass, sizeof(sta_cfg.sta.password));
+
+    sta_cfg.sta.threshold.authmode = g_wifi_cfg.auth_mode;
     sta_cfg.sta.pmf_cfg.capable = true;
     sta_cfg.sta.pmf_cfg.required = false;
 
     // 7. Configuration du mode Access Point (Serveur)
-    wifi_config_t ap_cfg = {
-        .ap = {
-            .channel = CONFIG_ESP_WIFI_AP_CHANNEL,
-            .max_connection = CONFIG_ESP_MAX_STA_CONN_AP,
-            .authmode = WIFI_AUTH_WPA2_PSK,
-        },
-    };
-    strlcpy((char *)ap_cfg.ap.ssid, CONFIG_ESP_WIFI_AP_SSID, sizeof(ap_cfg.ap.ssid));
-    strlcpy((char *)ap_cfg.ap.password, CONFIG_ESP_WIFI_AP_PASSWORD, sizeof(ap_cfg.ap.password));
+    wifi_config_t ap_cfg = {0};
+    strlcpy((char *)ap_cfg.ap.ssid, g_wifi_cfg.ap_ssid, sizeof(ap_cfg.ap.ssid));
+    strlcpy((char *)ap_cfg.ap.password, g_wifi_cfg.ap_pass, sizeof(ap_cfg.ap.password));
 
-    if (strlen((char *)ap_cfg.ap.password) == 0)
-    {
-        ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
-    }
+    ap_cfg.ap.ssid_len = strlen(g_wifi_cfg.ap_ssid);
+    ap_cfg.ap.channel = g_wifi_cfg.ap_channel;
+    ap_cfg.ap.max_connection = CONFIG_ESP_MAX_STA_CONN_AP;
+
+    ap_cfg.ap.authmode = (strlen(g_wifi_cfg.ap_pass) >= 8)
+                             ? WIFI_AUTH_WPA2_PSK
+                             : WIFI_AUTH_OPEN;
 
     // 8. Application des réglages et démarrage
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -135,12 +140,13 @@ wifi_state_t wifi_get_state(void)
 }
 
 // Cette fonction doit être appelée par wifi_events.c
-void wifi_manager_update_client_count(int count) {
+void wifi_manager_update_client_count(int count)
+{
     s_ap_clients = count;
     // On profite de la mise à jour pour réévaluer le mode (STA pur ou AP+STA)
     // On récupère l'état de connexion actuel pour ne pas faire d'erreur
     bool connected = (wifi_state_get() == WIFI_STATE_STA_CONNECTED);
-    wifi_mode_update(connected, s_ap_clients, false); 
+    wifi_mode_update(connected, s_ap_clients, false);
 }
 
 int wifi_get_ap_client_count(void)
@@ -150,27 +156,34 @@ int wifi_get_ap_client_count(void)
 
 void wifi_manager_try_connect(const char *ssid, const char *pass)
 {
-    ESP_LOGI(TAG, "Connexion manuelle vers %s", ssid);
+    ESP_LOGI(TAG, "Test de connexion vers %s", ssid);
 
     s_test_mode = true;
     s_retry_num = 0;
     xTimerStop(s_wifi_retry_timer, 0);
 
+    /* 1) Préparer la config STA temporaire */
     wifi_config_t sta_cfg = {0};
     strlcpy((char *)sta_cfg.sta.ssid, ssid, sizeof(sta_cfg.sta.ssid));
+
     if (pass)
         strlcpy((char *)sta_cfg.sta.password, pass, sizeof(sta_cfg.sta.password));
+    else
+        sta_cfg.sta.password[0] = '\0';
 
     sta_cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     sta_cfg.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
+    /* 2) Reset des flags de connexion */
     xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
 
+    /* 3) Appliquer la config temporaire */
     esp_wifi_disconnect();
     vTaskDelay(pdMS_TO_TICKS(100));
-    esp_wifi_set_config(WIFI_IF_STA, &sta_cfg);
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg));
     esp_wifi_connect();
 
+    /* 4) Attendre le résultat */
     EventBits_t bits = xEventGroupWaitBits(
         s_wifi_event_group,
         WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
@@ -180,22 +193,85 @@ void wifi_manager_try_connect(const char *ssid, const char *pass)
 
     if (bits & WIFI_CONNECTED_BIT)
     {
-        ESP_LOGI(TAG, "Connexion OK, sauvegarde NVS");
-        wifi_storage_save(ssid, pass ? pass : "");
+        ESP_LOGI(TAG, "Connexion OK → mise à jour de la config NVS");
+
+        /* Mise à jour de g_wifi_cfg */
+        strlcpy(g_wifi_cfg.sta_ssid, ssid, sizeof(g_wifi_cfg.sta_ssid));
+        strlcpy(g_wifi_cfg.sta_pass, pass ? pass : "", sizeof(g_wifi_cfg.sta_pass));
+
+        /* Sauvegarde NVS */
+        wifi_storage_save_all(&g_wifi_cfg);
     }
     else
     {
         ESP_LOGE(TAG, "Échec connexion");
     }
 
+    /* 5) Fin du mode test */
     s_test_mode = false;
+
+    /* Mise à jour du mode AP/STA */
     wifi_mode_update(s_sta_connected, s_ap_clients, s_test_mode);
 }
+
 
 void wifi_manager_force_disconnect(void)
 {
     ESP_LOGW(TAG, "Simulation de panne : Déconnexion forcée...");
     // On arrête le timer de retry pour éviter qu'il ne se reconnecte tout seul
-    xTimerStop(s_wifi_retry_timer, 0); 
+    xTimerStop(s_wifi_retry_timer, 0);
     esp_wifi_disconnect();
+}
+
+void wifi_manager_reload_config(void)
+{
+    ESP_LOGW(TAG, "Rechargement complet de la configuration WiFi...");
+
+    /* 1) Stopper proprement le WiFi */
+    xTimerStop(s_wifi_retry_timer, 0);
+    esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_ERROR_CHECK(esp_wifi_stop());
+
+    /* 2) Reconfigurer STA */
+    wifi_config_t sta_cfg = {0};
+    strlcpy((char *)sta_cfg.sta.ssid, g_wifi_cfg.sta_ssid, sizeof(sta_cfg.sta.ssid));
+    strlcpy((char *)sta_cfg.sta.password, g_wifi_cfg.sta_pass, sizeof(sta_cfg.sta.password));
+
+    sta_cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    sta_cfg.sta.threshold.authmode = g_wifi_cfg.auth_mode;
+    sta_cfg.sta.pmf_cfg.capable = true;
+    sta_cfg.sta.pmf_cfg.required = false;
+
+    /* 3) Reconfigurer AP */
+    wifi_config_t ap_cfg = {0};
+    strlcpy((char *)ap_cfg.ap.ssid, g_wifi_cfg.ap_ssid, sizeof(ap_cfg.ap.ssid));
+    strlcpy((char *)ap_cfg.ap.password, g_wifi_cfg.ap_pass, sizeof(ap_cfg.ap.password));
+
+    ap_cfg.ap.ssid_len = strlen(g_wifi_cfg.ap_ssid);
+    ap_cfg.ap.channel = g_wifi_cfg.ap_channel;
+    ap_cfg.ap.max_connection = CONFIG_ESP_MAX_STA_CONN_AP;
+
+    if (strlen(g_wifi_cfg.ap_pass) >= 8)
+        ap_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    else
+        ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
+
+    /* 4) Appliquer les nouvelles configs */
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_cfg));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_cfg));
+
+    /* 5) Redémarrer le WiFi */
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    /* 6) Relancer la connexion STA */
+    ESP_LOGI(TAG, "Connexion STA vers %s...", g_wifi_cfg.sta_ssid);
+    esp_wifi_connect();
+
+    /* 7) Réinitialiser l’état interne */
+    s_retry_num = 0;
+    s_test_mode = false;
+
+    ESP_LOGI(TAG, "Configuration WiFi rechargée.");
 }
