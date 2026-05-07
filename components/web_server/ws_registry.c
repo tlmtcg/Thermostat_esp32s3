@@ -1,33 +1,3 @@
-// #include "ws_registry.h"
-
-// #include "ws_static.h"
-// #include "ws_api_wifi.h"
-// #include "ws_api_time.h"
-// #include "ws_api_led.h"
-// #include "ws_api_weather.h"
-// #include "ws_api_alarms.h"
-// #include "ws_api_logs.h"
-// #include "ws_api_freebox.h"
-// #include "ws_api_sys.h"
-
-// static ws_register_fn_t registry[] = {
-
-//     ws_register_wifi_api,
-//     ws_register_time_api,
-//     ws_register_led_api,
-//     ws_register_weather_api,
-//     ws_register_alarms_api,
-//     ws_register_freebox_api,
-//     ws_register_logs_api,
-//     ws_register_sys_api,
-//     ws_register_static,
-// };
-
-// void ws_register_all(httpd_handle_t server)
-// {
-//     for (int i = 0; i < sizeof(registry) / sizeof(registry[0]); i++)
-//         registry[i](server);
-// }
 
 #include "ws_registry.h"
 #include <esp_log.h>
@@ -41,7 +11,9 @@
 #include "ws_api_alarms.h"
 #include "ws_api_logs.h"
 #include "ws_api_freebox.h"
+#include "ws_api_program.h"
 #include "ws_api_sys.h"
+#include "ws_api_jeedom.h"
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -58,6 +30,8 @@ static ws_register_fn_t registry[] = {
     ws_register_freebox_api,
     ws_register_logs_api,
     ws_register_sys_api,
+    ws_register_program_api,
+    ws_register_jeedom_api,
     ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
 };
 

@@ -3,16 +3,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
-// --- Inclusions des dépendances du projet ---
-// Ajustez les chemins selon votre structure de dossiers réelle
-#include "Constants/Constant.h"
-#include "Version.h"
-#include "JSON/Model/GlobalModel.h"
+#include "esp_http_server.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 /**
  * @brief Envoie les données du thermostat à Jeedom.
@@ -29,6 +25,9 @@ extern "C" {
 *   **Compatibilité C++ ( de garde échoue.
  */
 bool SendStatusJeedom();
+
+esp_err_t get_jeedom_config_handler(httpd_req_t *req);
+esp_err_t post_jeedom_config_handler(httpd_req_t *req);
 
 #ifdef __cplusplus
 }

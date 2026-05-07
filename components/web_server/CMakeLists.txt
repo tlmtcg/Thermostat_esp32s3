@@ -12,6 +12,8 @@ idf_component_register(
         "ws_api_freebox.c" 
         "ws_api_logs.c" 
         "ws_api_sys.c" 
+        "ws_api_program.c"
+        "ws_api_jeedom.c"
 
     INCLUDE_DIRS 
         "include"
@@ -27,6 +29,8 @@ idf_component_register(
         weather
         weather_store
         freebox_ftp
+        heating_program
+        jeedom
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -44,8 +48,10 @@ idf_component_register(
         "www/alarms.html"
         "www/led.html" 
         "www/sys.html"
+        "www/program.html"
         "www/nav.html"
         "www/logs.html"
+        "www/jeedom.html"
         "www/common.css"
         "www/index.js"
 

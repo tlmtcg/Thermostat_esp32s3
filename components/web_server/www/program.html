@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Programme Chauffage</title>
+    <style>
+      :root { --orange: #e67e22; --bg-dark: #1a1a1a; --bg-panel: #252526; }
+      
+      .table-container { overflow-x: auto; margin-top: 10px; border-radius: 8px; }
+      
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 4px;
+        background-color: var(--bg-dark);
+        color: #d4d4d4;
+        font-family: sans-serif;
+      }
+      
+      th { 
+        background-color: var(--bg-panel); 
+        color: var(--orange); 
+        padding: 12px; 
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 0.8rem;
+      }
+
+      td { padding: 5px; vertical-align: top; }
+      
+      /* Style des cases de planning */
+      .slot-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #2d2d2d;
+        padding: 12px;
+        border-radius: 6px;
+        border-left: 4px solid #444;
+        transition: transform 0.1s;
+      }
+      .slot-box:focus-within { border-left-color: var(--orange); background: #353535; }
+
+      /* Couleurs par période */
+      .th-matin { border-bottom: 3px solid #ffcc33; }
+      .th-midi  { border-bottom: 3px solid #ff9900; }
+      .th-soir  { border-bottom: 3px solid #ff6600; }
+      .th-nuit  { border-bottom: 3px solid #3366ff; }
+
+      .input-group { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+      .input-group label { font-size: 0.7rem; color: #888; width: 25px; }
+
+      input[type="number"], input[type="time"] {
+        background: #1e1e1e;
+        border: 1px solid #444;
+        color: #fff;
+        padding: 5px;
+        border-radius: 4px;
+        width: 100%;
+        font-size: 0.9rem;
+      }
+
+      .btn-save { 
+        background-color: #2ea043; 
+        color: white;
+        border: none;
+        padding: 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 0.75rem;
+        margin-top: 5px;
+      }
+      .btn-save:hover { background-color: #3fb950; }
+
+      .day-label { 
+        font-weight: bold; 
+        color: var(--orange); 
+        background: var(--bg-panel); 
+        width: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+      }
+      
+      .controls-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .unit { font-size: 0.8rem; color: #666; margin-left: 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">📅 Planning de Chauffage</h1>
+
+    <div class="box">
+      <div class="controls-top">
+        <div>
+            <span class="label">Dernière synchro : </span>
+            <span id="sync-time" class="value">--:--:--</span>
+        </div>
+        <div class="controls">
+            <button class="btn-refresh" onclick="loadPlanning()">🔄 Actualiser</button>
+            <button class="danger btn-reset" onclick="resetDefault()">⚠️ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="table-container">
+        <table id="planning-table">
+          <thead>
+            <tr>
+              <th>Jour</th>
+              <th class="th-matin">☀️ Matin</th>
+              <th class="th-midi">🍴 Midi</th>
+              <th class="th-soir">🛋️ Soir</th>
+              <th class="th-nuit">🌙 Nuit</th>
+            </tr>
+          </thead>
+          <tbody id="planning-body">
+            <!-- Généré par JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+      async function loadPlanning() {
+        try {
+          const res = await fetch('/api/program/get');
+          const data = await res.json();
+          renderTable(data.planning);
+          document.getElementById('sync-time').textContent = new Date().toLocaleTimeString();
+        } catch (err) {
+          console.error("Erreur chargement:", err);
+        }
+      }
+
+      function secToTime(sec) {
+        const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+        const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+      }
+
+      function renderTable(planning) {
+        const tbody = document.getElementById('planning-body');
+        tbody.innerHTML = "";
+
+        planning.forEach((dayData, dayIdx) => {
+          const row = document.createElement('tr');
+          
+          const dayCell = document.createElement('td');
+          dayCell.innerHTML = `<div class="day-label">${jours[dayIdx]}</div>`;
+          row.appendChild(dayCell);
+
+          dayData.slots.forEach((slot, slotIdx) => {
+            const td = document.createElement('td');
+            td.innerHTML = `
+              <div class="slot-box">
+                <div class="input-group">
+                  <label>🕒</label>
+                  <input type="time" id="t-${dayIdx}-${slotIdx}" value="${secToTime(slot.time)}">
+                </div>
+                <div class="input-group">
+                  <label>🌡️</label>
+                  <input type="number" id="v-${dayIdx}-${slotIdx}" step="0.5" value="${slot.temp.toFixed(1)}">
+                </div>
+                <button class="btn-save" onclick="saveSlot(${dayIdx}, ${slotIdx})">ENREGISTRER</button>
+              </div>
+            `;
+            row.appendChild(td);
+          });
+          tbody.appendChild(row);
+        });
+      }
+
+      async function saveSlot(day, idx) {
+        const timeVal = document.getElementById(`t-${day}-${idx}`).value;
+        const tempVal = parseFloat(document.getElementById(`v-${day}-${idx}`).value);
+        const [h, m] = timeVal.split(':');
+        
+        const payload = { day: day, idx: idx, h: parseInt(h), m: parseInt(m), s: 0, t: tempVal };
+
+        try {
+          const res = await fetch('/api/program/set', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+              const btn = document.querySelectorAll('.btn-save')[day * 4 + idx];
+              const originalText = btn.textContent;
+              btn.textContent = "✅ OK";
+              btn.style.backgroundColor = "#1b6630";
+              setTimeout(() => { 
+                  btn.textContent = originalText; 
+                  btn.style.backgroundColor = ""; 
+              }, 2000);
+          }
+        } catch (err) { alert("Erreur de sauvegarde"); }
+      }
+
+      async function resetDefault() {
+        if (!confirm("Voulez-vous restaurer le planning par défaut ?")) return;
+        await fetch('/api/program/reset');
+        loadPlanning();
+      }
+
+      window.onload = loadPlanning;
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

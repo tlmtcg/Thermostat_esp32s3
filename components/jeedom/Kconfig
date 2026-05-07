@@ -1,0 +1,33 @@
+menu "Jeedom Configuration"
+
+config API_KEY
+    string "API KEY"
+    default "Your Jeedom API Key"
+    help
+        Your API key.
+
+config JEEDOM_ENABLE
+    bool "Enable Jeedom Integration"
+    default false
+    help
+        Enable Jeedom Integration.
+
+config JEEDOM_HOST
+    string "Jeedom Host"
+    default "http://jeedom.local"
+    help
+        Jeedom Host URL.
+
+config JEEDOM_PORT
+    int "Jeedom Port"
+    default 80
+    help
+        Jeedom Port.
+
+config JEEDOM_PATH
+    string "Jeedom Path"
+    default "/core/api/jeeApi.php"
+    help
+        Jeedom API Path.
+    
+endmenu

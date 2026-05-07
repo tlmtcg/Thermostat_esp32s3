@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Jeedom</title>
+    <style>
+      :root {
+        --bg: #1e1e1e;
+        --card: #252526;
+        --text: #cccccc;
+        --accent: #007acc;
+        --green: #4ec9b0;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 20px;
+      }
+      .container {
+        max-width: 800px;
+        margin: auto;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+      h3 {
+        color: var(--accent);
+        margin-top: 0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      input {
+        background: #3c3c3c;
+        border: 1px solid #555;
+        color: white;
+        padding: 8px;
+        border-radius: 2px;
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 10px;
+        cursor: pointer;
+        border-radius: 2px;
+        font-weight: bold;
+      }
+      button:hover {
+        background: #005a9e;
+      }
+
+      /* Style Console pour le JSON */
+      pre {
+        background: #000;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        color: var(--green);
+        border: 1px solid #333;
+        font-size: 0.9em;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 3px;
+        background: #333;
+        font-weight: bold;
+      }
+      .success {
+        color: #4ec9b0;
+      }
+      .error {
+        color: #f44747;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h3>Configuration Jeedom</h3>
+        <div class="grid">
+          <input type="text" id="host" placeholder="Hôte (ex: 192.168.1.50)" />
+          <input type="number" id="port" placeholder="Port" />
+        </div>
+        <button onclick="saveConfig()">Mettre à jour la configuration</button>
+      </div>
+
+      <div class="card">
+        <h3>Dernière Activité</h3>
+        <p>
+          Dernier envoi réussi :
+          <span id="last_time" class="status-badge">Jamais</span>
+        </p>
+        <p>Status HTTP : <span id="last_code" class="status-badge">--</span></p>
+        <p>Dernier JSON envoyé au serveur :</p>
+        <pre id="last_json">// En attente de données...</pre>
+      </div>
+    </div>
+
+    <script>
+      function refreshData() {
+        fetch("/api/jeedom")
+          .then((res) => res.json())
+          .then((data) => {
+            document.getElementById("host").value = data.host;
+            document.getElementById("port").value = data.port;
+            document.getElementById('last_time').innerText = data.last_send_time;
+
+            const codeEl = document.getElementById("last_code");
+            codeEl.innerText = data.last_http_code;
+            codeEl.className =
+              "status-badge " +
+              (data.last_http_code >= 200 && data.last_http_code < 300
+                ? "success"
+                : "error");
+
+            // Formater le JSON pour l'affichage
+            try {
+              const obj = JSON.parse(data.last_json);
+              document.getElementById("last_json").innerText = JSON.stringify(
+                obj,
+                null,
+                4,
+              );
+            } catch (e) {
+              document.getElementById("last_json").innerText = data.last_json;
+            }
+          });
+      }
+
+      function saveConfig() {
+        const payload = {
+          host: document.getElementById("host").value,
+          port: parseInt(document.getElementById("port").value),
+        };
+
+        fetch("/api/jeedom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then((res) => {
+          if (res.ok) {
+            alert("Config enregistrée !");
+            refreshData();
+          }
+        });
+      }
+
+      // Rafraîchir toutes les 5 secondes
+      refreshData();
+      setInterval(refreshData, 5000);
+    </script>
+  </body>
+</html>

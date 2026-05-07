@@ -1,7 +1,7 @@
 #include "serial_manager.h"
 #include "alert_manager.h"
-#include "wifi_manager.h"  // Pour wifi_manager_force_disconnect
-#include "esp_wifi.h"      // Pour esp_wifi_connect
+#include "wifi_manager.h" // Pour wifi_manager_force_disconnect
+#include "esp_wifi.h"     // Pour esp_wifi_connect
 #include "esp_log.h"
 #include <string.h>
 #include <stdio.h>
@@ -9,59 +9,138 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/uart.h"
-
+#include "heating_program.h"
+#include <strings.h>
 
 static const char *TAG = "SERIAL_MGR";
 #define BUF_SIZE 256
 
-void handle_command(const char *cmd)
+// Commande : HEAT SET <JOUR_IDX> <IDX> <H> <M> <S> <TEMP>
+// Exemple : HEAT SET 0 0 7 30 0 21.5 (Lundi, Plage 0, 07:30:00, 21.5°C)
+static void do_heat_set(const char *arg)
 {
-    // On ignore les commandes vides (ex: juste un appui sur Entrée)
-    if (strlen(cmd) == 0)
-        return;
+    int j, idx, h, m, s;
+    float t;
 
-    ESP_LOGI(TAG, "CMD recue: %s", cmd);
-
-    if (strncmp(cmd, "ALARM ADD ", 10) == 0)
+    if (sscanf(arg, "%d %d %d %d %d %f", &j, &idx, &h, &m, &s, &t) == 6)
     {
-        alert_add(cmd + 10);
-    }
-    else if (strncmp(cmd, "ALARM REMOVE ", 13) == 0)
-    {
-        alert_remove(cmd + 13);
-    }
-    else if (strcmp(cmd, "WIFI FAIL") == 0)
-    {
-        alert_add("Panne wifi");
-    }
-    else if (strcmp(cmd, "WIFI OK") == 0)
-    {
-        alert_remove("Panne wifi");
-    }
-    else if (strcmp(cmd, "STATUS") == 0)
-    {
-        printf("\n--- Alertes actives: %d ---\n", alert_get_active_count());
-        alert_get_history();
-    }
-    else if (strcmp(cmd, "HELP") == 0)
-    {
-        printf("\nCommandes: ALARM ADD <nom>, ALARM REMOVE <nom>, WIFI FAIL, WIFI OK, STATUS\n");
-    }
-    else if (strcmp(cmd, "WIFI DISCONNECT") == 0)
-    {
-        wifi_manager_force_disconnect();
-    }
-
-    else if (strcmp(cmd, "WIFI CONNECT") == 0)
-    {
-        ESP_LOGI(TAG, "Tentative de reconnexion...");
-        esp_wifi_connect();
+        heating_set_point(&config, (jour_t)j, idx, h, m, s, t);
+        heating_save(&config);
+        printf("\n[OK] Planning mis a jour (Jour index %d).\n", j);
     }
     else
     {
-        printf("\nCommande inconnue [%s]. Tapez HELP.\n", cmd);
+        printf("\n[ERR] Usage: HEAT SET <J_IDX> <IDX> <H> <M> <S> <T>\n");
     }
-    printf("> "); // Réaffiche le prompt après traitement
+}
+
+// Commande : HEAT GET <JOUR_IDX> <H> <M> <S>
+static void do_heat_get(const char *arg)
+{
+    int j, h, m, s;
+
+    if (sscanf(arg, "%d %d %d %d", &j, &h, &m, &s) == 4)
+    {
+        uint32_t total_sec = (h * 3600) + (m * 60) + s;
+        float t = heating_get_temp(&config, (jour_t)j, total_sec);
+        printf("\nConsigne Jour %d a %02d:%02d:%02d : %.1f C\n", j, h, m, s, t);
+    }
+    else
+    {
+        printf("\n[ERR] Usage: HEAT GET <J_IDX> <H> <M> <S>\n");
+    }
+}
+
+static void do_heat_json(const char *arg) {
+    char *json_out = heating_get_json(&config);
+    if (json_out) {
+        printf("\n%s\n", json_out);
+        free(json_out); // Très important pour éviter les fuites mémoire
+    } else {
+        printf("\n[ERR] Impossible de générer le JSON\n");
+    }
+}
+
+static void do_heat_reset(const char *arg) { heating_reset_defaults(&config); }
+
+// Prototype de la fonction de callback
+typedef void (*cmd_handler_t)(const char *arg);
+
+typedef struct
+{
+    const char *name;      // Nom de la commande (ex: "STATUS")
+    const char *help;      // Description pour l'aide
+    cmd_handler_t handler; // Fonction à appeler
+} command_t;
+
+// --- Liste des fonctions de traitement ---
+
+static void do_help(const char *arg); // Prototype pour usage dans le tableau
+
+static void do_alarm_add(const char *arg) { alert_add(arg); }
+static void do_alarm_rem(const char *arg) { alert_remove(arg); }
+static void do_wifi_fail(const char *arg) { alert_add("Panne wifi"); }
+static void do_wifi_ok(const char *arg) { alert_remove("Panne wifi"); }
+static void do_status(const char *arg)
+{
+    printf("\n--- Alertes actives: %d ---\n", alert_get_active_count());
+    alert_get_history();
+}
+static void do_wifi_disc(const char *arg) { wifi_manager_force_disconnect(); }
+static void do_wifi_conn(const char *arg) { esp_wifi_connect(); }
+
+// --- Tableau des commandes (à enrichir) ---
+
+static const command_t cmd_list[] = {
+    {"HELP", "Affiche cette aide", do_help},
+    {"STATUS", "Etat des alertes", do_status},
+    {"ALARM ADD ", "Ajoute une alerte <nom>", do_alarm_add},
+    {"ALARM REMOVE ", "Supprime une alerte <nom>", do_alarm_rem},
+    {"WIFI FAIL", "Simule panne wifi", do_wifi_fail},
+    {"WIFI OK", "Simule retour wifi", do_wifi_ok},
+    {"WIFI DISCONNECT", "Force deconnexion", do_wifi_disc},
+    {"WIFI CONNECT", "Force reconnexion", do_wifi_conn},
+    {"HEAT SET ", "Regler: <J_IDX 0-6> <IDX> <H> <M> <S> <T>", do_heat_set},
+    {"HEAT GET ", "Lire: <J_IDX 0-6> <H> <M> <S>", do_heat_get},
+    {"HEAT GET_JSON", "Lire le programme json", do_heat_json},
+     {"HEAT RESET", "Reset le programme json",  do_heat_reset}, 
+};
+
+#define CMD_COUNT (sizeof(cmd_list) / sizeof(command_t))
+
+// Implémentation du Help automatique
+static void do_help(const char *arg)
+{
+    printf("\nCommandes disponibles :\n");
+    for (int i = 0; i < CMD_COUNT; i++)
+    {
+        printf("  - %-15s : %s\n", cmd_list[i].name, cmd_list[i].help);
+    }
+}
+
+void handle_command(const char *cmd)
+{
+    if (strlen(cmd) == 0)
+        return;
+
+    ESP_LOGD(TAG, "Traitement: %s", cmd);
+
+    for (int i = 0; i < CMD_COUNT; i++)
+    {
+        size_t name_len = strlen(cmd_list[i].name);
+
+        // Vérifie si le début de la ligne correspond au nom de la commande
+        if (strncmp(cmd, cmd_list[i].name, name_len) == 0)
+        {
+            // On passe le reste de la chaîne comme argument (ex: le nom de l'alarme)
+            cmd_list[i].handler(cmd + name_len);
+            printf("\n> ");
+            fflush(stdout);
+            return;
+        }
+    }
+
+    printf("\nCommande inconnue. Tapez HELP.\n> ");
     fflush(stdout);
 }
 

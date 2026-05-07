@@ -4,7 +4,7 @@
 #include "weather.h"
 #include "weather_store.h"
 #include "weather_utils.h"
-// #include "jeedom.h"
+#include "jeedom.h"
 #include "task_manager.h"
 #include "time_utils.h"
 #include <time.h>
@@ -81,14 +81,14 @@ static void jeedom_send_task(void *pvParameters)
     {
         ESP_LOGI(TAG, "Envoi du statut à Jeedom...");
 
-        // if (SendStatusJeedom())
-        // {
-        //     ESP_LOGI(TAG, "Statut Jeedom envoyé !");
-        // }
-        // else
-        // {
-        //     ESP_LOGE(TAG, "Erreur lors de l'envoi (Serveur injoignable ou erreur 4xx/5xx)");
-        // }
+        if (SendStatusJeedom())
+        {
+            ESP_LOGI(TAG, "Statut Jeedom envoyé !");
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Erreur lors de l'envoi (Serveur injoignable ou erreur 4xx/5xx)");
+        }
 
         vTaskDelay(pdMS_TO_TICKS(60000)); // 1 minute
     }
