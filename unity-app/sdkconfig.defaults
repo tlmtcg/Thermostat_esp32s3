@@ -984,7 +984,7 @@ CONFIG_PARTITION_TABLE_MD5=y
 # Paramètres du réseau diffusé par l'ESP32
 #
 # default:
-CONFIG_ESP_WIFI_AP_SSID="Thermostat_Puys"
+CONFIG_ESP_WIFI_AP_SSID="Thermostat"
 # default:
 CONFIG_ESP_WIFI_AP_PASSWORD="12345678"
 # default:
@@ -1048,7 +1048,7 @@ CONFIG_FB_FTP_PATH="Freebox/Logs"
 # LED Control Configuration
 #
 # default:
-CONFIG_LED_STRIP_GPIO=48
+# CONFIG_LED_STRIP_GPIO=48
 # default:
 CONFIG_LED_STRIP_BRIGHTNESS=50
 # default:

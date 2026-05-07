@@ -9,7 +9,9 @@ idf_component_register(
         "led/ws_api_led.c"   
         "led/led_service.c"  
         "ws_api_alarms.c" 
-                "ws_api_freebox.c" 
+        "ws_api_freebox.c" 
+        "ws_api_logs.c" 
+        "ws_api_sys.c" 
 
     INCLUDE_DIRS 
         "include"

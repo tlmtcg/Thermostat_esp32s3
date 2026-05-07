@@ -1,4 +1,4 @@
-#include "ws_logs.h"
+#include "ws_api_logs.h"
 #include "esp_log.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -36,9 +36,12 @@ static esp_err_t logs_handler(httpd_req_t *req)
 
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
+    // const char* resp_str = "{\"status\":\"ok\", \"message\":\"Voici les logs\"}";
+    // httpd_resp_set_type(req, "application/json");
+    // return httpd_resp_send(req, resp_str, strlen(resp_str));
 }
 
-void ws_register_logs_api(httpd_handle_t server)
+esp_err_t ws_register_logs_api(httpd_handle_t server)
 {
     esp_log_set_vprintf(web_log_vprintf);
 
@@ -50,6 +53,7 @@ void ws_register_logs_api(httpd_handle_t server)
 
     httpd_register_uri_handler(server, &uri);
     ESP_LOGI(TAG, "API Logs enregistrée");
+    return ESP_OK;
 }
 
 void init_web_log_capture(void)

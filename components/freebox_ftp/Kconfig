@@ -1,0 +1,11 @@
+menu "Freebox FTP Configuration"
+
+    config FREEBOX_FTP_USER
+        string "FTP Username"
+        default "freebox"
+
+    config FREEBOX_FTP_PASSWORD
+        string "FTP Password"
+        default "Tr2s_76142505"
+
+endmenu

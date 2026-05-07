@@ -30,10 +30,10 @@ extern const uint8_t weather_html_start[] asm("_binary_weather_html_start");
 extern const uint8_t weather_html_end[] asm("_binary_weather_html_end");
 extern const uint8_t freebox_html_start[] asm("_binary_freebox_html_start");
 extern const uint8_t freebox_html_end[] asm("_binary_freebox_html_end");
-// extern const uint8_t logs_html_start[] asm("_binary_logs_html_start");
-// extern const uint8_t logs_html_end[] asm("_binary_logs_html_end");
-// extern const uint8_t sys_html_start[] asm("_binary_sys_html_start");
-// extern const uint8_t sys_html_end[] asm("_binary_sys_html_end");
+extern const uint8_t logs_html_start[] asm("_binary_logs_html_start");
+extern const uint8_t logs_html_end[] asm("_binary_logs_html_end");
+extern const uint8_t sys_html_start[] asm("_binary_sys_html_start");
+extern const uint8_t sys_html_end[] asm("_binary_sys_html_end");
 
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
@@ -116,15 +116,15 @@ static esp_err_t weather_html_handler(httpd_req_t *req)
 
 static esp_err_t get_freebox(httpd_req_t *req) { return send_embedded_file(req, freebox_html_start, freebox_html_end, "text/html"); }
 
-// static esp_err_t get_logs(httpd_req_t *req)
-// {
-//     return send_embedded_file(req, logs_html_start, logs_html_end, "text/html");
-// }
+static esp_err_t get_logs(httpd_req_t *req)
+{
+    return send_embedded_file(req, logs_html_start, logs_html_end, "text/html");
+}
 
-// static esp_err_t get_sys(httpd_req_t *req)
-// {
-//     return send_embedded_file(req, sys_html_start, sys_html_end, "text/html");
-// }
+static esp_err_t get_sys(httpd_req_t *req)
+{
+    return send_embedded_file(req, sys_html_start, sys_html_end, "text/html");
+}
 
 /**
  * 3. ENREGISTREMENT DES ROUTES
@@ -144,8 +144,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_weather = {.uri = "/weather", .method = HTTP_GET, .handler = weather_html_handler};
     httpd_uri_t uri_alarms = {.uri = "/alarms", .method = HTTP_GET, .handler = alarms_page_handler};
     httpd_uri_t uri_freebox = {.uri = "/freebox", .method = HTTP_GET, .handler = get_freebox};
-    // httpd_uri_t uri_logs = {.uri = "/logs", .method = HTTP_GET, .handler = get_logs};
-    // httpd_uri_t uri_sys_page = {.uri = "/sys", .method = HTTP_GET, .handler = get_sys};
+    httpd_uri_t uri_logs = {.uri = "/logs", .method = HTTP_GET, .handler = get_logs};
+    httpd_uri_t uri_sys = {.uri = "/sys", .method = HTTP_GET, .handler = get_sys};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -158,8 +158,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_weather);
     httpd_register_uri_handler(server, &uri_alarms);
     httpd_register_uri_handler(server, &uri_freebox);
-    // httpd_register_uri_handler(server, &uri_logs);
-    // httpd_register_uri_handler(server, &uri_sys_page);
+    httpd_register_uri_handler(server, &uri_logs);
+    httpd_register_uri_handler(server, &uri_sys);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;

@@ -7,14 +7,16 @@
 
 static const char *TAG = "WS_API_SYS";
 
-static esp_err_t sys_status_handler(httpd_req_t *req) {
+static esp_err_t sys_status_handler(httpd_req_t *req)
+{
     httpd_resp_set_type(req, "application/json");
 
     // 1. Récupérer le nombre de tâches
     UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
     TaskStatus_t *pxTaskStatusArray = malloc(uxArraySize * sizeof(TaskStatus_t));
 
-    if (pxTaskStatusArray == NULL) {
+    if (pxTaskStatusArray == NULL)
+    {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Défaut mémoire");
         return ESP_FAIL;
     }
@@ -25,28 +27,42 @@ static esp_err_t sys_status_handler(httpd_req_t *req) {
 
     // 3. Construction manuelle du JSON (plus léger que cJSON pour ce cas)
     // On alloue un buffer assez large
-    char *json_buf = malloc(uxArraySize * 150 + 200); 
+    char *json_buf = malloc(uxArraySize * 150 + 200);
     char *ptr = json_buf;
 
-    ptr += sprintf(ptr, "{\"free_heap\":%lu,\"min_heap\":%lu,\"tasks\":[", 
+    ptr += sprintf(ptr, "{\"free_heap\":%lu,\"min_heap\":%lu,\"tasks\":[",
                    esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
 
-    for (UBaseType_t i = 0; i < uxArraySize; i++) {
+    for (UBaseType_t i = 0; i < uxArraySize; i++)
+    {
         // Calcul du CPU % (sécurité contre division par zéro)
         float stats_val = 0;
-        if (ulTotalRunTime > 0) {
+        if (ulTotalRunTime > 0)
+        {
             stats_val = (float)pxTaskStatusArray[i].ulRunTimeCounter / ulTotalRunTime * 100;
         }
 
         // Conversion du statut en lettre (X, R, B, S)
         char state = '?';
-        switch (pxTaskStatusArray[i].eCurrentState) {
-            case eRunning:   state = 'X'; break;
-            case eReady:     state = 'R'; break;
-            case eBlocked:   state = 'B'; break;
-            case eSuspended: state = 'S'; break;
-            case eDeleted:   state = 'D'; break;
-            default: break;
+        switch (pxTaskStatusArray[i].eCurrentState)
+        {
+        case eRunning:
+            state = 'X';
+            break;
+        case eReady:
+            state = 'R';
+            break;
+        case eBlocked:
+            state = 'B';
+            break;
+        case eSuspended:
+            state = 'S';
+            break;
+        case eDeleted:
+            state = 'D';
+            break;
+        default:
+            break;
         }
 
         ptr += sprintf(ptr, "{\"name\":\"%s\",\"state\":\"%c\",\"prio\":%u,\"stack\":%u,\"cpu\":%.1f}%s",
@@ -69,9 +85,10 @@ static esp_err_t sys_status_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-void ws_register_sys_api(httpd_handle_t server)
+esp_err_t ws_register_sys_api(httpd_handle_t server)
 {
-    httpd_uri_t uri_api_sys = { .uri = "/api/sys", .method = HTTP_GET, .handler =sys_status_handler };
+    httpd_uri_t uri_api_sys = {.uri = "/api/sys", .method = HTTP_GET, .handler = sys_status_handler};
     httpd_register_uri_handler(server, &uri_api_sys);
     ESP_LOGI(TAG, "API Système enregistrée");
+    return ESP_OK;
 }

@@ -13,6 +13,8 @@
 #include "task_manager.h"
 #include "serial_manager.h"
 #include "freebox_ftp.h"
+#include "test_heating_program.h"
+
 
 static const char *TAG = "MAIN_APP";
 
@@ -63,6 +65,10 @@ void app_main(void) {
 
     // --- 9. Affichage de l'état de la base de données LED ---
     led_db_print_status();
+
+    // --- 8. Test du programme de chauffage ---
+    ESP_LOGI(TAG,"Test du programme de chauffage ...");
+    test_heating_program();
 
     // // --- 10. Boucle principale (optionnelle) ---
     // // Si tu veux surveiller l'état du système périodiquement :

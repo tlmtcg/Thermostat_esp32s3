@@ -1,0 +1,15 @@
+menu "Alerts Configuration"
+
+config MAX_ALERT_LOGS
+    int "MAX ALERT LOGS"
+    default 10
+    help
+        Max number of alert logs.
+
+config MAX_ACTIVE_ALERTS
+    int "MAX ACTIVE ALERTS"
+    default 5
+    help
+        Max number of active alerts.
+    
+endmenu
