@@ -11,6 +11,8 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
+#include "time_utils.h"
+
 static const char *TAG = "ALERT_STORAGE";
 static const char *log_path = MOUNT_POINT "/alerts.log";
 
@@ -61,15 +63,23 @@ static void alert_storage_task(void *arg)
    ========================================================= */
 static void sd_on_alert_event(alert_event_t evt, const alert_log_t *log)
 {
+    ESP_LOGI(TAG, "Callback alerte : event=%d, name=%s, activated=%d",
+             evt, log ? log->name : "NULL", log ? log->activated : -1);
     if (!s_alert_queue || !log)
         return;
 
     alert_sd_msg_t msg = {0};
 
+    // 1. Déclarer un buffer pour recevoir la chaîne de caractères du temps
+    char time_str[32];
+
+    // 2. Récupérer la chaîne de caractères formatée
+    time_utils_get_time_str(time_str, sizeof(time_str));
+
     // Format JSON identique à ton code original
     snprintf(msg.line, sizeof(msg.line),
-             "{ \"timestamp\": %lld, \"name\": \"%s\", \"activated\": %d }\n",
-             (long long)log->timestamp,
+             "{ \"timestamp\": \"%s\", \"name\": \"%s\", \"activated\": %d }\n",
+             time_str,
              log->name,
              log->activated ? 1 : 0);
 
@@ -131,7 +141,7 @@ void alert_storage_init(const char *path)
     ESP_LOGI(TAG, "Initialisation du stockage SD : %s", log_path);
 
     // Création de la queue
-    s_alert_queue = xQueueCreate(16, sizeof(alert_sd_msg_t));
+    s_alert_queue = xQueueCreate(32, sizeof(alert_sd_msg_t));
     if (!s_alert_queue)
     {
         ESP_LOGE(TAG, "Impossible de créer la queue SD");
@@ -142,9 +152,9 @@ void alert_storage_init(const char *path)
     BaseType_t ok = xTaskCreate(
         alert_storage_task,
         "alert_storage_task",
-        4096,
+        8192,
         NULL,
-        5,
+        10,
         &s_alert_task);
 
     if (ok != pdPASS)
@@ -166,47 +176,41 @@ void alert_storage_init(const char *path)
 void alert_storage_load(void)
 {
     FILE *f = fopen(log_path, "r");
-    if (!f)
-    {
-        ESP_LOGW(TAG, "Aucun fichier d'historique trouvé (%s)", log_path);
-        return;
-    }
+    if (!f) return;
 
     alert_clear_all();
-
     char line[256];
     int line_count = 0;
 
     while (fgets(line, sizeof(line), f))
     {
-
-        long timestamp = 0;
+        char time_str[32] = {0};
         char name[64] = {0};
         int activated = 0;
 
-        sscanf(line,
-               "{ \"timestamp\": %ld, \"name\": \"%63[^\"]\", \"activated\": %d }",
-               &timestamp, name, &activated);
+        // Correction du sscanf pour lire le timestamp entre guillemets
+        // On utilise %31[^"] pour lire la chaîne jusqu'au prochain guillemet
+        int found = sscanf(line, 
+               "{ \"timestamp\": \"%31[^\"]\", \"name\": \"%63[^\"]\", \"activated\": %d }",
+               time_str, name, &activated);
 
-        if (timestamp == 0 || strlen(name) == 0)
-            continue;
+        if (found < 3) continue; 
 
         alert_log_t log;
-        log.timestamp = timestamp;
+        // Si votre structure attend un long, il faudra convertir time_str en epoch
+        // Sinon, si log.timestamp est devenu une chaîne, faites un strncpy
+        log.timestamp = 0; // À adapter selon votre structure
         strncpy(log.name, name, sizeof(log.name));
-        log.activated = activated;
+        log.activated = (bool)activated;
 
         alert_push_history(&log);
 
-        if (++line_count > MAX_LOG_LINES)
-        {
-            ESP_LOGW(TAG, "Fichier trop long → rotation");
+        if (++line_count > MAX_LOG_LINES) {
             fclose(f);
             alert_storage_rotate();
             return;
         }
     }
-
     fclose(f);
     ESP_LOGI(TAG, "Historique SD chargé (%d lignes)", line_count);
 }

@@ -109,6 +109,10 @@ bool alert_add(const char *name)
 
     ESP_LOGI(TAG, "ALERTE ADD : %s", name);
 
+    if (s_callback == NULL)
+    {
+        ESP_LOGW(TAG, "Attention: Aucun callback enregistré, la sauvegarde SD va échouer !");
+    }
     if (s_callback)
         s_callback(ALERT_EVENT_ADDED, &log);
 
@@ -280,5 +284,5 @@ void alert_manager_init(void)
     ESP_LOGI(TAG, "Initialisation du gestionnaire d’alertes");
     s_active_count = 0;
     s_history_count = 0;
-    s_callback = NULL;
+    // s_callback = NULL;
 }

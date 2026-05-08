@@ -72,8 +72,8 @@ static void led_task(void *pvParameters)
                 if (!alarm)
                     continue;
 
-                ESP_LOGI(TAG, "Blink alarme '%s' (%d blinks)",
-                         alarm->name, alarm->blinks);
+                // ESP_LOGI(TAG, "Blink alarme '%s' (%d blinks)",
+                //          alarm->name, alarm->blinks);
 
                 for (int b = 0; b < alarm->blinks; b++)
                 {

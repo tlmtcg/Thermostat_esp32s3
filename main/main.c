@@ -32,7 +32,20 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    
+
+    // --- 2. Initialisation carte SD ---
+    if (init_sd_card(NULL) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "La carte SD n'est pas disponible. Les fonctionnalités de stockage seront limitées.");
+        return;
+    }
+
+    alert_storage_init(MOUNT_POINT "/alerts.log");
+    led_storage_init(); 
+
+    // --- 3bis; Initialisation du backend LED (doit être après la SD) ---
+    led_init();
+
     // --- 3. Démarrage du WiFi ---
     ESP_LOGI(TAG, "Démarrage du WiFi...");
     wifi_app_start();
@@ -61,27 +74,11 @@ void app_main(void)
     // --- 7. Initialisation du serial manager ---
     serial_manager_init();
 
-    // --- 9. Affichage de l'état de la base de données LED ---
+    // --- 8. Affichage de l'état de la base de données LED ---
     led_db_print_status();
 
-    // --- 8. Test du programme de chauffage ---
+    // --- 9. Test du programme de chauffage ---
     ESP_LOGI(TAG, "Chargement du programme de chauffage ...");
     heating_init(&config);
 
-    if (init_sd_card(NULL) != ESP_OK)
-    {
-        ESP_LOGW(TAG, "La carte SD n'est pas disponible. Les fonctionnalités de stockage seront limitées.");
-        return;
-    }
-
-    alert_storage_init(MOUNT_POINT "/alerts.log");
-    led_storage_init(); // Maintenant OK
-    led_init();      
-
-    // // --- 10. Boucle principale (optionnelle) ---
-    // // Si tu veux surveiller l'état du système périodiquement :
-    // while (1) {
-    //     vTaskDelay(pdMS_TO_TICKS(10000));  // 10 secondes
-    //     check_system();  // Vérifie l'état du système
-    // }
 }

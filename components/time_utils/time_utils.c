@@ -87,6 +87,7 @@ esp_err_t time_utils_init(void)
     
     if (synced) {
         ESP_LOGI(TAG, "Heure synchronisée avec succès.");
+        alert_remove("Panne NTP"); 
         return ESP_OK;
     } else {
         ESP_LOGE(TAG, "Le serveur NTP n'a pas répondu. Vérifiez la connexion WiFi.");

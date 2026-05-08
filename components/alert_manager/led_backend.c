@@ -84,7 +84,7 @@ void led_backend_init(void)
     ESP_LOGI(TAG, "Initialisation du backend LED");
 
     /* S’abonne au manager */
-    alert_register_callback(led_on_alert_event);
+    // alert_register_callback(led_on_alert_event);
 
     /* Applique l’état initial */
     led_backend_apply();

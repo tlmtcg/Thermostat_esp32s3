@@ -10,5 +10,6 @@ idf_component_register(
     REQUIRES
         led_ctrl     # pour led_db_get_alarm_idx_by_name, led_db_simulate
         sd_card
+        time_utils
 )
 

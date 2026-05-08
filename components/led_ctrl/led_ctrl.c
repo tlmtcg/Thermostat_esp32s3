@@ -65,6 +65,8 @@ void led_stop(void)
     current_bg_speed = 1000;
 
     led_driver_clear();
+    led_clear_alarms();
+
     led_driver_refresh();
 
     ESP_LOGI(TAG, "LED stoppée et éteinte.");
