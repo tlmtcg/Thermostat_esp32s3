@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "test_sd.c" "main.c"
+    SRCS "main.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES esp_http_server joltwallet__littlefs
     REQUIRES 

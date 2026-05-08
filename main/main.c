@@ -14,10 +14,11 @@
 #include "serial_manager.h"
 #include "freebox_ftp.h"
 #include "heating_program.h"
+#include "sd_card.h"
+#include "alert_storage.h"
 
 static const char *TAG = "MAIN_APP";
 
-void test_sd_card(void);
 
 void app_main(void) {
     ESP_LOGI(TAG, "Démarrage du système...");
@@ -71,7 +72,9 @@ void app_main(void) {
     ESP_LOGI(TAG,"Chargement du programme de chauffage ...");
     heating_init(&config);
 
-    test_sd_card();
+     if (init_sd_card(NULL) != ESP_OK) return;
+
+    alert_storage_init(MOUNT_POINT "/alerts.log");
 
     // // --- 10. Boucle principale (optionnelle) ---
     // // Si tu veux surveiller l'état du système périodiquement :

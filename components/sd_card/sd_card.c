@@ -72,7 +72,7 @@ esp_err_t init_sd_card(const sd_card_config_t *config) {
 esp_err_t sd_write_file(const char *path, const char *data)
 {
     ESP_LOGI(TAG, "Ouverture de %s en écriture...", path);
-    FILE *f = fopen(path, "w");
+    FILE *f = fopen(path, "a");
     if (f == NULL)
     {
         ESP_LOGE(TAG, "Impossible d'ouvrir le fichier %s", path);

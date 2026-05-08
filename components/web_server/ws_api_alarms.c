@@ -21,8 +21,8 @@ esp_err_t get_active_alarms_handler(httpd_req_t *req)
 
     // Récupérer le nombre total d’entrées dans le “journal” d’alertes
     // ⚠️ Maintenant on utilise get_active_alarms() pour récupérer uniquement les alarmes actives
-    alert_log_t active[MAX_ALERT_LOGS];
-    int count = get_active_alarms(active, MAX_ALERT_LOGS);
+    alert_log_t active[CONFIG_MAX_ALERT_LOGS];
+    int count = get_active_alarms(active, CONFIG_MAX_ALERT_LOGS);
 
     // Boucle sur toutes les alertes
     for (int i = 0; i < count; i++)
@@ -76,18 +76,22 @@ esp_err_t get_active_alarms_handler(httpd_req_t *req)
 esp_err_t get_history_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateArray();
-    if (!root) {
+    if (!root)
+    {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON error");
     }
 
     int added = 0;
 
-    for (int i = 0; i < MAX_ALERT_LOGS; i++) {
+    for (int i = 0; i < CONFIG_MAX_ALERT_LOGS; i++)
+    {
         const alert_log_t *a = alert_get_by_index(i);
-        if (!a || a->timestamp == 0) continue;
+        if (!a || a->timestamp == 0)
+            continue;
 
         cJSON *item = cJSON_CreateObject();
-        if (!item) continue;
+        if (!item)
+            continue;
 
         cJSON_AddStringToObject(item, "name", a->name);
         cJSON_AddBoolToObject(item, "activated", a->activated);
@@ -101,10 +105,11 @@ esp_err_t get_history_handler(httpd_req_t *req)
 
     cJSON_Delete(root);
 
-    if (!json) {
+    if (!json)
+    {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON error");
     }
-    
+
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, json);
 
@@ -112,7 +117,6 @@ esp_err_t get_history_handler(httpd_req_t *req)
 
     return ESP_OK;
 }
-
 
 /* =========================================================
  * POST /api/alarms/clear
@@ -123,7 +127,6 @@ esp_err_t clear_alarms_handler(httpd_req_t *req)
     alert_clear_all();
     return httpd_resp_sendstr(req, "OK");
 }
-
 
 /* =========================================================
  * DELETE /api/alarms/<timestamp>
@@ -148,7 +151,7 @@ esp_err_t delete_alarm_handler(httpd_req_t *req)
     /* =========================================================
      * Recherche dans l'historique
      * ========================================================= */
-    for (int i = 0; i < MAX_ALERT_LOGS; i++)
+    for (int i = 0; i < CONFIG_MAX_ALERT_LOGS; i++)
     {
         alert_log_t *a = &alert_history[i];
 
@@ -180,27 +183,23 @@ esp_err_t ws_register_alarms_api(httpd_handle_t server)
     httpd_uri_t uri_active = {
         .uri = "/api/alarms/active",
         .method = HTTP_GET,
-        .handler = get_active_alarms_handler
-    };
+        .handler = get_active_alarms_handler};
 
     httpd_uri_t uri_history = {
         .uri = "/api/alarms/history",
         .method = HTTP_GET,
-        .handler = get_history_handler
-    };
+        .handler = get_history_handler};
 
     httpd_uri_t uri_clear = {
         .uri = "/api/alarms/clear",
         .method = HTTP_POST,
-        .handler = clear_alarms_handler
-    };
+        .handler = clear_alarms_handler};
 
     /* IMPORTANT: wildcard route for DELETE */
     httpd_uri_t uri_delete = {
         .uri = "/api/alarms/*",
         .method = HTTP_DELETE,
-        .handler = delete_alarm_handler
-    };
+        .handler = delete_alarm_handler};
 
     httpd_register_uri_handler(server, &uri_active);
     httpd_register_uri_handler(server, &uri_history);

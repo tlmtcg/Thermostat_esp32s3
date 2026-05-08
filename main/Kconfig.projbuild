@@ -46,7 +46,13 @@ menu "Configuration Thermostat"
         default 5
         help
             Max number of active alerts.
-        
+
+    config MAX_HISTORY_ALERTS
+        int "MAX HISTORY ALERTS"
+        default 50
+        help
+            Max number of historical alerts to keep.
+            
     endmenu
 
     menu "Freebox FTP Configuration"

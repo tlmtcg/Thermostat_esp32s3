@@ -1,9 +1,14 @@
-# Enregistrement du composant Alert Manager
+# Alert Manager (inclut alert_storage + led_backend)
+
 idf_component_register(
-    SRCS 
+    SRCS
         "alert_manager.c"
-    INCLUDE_DIRS 
+        "alert_storage.c"
+        "led_backend.c"
+    INCLUDE_DIRS
         "include"
-    REQUIRES 
-        "led_ctrl"     # Nécessaire pour led_db_get_alarm_idx_by_name et led_db_simulate
+    REQUIRES
+        led_ctrl     # pour led_db_get_alarm_idx_by_name, led_db_simulate
+        sd_card
 )
+
