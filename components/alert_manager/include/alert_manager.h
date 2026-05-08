@@ -1,107 +1,155 @@
-#ifndef ALERT_MANAGER_H
-#define ALERT_MANAGER_H
+/**
+ * @file alert_manager.h
+ * @brief Gestion centralisée des alertes (activation, suppression, historique).
+ *
+ * Pipeline LED A :
+ *  - Les alarmes actives sont stockées sous forme d’index vers led_db.
+ *  - led_task lit la liste triée via alert_get_active_list().
+ *  - Le tri dépend du mode choisi : activation ou sévérité.
+ */
+
+#pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
-#include "led_db.h"
 
-/* =========================================================
+/* ============================================================================
    TYPES
-   ========================================================= */
+   ============================================================================ */
 
-typedef enum
-{
-    HEALTH_OK = 0,
-    HEALTH_WARNING,
-    HEALTH_CRITICAL,
-    HEALTH_HARDWARE_FAIL
-} board_health_t;
-
-typedef enum
-{
+/**
+ * @brief Événements envoyés aux callbacks enregistrés.
+ */
+typedef enum {
     ALERT_EVENT_ADDED,
     ALERT_EVENT_REMOVED
 } alert_event_t;
 
-typedef struct
-{
-    char name[32];
+/**
+ * @brief Structure d’un événement d’historique.
+ */
+typedef struct {
     time_t timestamp;
-    bool activated; // true = START, false = STOP
+    char name[32];
+    bool activated;   // true = ajout, false = suppression
 } alert_log_t;
 
-/* =========================================================
-   CALLBACK
-   ========================================================= */
+/**
+ * @brief Ordre d’affichage des alarmes.
+ */
+typedef enum {
+    ALERT_ORDER_ACTIVATION = 0,   // ordre d’arrivée (FIFO)
+    ALERT_ORDER_SEVERITY   = 1    // sévérité décroissante
+} alert_order_t;
 
-typedef void (*alert_callback_t)(alert_event_t evt, const alert_log_t *log);
+/**
+ * @brief Prototype du callback utilisateur.
+ */
+typedef void (*alert_callback_t)(alert_event_t event, const alert_log_t *log);
 
-/* =========================================================
-   VARIABLES EXTERNES
-   ========================================================= */
+/* ============================================================================
+   INITIALISATION
+   ============================================================================ */
 
-// Historique global (utilisé par webserver, serial, jeedom…)
-extern alert_log_t alert_history[CONFIG_CONFIG_MAX_ALERT_LOGS];
-
-/* =========================================================
-   API PRINCIPALE
-   ========================================================= */
-
+/**
+ * @brief Initialise le gestionnaire d’alertes.
+ */
 void alert_manager_init(void);
 
-/* Ajout / suppression d’alarme */
-bool alert_add(const char *name);
-bool alert_remove(const char *name);
-
-/* Comptage */
-int alert_get_count(void);
-int alert_get_active_count(void);
-
-/* Liste des alarmes actives (indices led_db) */
-const int *alert_get_active_list(void);
-
-/* Liste sous forme de chaîne "A,B,C" */
-const char *get_alarms_list(void);
-
-/* Récupération d’une entrée d’historique */
-const alert_log_t *alert_get_by_index(int i);
-
-/* Historique console */
-void alert_get_history(void);
-
-/* Historique (utilisé par alert_storage_load) */
-void alert_push_history(const alert_log_t *log);
-
-/* Nettoyage complet */
-void alert_clear_all(void);
-
-/* =========================================================
-   SANTÉ / PRIORITÉ / SÉVÉRITÉ
-   ========================================================= */
-
-/* Renvoie l’index led_db de l’alarme la plus prioritaire */
-int alert_get_top_priority(void);
-
-/* Convertit une alarme en sévérité (0–3) */
-int get_alarm_severity(const char *name);
-
-/* Renvoie l’état de santé global */
-board_health_t alert_get_board_health(void);
-
-/* Convertit en texte */
-const char *alert_health_to_str(board_health_t health);
-
-/* =========================================================
-   WEBSERVER / JEEDOM
-   ========================================================= */
-
-/* Remplit un tableau de logs actifs */
-int get_active_alarms(alert_log_t *out, int max);
-
-/* =========================================================
+/* ============================================================================
    CALLBACK
-   ========================================================= */
+   ============================================================================ */
 
+/**
+ * @brief Enregistre un callback appelé à chaque ajout/suppression d’alerte.
+ */
 void alert_register_callback(alert_callback_t cb);
 
-#endif
+/* ============================================================================
+   AJOUT / SUPPRESSION D’ALERTE
+   ============================================================================ */
+
+/**
+ * @brief Active une alerte (par son nom).
+ * @return true si ajoutée, false sinon.
+ */
+bool alert_add(const char *name);
+
+/**
+ * @brief Désactive une alerte (par son nom).
+ * @return true si supprimée, false sinon.
+ */
+bool alert_remove(const char *name);
+
+/**
+ * @brief Supprime toutes les alertes actives.
+ */
+void alert_clear_all(void);
+
+/* ============================================================================
+   TRI DES ALERTES
+   ============================================================================ */
+
+/**
+ * @brief Définit l’ordre d’affichage des alarmes.
+ */
+void alert_set_order(alert_order_t order);
+
+/**
+ * @brief Renvoie l’ordre d’affichage actuel.
+ */
+alert_order_t alert_get_order(void);
+
+/* ============================================================================
+   LISTE DES ALERTES ACTIVES
+   ============================================================================ */
+
+/**
+ * @brief Renvoie le nombre d’alertes actives.
+ */
+int alert_get_active_count(void);
+
+/**
+ * @brief Renvoie une liste triée d’index d’alertes actives.
+ *
+ * IMPORTANT :
+ *  - La liste renvoyée est une COPIE triée.
+ *  - Elle reste valide jusqu’au prochain appel.
+ */
+const int *alert_get_active_list(void);
+
+/**
+ * @brief Renvoie l’index de l’alarme la plus prioritaire.
+ *        (utilisé uniquement pour compatibilité)
+ */
+int alert_get_top_priority(void);
+
+/* ============================================================================
+   SÉVÉRITÉ
+   ============================================================================ */
+
+/**
+ * @brief Calcule la sévérité d’une alarme selon son nom.
+ *        (Panne/FAIL/ERROR = 2, Attente/WAIT = 1)
+ */
+int get_alarm_severity(const char *name);
+
+/* ============================================================================
+   HISTORIQUE
+   ============================================================================ */
+
+/**
+ * @brief Renvoie une entrée d’historique par index.
+ */
+const alert_log_t *alert_get_by_index(int i);
+
+/**
+ * @brief Ajoute une entrée d’historique (interne).
+ */
+void alert_push_history(const alert_log_t *log);
+
+/**
+ * @brief Affiche l’historique complet dans les logs.
+ */
+void alert_get_history(void);

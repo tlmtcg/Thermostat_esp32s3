@@ -2,90 +2,141 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/queue.h"
-#include "led_strip.h"
-#include "led_task.h"
+
+#include "led_ctrl.h"
+#include "led_driver.h"
+#include "led_db.h"
+#include "alert_manager.h"
+
+#include <math.h>
 
 static const char *TAG = "LED_TASK";
 
-#ifndef CONFIG_LED_STRIP_GPIO
-#define CONFIG_LED_STRIP_GPIO 48
-#endif
+#define FIXED_BLINK_DELAY_MS 250
 
-led_strip_handle_t g_strip = NULL;
+// Variables globales définies dans led_ctrl.c
+extern led_mode_t current_bg_mode;
+extern led_color_t current_bg_color;
+extern int current_bg_speed;
 
-static QueueHandle_t alarm_queue = NULL;
-
-static led_mode_t bg_mode = LED_MODE_FIXED;
-static led_color_t bg_color = {0, 0, 0};
-static int bg_speed = 1000;
-
-void led_task_set_background(led_mode_t mode, led_color_t color, int speed)
+/* =========================================================
+   TÂCHE LED
+   ========================================================= */
+static void led_task(void *pvParameters)
 {
-    bg_mode = mode;
-    bg_color = color;
-    bg_speed = speed;
-}
-
-void led_task_push_alarm(int blinks, led_color_t color)
-{
-    if (!alarm_queue)
-        return;
-
-    alarm_event_t evt = {blinks, color};
-    xQueueSend(alarm_queue, &evt, 0);
-}
-
-static void led_task(void *arg)
-{
-    alarm_event_t evt;
     uint32_t step = 0;
+    led_color_t last_displayed_color = {0, 0, 0};
+    bool first_run = true;
 
     while (1)
     {
-        if (xQueueReceive(alarm_queue, &evt, 0) == pdTRUE)
+        /* =====================================================
+           1. Récupération des alarmes actives (triées)
+           ===================================================== */
+        int count = alert_get_active_count();
+        const int *list = alert_get_active_list();
+
+        /* =====================================================
+           2. Calcul du fond (fixed ou breath)
+           ===================================================== */
+        led_color_t bg = {0, 0, 0};
+
+        if (current_bg_mode == LED_MODE_FIXED)
         {
-            for (int i = 0; i < evt.blinks; i++)
+            bg = current_bg_color;
+        }
+        else if (current_bg_mode == LED_MODE_BREATH)
+        {
+            float speed_factor = (current_bg_speed <= 0)
+                                     ? 1.0f
+                                     : (1000.0f / (float)current_bg_speed);
+
+            float brightness = (sinf(step * 0.05f * speed_factor - 1.57f) + 1.0f) / 2.0f;
+
+            bg.r = (uint8_t)(current_bg_color.r * brightness);
+            bg.g = (uint8_t)(current_bg_color.g * brightness);
+            bg.b = (uint8_t)(current_bg_color.b * brightness);
+
+            step++;
+        }
+
+        /* =====================================================
+           3. MODE ALARME : afficher TOUTES les alarmes actives
+           ===================================================== */
+        if (count > 0)
+        {
+            for (int i = 0; i < count; i++)
             {
-                led_effect_apply_fixed(evt.color);
-                vTaskDelay(pdMS_TO_TICKS(200));
-                led_effect_apply_fixed((led_color_t){0, 0, 0});
-                vTaskDelay(pdMS_TO_TICKS(200));
+                int alarm_idx = list[i];
+                stored_alarm_t *alarm = led_db_get_alarm_by_idx(alarm_idx);
+                if (!alarm)
+                    continue;
+
+                ESP_LOGI(TAG, "Blink alarme '%s' (%d blinks)",
+                         alarm->name, alarm->blinks);
+
+                for (int b = 0; b < alarm->blinks; b++)
+                {
+                    // ON
+                    led_driver_set_pixel(alarm->color);
+                    led_driver_refresh();
+                    vTaskDelay(pdMS_TO_TICKS(FIXED_BLINK_DELAY_MS));
+
+                    // OFF = fond
+                    led_driver_set_pixel(bg);
+                    led_driver_refresh();
+                    vTaskDelay(pdMS_TO_TICKS(FIXED_BLINK_DELAY_MS));
+                }
+
+                // Petite pause entre deux alarmes
+                vTaskDelay(pdMS_TO_TICKS(500));
             }
+
+            // Pause avant de recommencer la séquence
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
         else
         {
-            if (bg_mode == LED_MODE_FIXED)
-                led_effect_apply_fixed(bg_color);
-            else
-                led_effect_apply_breath(bg_color, step++);
+            /* =====================================================
+               4. MODE NORMAL : afficher le fond
+               ===================================================== */
+            if (first_run ||
+                bg.r != last_displayed_color.r ||
+                bg.g != last_displayed_color.g ||
+                bg.b != last_displayed_color.b)
+            {
+                led_driver_set_pixel(bg);
+                led_driver_refresh();
+                last_displayed_color = bg;
+                first_run = false;
+            }
 
-            vTaskDelay(pdMS_TO_TICKS(20));
+            vTaskDelay(pdMS_TO_TICKS(
+                current_bg_mode == LED_MODE_BREATH ? 20 : 100));
         }
     }
 }
 
+/* =========================================================
+   DÉMARRAGE DE LA TÂCHE
+   ========================================================= */
 esp_err_t led_task_start(void)
 {
-    ESP_LOGI(TAG, "Initialisation du strip LED...");
+    ESP_LOGI(TAG, "Démarrage de la tâche LED (pipeline A)");
 
-    led_strip_config_t strip_config = {
-        .strip_gpio_num = CONFIG_LED_STRIP_GPIO,
-        .max_leds = 1,
-    };
+    BaseType_t ret = xTaskCreate(
+        led_task,
+        "led_task",
+        4096,
+        NULL,
+        5,
+        NULL);
 
-    led_strip_rmt_config_t rmt_config = {
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = 10 * 1000 * 1000,
-        .mem_block_symbols = 64,
-    };
-
-    if (led_strip_new_rmt_device(&strip_config, &rmt_config, &g_strip) != ESP_OK)
+    if (ret != pdPASS)
+    {
+        ESP_LOGE(TAG, "Échec de la création de la tâche LED");
         return ESP_FAIL;
-
-    alarm_queue = xQueueCreate(10, sizeof(alarm_event_t));
-
-    xTaskCreate(led_task, "led_task", 4096, NULL, 5, NULL);
+    }
 
     return ESP_OK;
 }

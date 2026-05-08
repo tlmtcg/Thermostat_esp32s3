@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include <string.h>
 #include <time.h>
+#include "sdkconfig.h"
 
 static const char *TAG = "ALERT_MANAGER";
 
@@ -10,16 +11,29 @@ static const char *TAG = "ALERT_MANAGER";
    STOCKAGE INTERNE
    ========================================================= */
 
-// Historique global (visible via extern dans le .h)
-alert_log_t alert_history[CONFIG_CONFIG_MAX_ALERT_LOGS];
+alert_log_t alert_history[CONFIG_MAX_ALERT_LOGS];
 static int s_history_count = 0;
 
-// Liste des alarmes actives (indices dans led_db)
 static int s_active_alarm_indices[CONFIG_MAX_ACTIVE_ALERTS];
 static int s_active_count = 0;
 
-// Callback externe (LED backend, SD, etc.)
 static alert_callback_t s_callback = NULL;
+
+/* =========================================================
+   PARAMÈTRE DE TRI
+   ========================================================= */
+
+static alert_order_t s_order = ALERT_ORDER_ACTIVATION;
+
+void alert_set_order(alert_order_t order)
+{
+    s_order = order;
+}
+
+alert_order_t alert_get_order(void)
+{
+    return s_order;
+}
 
 /* =========================================================
    OUTILS INTERNES
@@ -40,11 +54,11 @@ static void push_history_internal(const alert_log_t *log)
     if (!log)
         return;
 
-    if (s_history_count >= CONFIG_CONFIG_MAX_ALERT_LOGS)
+    if (s_history_count >= CONFIG_MAX_ALERT_LOGS)
     {
         memmove(&alert_history[0], &alert_history[1],
-                sizeof(alert_log_t) * (CONFIG_CONFIG_MAX_ALERT_LOGS - 1));
-        s_history_count = CONFIG_CONFIG_MAX_ALERT_LOGS - 1;
+                sizeof(alert_log_t) * (CONFIG_MAX_ALERT_LOGS - 1));
+        s_history_count = CONFIG_MAX_ALERT_LOGS - 1;
     }
 
     alert_history[s_history_count++] = *log;
@@ -82,7 +96,7 @@ bool alert_add(const char *name)
     }
 
     if (find_active_idx_by_alarm_idx(alarm_idx) >= 0)
-        return true; // déjà active
+        return true;
 
     s_active_alarm_indices[s_active_count++] = alarm_idx;
 
@@ -135,58 +149,53 @@ bool alert_remove(const char *name)
 }
 
 /* =========================================================
-   API : COMPTE, LISTES, PRIORITÉ
+   API : COMPTE, LISTES, TRI
    ========================================================= */
-
-int alert_get_count(void)
-{
-    return s_active_count;
-}
 
 int alert_get_active_count(void)
 {
     return s_active_count;
 }
 
+/**
+ * Renvoie une liste TRIÉE selon le mode choisi.
+ */
 const int *alert_get_active_list(void)
 {
-    return s_active_alarm_indices;
-}
-
-/**
- * get_alarms_list : chaîne "ALARM1,ALARM2,..."
- */
-const char *get_alarms_list()
-{
-    static char buf[256];
-    buf[0] = '\0';
+    static int sorted[CONFIG_MAX_ACTIVE_ALERTS];
 
     for (int i = 0; i < s_active_count; i++)
+        sorted[i] = s_active_alarm_indices[i];
+
+    if (s_order == ALERT_ORDER_SEVERITY)
     {
-        stored_alarm_t *a = led_db_internal_get_alarm_by_idx(s_active_alarm_indices[i]);
-        if (!a)
-            continue;
+        for (int i = 0; i < s_active_count - 1; i++)
+        {
+            for (int j = i + 1; j < s_active_count; j++)
+            {
+                stored_alarm_t *ai = led_db_internal_get_alarm_by_idx(sorted[i]);
+                stored_alarm_t *aj = led_db_internal_get_alarm_by_idx(sorted[j]);
 
-        if (buf[0] != '\0')
-            strncat(buf, ",", sizeof(buf) - strlen(buf) - 1);
+                int sevi = get_alarm_severity(ai->name);
+                int sevj = get_alarm_severity(aj->name);
 
-        strncat(buf, a->name, sizeof(buf) - strlen(buf) - 1);
+                if (sevj > sevi)
+                {
+                    int tmp = sorted[i];
+                    sorted[i] = sorted[j];
+                    sorted[j] = tmp;
+                }
+            }
+        }
     }
 
-    return buf;
+    return sorted;
 }
 
 /* =========================================================
    SÉVÉRITÉ / SANTÉ / PRIORITÉ
    ========================================================= */
 
-/**
- * get_alarm_severity :
- * - 2 si nom contient "FAIL", "ERROR", "PANNE"
- * - 1 si nom contient "ATTENTE", "WAIT"
- * - 1 par défaut si alarme active
- * - 0 sinon
- */
 int get_alarm_severity(const char *name)
 {
     if (!name)
@@ -201,11 +210,6 @@ int get_alarm_severity(const char *name)
     return 1;
 }
 
-/**
- * alert_get_top_priority :
- * renvoie l’index led_db de l’alarme la plus sévère.
- * - -1 si aucune alarme
- */
 int alert_get_top_priority(void)
 {
     if (s_active_count == 0)
@@ -231,59 +235,8 @@ int alert_get_top_priority(void)
     return best_idx;
 }
 
-const char *alert_health_to_str(board_health_t health)
-{
-    switch (health)
-    {
-    case HEALTH_OK:
-        return "OK";
-    case HEALTH_WARNING:
-        return "WARNING";
-    case HEALTH_CRITICAL:
-        return "CRITICAL";
-    case HEALTH_HARDWARE_FAIL:
-        return "HARDWARE_FAIL";
-    default:
-        return "UNKNOWN";
-    }
-}
-
-/**
- * Règle que tu as rappelée :
- * - HEALTH_OK si aucune alarme
- * - HEALTH_WARNING si 1 alarme de sévérité 1
- * - HEALTH_CRITICAL si plusieurs alarmes
- * - HEALTH_HARDWARE_FAIL si une alarme de sévérité 2
- */
-board_health_t alert_get_board_health(void)
-{
-    if (s_active_count == 0)
-        return HEALTH_OK;
-
-    int max_sev = 0;
-
-    for (int i = 0; i < s_active_count; i++)
-    {
-        stored_alarm_t *a = led_db_internal_get_alarm_by_idx(s_active_alarm_indices[i]);
-        if (!a)
-            continue;
-
-        int sev = get_alarm_severity(a->name);
-        if (sev > max_sev)
-            max_sev = sev;
-    }
-
-    if (max_sev >= 2)
-        return HEALTH_HARDWARE_FAIL;
-
-    if (s_active_count == 1)
-        return HEALTH_WARNING;
-
-    return HEALTH_CRITICAL;
-}
-
 /* =========================================================
-   API : HISTORIQUE
+   HISTORIQUE
    ========================================================= */
 
 const alert_log_t *alert_get_by_index(int i)
@@ -328,28 +281,4 @@ void alert_manager_init(void)
     s_active_count = 0;
     s_history_count = 0;
     s_callback = NULL;
-}
-
-int get_active_alarms(alert_log_t *out, int max)
-{
-    if (!out || max <= 0)
-        return 0;
-
-    int n = (s_active_count < max) ? s_active_count : max;
-
-    for (int i = 0; i < n; i++)
-    {
-        stored_alarm_t *a = led_db_internal_get_alarm_by_idx(s_active_alarm_indices[i]);
-        if (!a)
-            continue;
-
-        alert_log_t log = {0};
-        strncpy(log.name, a->name, sizeof(log.name) - 1);
-        log.timestamp = time(NULL);
-        log.activated = true;
-
-        out[i] = log;
-    }
-
-    return n;
 }

@@ -4,6 +4,7 @@
 #include "ws_api_alarms.h"
 #include "cJSON.h"
 #include <stdio.h>
+#include "led_ctrl.h"
 
 static const char *TAG = "WS_API_ALARMS";
 
@@ -14,55 +15,38 @@ static const char *TAG = "WS_API_ALARMS";
  * ========================================================= */
 esp_err_t get_active_alarms_handler(httpd_req_t *req)
 {
-    // Création de la racine JSON
+    ESP_LOGI("WS_API_ALARMS", "get_active_alarms_handler");
+
     cJSON *root = cJSON_CreateArray();
     if (!root)
         return httpd_resp_send_err(req, 500, "JSON error");
 
-    // Récupérer le nombre total d’entrées dans le “journal” d’alertes
-    // ⚠️ Maintenant on utilise get_active_alarms() pour récupérer uniquement les alarmes actives
-    alert_log_t active[CONFIG_MAX_ALERT_LOGS];
-    int count = get_active_alarms(active, CONFIG_MAX_ALERT_LOGS);
+    int count = alert_get_active_count();
+    const int *list = alert_get_active_list();
 
-    // Boucle sur toutes les alertes
     for (int i = 0; i < count; i++)
     {
-        const alert_log_t *a = &active[i];
-        // retourne un pointeur constant vers une structure alert_log_t (une alerte).
-        if (!a)
+        int alarm_idx = list[i];
+        stored_alarm_t *alarm = led_db_get_alarm_by_idx(alarm_idx);
+        if (!alarm)
             continue;
 
-        if (a->timestamp == 0 || a->name[0] == '\0')
-            //  alerte non initialisée ou invalide ou nom d’alerte non défini
-            continue;
-
-        // Créer un objet JSON {} qui représentera une alerte.
         cJSON *item = cJSON_CreateObject();
-        if (!item)
-            continue;
 
-        // Ajout des champs dans l’objet JSON
-        cJSON_AddStringToObject(item, "name", a->name);
-        cJSON_AddNumberToObject(item, "timestamp", (double)a->timestamp);
-        cJSON_AddBoolToObject(item, "active", true);
+        cJSON_AddStringToObject(item, "name", alarm->name);
+        cJSON_AddNumberToObject(item, "blinks", alarm->blinks);
+        cJSON_AddNumberToObject(item, "r", alarm->color.r);
+        cJSON_AddNumberToObject(item, "g", alarm->color.g);
+        cJSON_AddNumberToObject(item, "b", alarm->color.b);
 
-        // Ajout de l’objet au tableau racine
         cJSON_AddItemToArray(root, item);
     }
 
-    // Sérialisation du JSON en chaîne
     char *json = cJSON_PrintUnformatted(root);
-    if (!json)
-    {
-        cJSON_Delete(root);
-        return httpd_resp_send_err(req, 500, "JSON print error");
-    }
 
-    // Configuration du type MIME et envoi de la réponse
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, json);
 
-    // Libération de la mémoire
     free(json);
     cJSON_Delete(root);
 
@@ -149,11 +133,13 @@ esp_err_t delete_alarm_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "DELETE alarm timestamp: %lld", (long long)ts);
 
     /* =========================================================
-     * Recherche dans l'historique
+     * Recherche dans l'historique (lecture seule)
      * ========================================================= */
-    for (int i = 0; i < CONFIG_MAX_ALERT_LOGS; i++)
+    for (int i = 0;; i++)
     {
-        alert_log_t *a = &alert_history[i];
+        const alert_log_t *a = alert_get_by_index(i);
+        if (!a)
+            break;  // plus d'entrées
 
         if (a->timestamp == 0)
             continue;
@@ -162,10 +148,9 @@ esp_err_t delete_alarm_handler(httpd_req_t *req)
         {
             ESP_LOGI(TAG, "Deleting alarm: %s", a->name);
 
-            /* "suppression logique" */
-            a->timestamp = 0;
-            a->name[0] = '\0';
-            a->activated = false;
+            // On ne modifie PAS l'historique (a est const),
+            // on désactive simplement l'alarme correspondante.
+            alert_remove(a->name);
 
             return httpd_resp_sendstr(req, "OK");
         }
@@ -174,6 +159,7 @@ esp_err_t delete_alarm_handler(httpd_req_t *req)
     ESP_LOGW(TAG, "Alarm not found for ts=%lld", (long long)ts);
     return httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Not found");
 }
+
 
 /* =========================================================
  * REGISTER ROUTES

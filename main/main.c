@@ -16,30 +16,23 @@
 #include "heating_program.h"
 #include "sd_card.h"
 #include "alert_storage.h"
+#include "led_storage.h"
 
 static const char *TAG = "MAIN_APP";
 
-
-void app_main(void) {
+void app_main(void)
+{
     ESP_LOGI(TAG, "Démarrage du système...");
 
     // --- 1. Initialisation NVS ---
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
     
-    // --- 2. Initialisation du module LED ---
-    ESP_LOGI(TAG, "Initialisation du module LED...");
-    ret = led_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Échec initialisation LED: %s", esp_err_to_name(ret));
-    } else {
-        led_set_background(LED_MODE_BREATH, (led_color_t){0, 0, 50}, 1000);  // Bleu = démarrage
-    }
-
     // --- 3. Démarrage du WiFi ---
     ESP_LOGI(TAG, "Démarrage du WiFi...");
     wifi_app_start();
@@ -47,10 +40,13 @@ void app_main(void) {
     // --- 4. Démarrage du serveur Web ---
     ESP_LOGI(TAG, "Démarrage du serveur Web...");
     httpd_handle_t server = start_webserver();
-    if (server == NULL) {
+    if (server == NULL)
+    {
         ESP_LOGE(TAG, "Échec démarrage serveur Web !");
-        led_set_background(LED_MODE_FIXED, (led_color_t){255, 0, 0}, 1000);  // Rouge = erreur
-    } else {
+        led_set_background(LED_MODE_FIXED, (led_color_t){255, 0, 0}, 1000); // Rouge = erreur
+    }
+    else
+    {
         ESP_LOGI(TAG, "Serveur Web opérationnel.");
         // led_set_background(LED_MODE_FIXED, (led_color_t){0, 50, 0}, 1000);  // Vert = OK
     }
@@ -69,12 +65,18 @@ void app_main(void) {
     led_db_print_status();
 
     // --- 8. Test du programme de chauffage ---
-    ESP_LOGI(TAG,"Chargement du programme de chauffage ...");
+    ESP_LOGI(TAG, "Chargement du programme de chauffage ...");
     heating_init(&config);
 
-     if (init_sd_card(NULL) != ESP_OK) return;
+    if (init_sd_card(NULL) != ESP_OK)
+    {
+        ESP_LOGW(TAG, "La carte SD n'est pas disponible. Les fonctionnalités de stockage seront limitées.");
+        return;
+    }
 
     alert_storage_init(MOUNT_POINT "/alerts.log");
+    led_storage_init(); // Maintenant OK
+    led_init();      
 
     // // --- 10. Boucle principale (optionnelle) ---
     // // Si tu veux surveiller l'état du système périodiquement :
