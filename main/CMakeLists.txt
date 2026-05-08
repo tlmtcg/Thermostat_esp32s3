@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c" "test_storage.c"
+    SRCS "test_sd.c" "main.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES esp_http_server joltwallet__littlefs
     REQUIRES 
@@ -13,4 +13,5 @@ idf_component_register(
         freebox_ftp
         heating_program
         relay
+        sd_card
 )

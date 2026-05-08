@@ -1,38 +1,89 @@
 #include "ws_api_time.h"
-#include "time_utils.h"          
+#include "time_utils.h" 
+#include "time_utils_storage.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include <string.h>
 
 static const char *TAG = "WS_API_TIME";
 
-static esp_err_t time_api_handler(httpd_req_t *req)
+/* --- HANDLER GET : Lire l'état et la config --- */
+static esp_err_t time_api_get_handler(httpd_req_t *req)
 {
     char time_str[30];
-    time_utils_get_time_str(time_str, sizeof(time_str));   
+    time_utils_get_time_str(time_str, sizeof(time_str)); 
 
-    int64_t uptime = esp_timer_get_time() / 1000000;
+    time_utils_config_t cfg;
+    if (!time_utils_storage_load(&cfg)) {
+        strlcpy(cfg.ntp_server, "N/A", sizeof(cfg.ntp_server));
+    }
 
-    char json[256];
+    char json[512];
     snprintf(json, sizeof(json),
-             "{\"time\":\"%s\",\"uptime\":%lld,\"last_sync\":%lld}",
+             "{\"time\":\"%s\",\"uptime\":%lld,\"last_sync\":%lld,\"ntp_server\":\"%s\",\"max_retry\":%d}",
              time_str,
-             (long long)uptime,
-             (long long)time_utils_get_last_sync()); 
+             (long long)(esp_timer_get_time() / 1000000),
+             (long long)time_utils_get_last_sync(),
+             cfg.ntp_server,
+             cfg.ntp_max_retry);
 
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
 }
 
+/* --- HANDLER POST : Modifier la config --- */
+static esp_err_t time_api_post_handler(httpd_req_t *req)
+{
+    char buf[128];
+    int ret, remaining = req->content_len;
+
+    // Lecture du corps de la requête
+    if (remaining >= sizeof(buf)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload too large");
+        return ESP_FAIL;
+    }
+
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) return ESP_FAIL;
+    buf[ret] = '\0'; // Nul-terminate
+
+    // Ici, on suppose que vous envoyez le nom du serveur brut (ou vous pouvez parser du JSON)
+    // Pour simplifier, on traite le corps comme étant le nouveau "ntp_server"
+    time_utils_config_t cfg;
+    time_utils_storage_load(&cfg);
+    
+    strlcpy(cfg.ntp_server, buf, sizeof(cfg.ntp_server));
+    
+    if (time_utils_storage_save(&cfg)) {
+        ESP_LOGI(TAG, "Nouveau serveur NTP enregistré : %s", cfg.ntp_server);
+        httpd_resp_sendstr(req, "Configuration mise à jour. Redémarrage nécessaire.");
+        // Optionnel : esp_restart(); 
+    } else {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur NVS");
+    }
+
+    return ESP_OK;
+}
+
+/* --- ENREGISTREMENT DES URI --- */
 esp_err_t ws_register_time_api(httpd_handle_t server)
 {
-    httpd_uri_t uri_api_time = {
-        .uri = "/api/time",
-        .method = HTTP_GET,
-        .handler = time_api_handler
+    // Route GET
+    httpd_uri_t uri_get = {
+        .uri      = "/api/time",
+        .method   = HTTP_GET,
+        .handler  = time_api_get_handler
     };
+    httpd_register_uri_handler(server, &uri_get);
 
-    httpd_register_uri_handler(server, &uri_api_time);
-    ESP_LOGI(TAG, "API Time enregistrée");
+    // Route POST
+    httpd_uri_t uri_post = {
+        .uri      = "/api/time",
+        .method   = HTTP_POST,
+        .handler  = time_api_post_handler
+    };
+    httpd_register_uri_handler(server, &uri_post);
 
+    ESP_LOGI(TAG, "API Time (GET/POST) prête");
     return ESP_OK;
 }

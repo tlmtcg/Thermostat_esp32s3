@@ -168,6 +168,11 @@ h1, h2 {
     transform: rotate(90deg);
 }
 
+#navbar {
+    text-align: left !important;
+    display: block !important;
+}
+
 /* =========================================================
    4. BLOCS & CARTES (BOX)
    ========================================================= */

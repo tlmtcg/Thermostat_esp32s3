@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Gestionnaire de fichiers SD</title>
+    <style>
+      /* Styles spécifiques à l'explorateur */
+      .file-list {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 4px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+      }
+      .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 1px solid #222;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .file-item:hover {
+        background: #2a2a2a;
+      }
+      .file-name {
+        color: var(--orange);
+        font-weight: 500;
+      }
+      .file-meta {
+        font-size: 0.75rem;
+        color: #777;
+        margin-left: 10px;
+      }
+
+      /* Zone d'édition */
+      #editor-container {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 12px;
+        width: 100%;
+        height: 350px;
+        font-family: "Consolas", "Monaco", monospace;
+        font-size: 0.9rem;
+        resize: vertical;
+        box-sizing: border-box;
+        margin-top: 10px;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .path-bar {
+        color: #888;
+        font-family: monospace;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+      }
+      input {
+        background: #252526;
+        border: 1px solid #444;
+        color: white;
+        padding: 8px;
+        border-radius: 4px;
+        flex-grow: 1;
+      }
+      button {
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+        font-weight: bold;
+      }
+      button.secondary {
+        background-color: #444;
+      }
+      button.danger {
+        background-color: #832a2a;
+      }
+
+      /* Style Terminal / Console */
+      #sd-console {
+        background-color: #000;
+        color: #00ff00; /* Vert style terminal */
+        font-family: "Consolas", monospace;
+        font-size: 0.85rem;
+        padding: 10px;
+        height: 150px;
+        overflow-y: auto;
+        border-radius: 4px;
+        border: 1px solid #333;
+        white-space: pre-wrap;
+      }
+      .console-err {
+        color: #ff5555;
+      }
+      .console-ok {
+        color: #55ff55;
+      }
+      .console-info {
+        color: #55aaff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Système de fichiers SD</h1>
+
+    <!-- SECTION 1 : EXPLORATEUR -->
+    <div class="box">
+      <h2>Explorateur</h2>
+      <div class="path-bar" id="current-path-display">Chemin : /sdcard</div>
+      <div id="file-explorer" class="file-list">
+        <!-- Rempli dynamiquement par JS -->
+      </div>
+      <div class="controls">
+        <input
+          type="text"
+          id="new-item-name"
+          placeholder="Nom du fichier ou dossier"
+        />
+        <button onclick="createFolder()">📁 Nouveau Dossier</button>
+        <button class="danger" onclick="deleteFolder()">
+          🗑️ Supprimer Dossier
+        </button>
+        <button class="secondary" onclick="refreshFileList()">
+          🔄 Rafraîchir
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION 2 : ÉDITEUR -->
+    <div class="box">
+      <h2 id="editor-title">Éditeur de texte</h2>
+      <div class="line">
+        <span class="label">Fichier ouvert :</span>
+        <span id="open-file-name" class="value">Aucun</span>
+      </div>
+      <textarea
+        id="editor-container"
+        spellcheck="false"
+        placeholder="Sélectionnez un fichier pour le lire ou l'éditer..."
+      ></textarea>
+
+      <div class="controls">
+        <button onclick="saveFile()">💾 Enregistrer</button>
+        <button class="secondary" onclick="clearEditor()">🆕 Nouveau</button>
+        <button class="danger" onclick="deleteItem()">🗑️ Supprimer</button>
+      </div>
+    </div>
+
+    <!-- SECTION 3 : CONSOLE LOGS -->
+    <div class="box">
+      <h2>Console d'opérations</h2>
+      <div id="sd-console">Prêt.</div>
+      <button class="secondary" style="margin-top: 10px;" onclick="clearConsole()">
+        Effacer la console
+      </button>
+    </div>
+
+    <script>
+      let currentDir = ""; // Gère la navigation (ex: "logs")
+      const API_BASE = "/api/sd";
+
+      // --- FONCTION DE LOGGING (Console visuelle) ---
+      function logToConsole(message, type = "info") {
+        const consoleElem = document.getElementById("sd-console");
+        const time = new Date().toLocaleTimeString();
+        let className = "console-info";
+        
+        if (type === "err") className = "console-err";
+        if (type === "ok") className = "console-ok";
+
+        const line = `<div class="${className}">[${time}] ${message}</div>`;
+        consoleElem.innerHTML += line;
+
+        // Scroll automatique vers le bas
+        consoleElem.scrollTop = consoleElem.scrollHeight;
+      }
+
+      function clearConsole() {
+        document.getElementById("sd-console").innerHTML = "Console effacée.";
+      }
+
+      // --- 1. LISTER LES FICHIERS & DOSSIERS ---
+      async function refreshFileList() {
+        logToConsole(`Mise à jour de la liste dans /sdcard/${currentDir}...`);
+        try {
+          const response = await fetch(`${API_BASE}/list?dir=${currentDir}`);
+          if (!response.ok) throw new Error("Réponse API non OK");
+          
+          const data = await response.json();
+          const container = document.getElementById("file-explorer");
+          document.getElementById("current-path-display").textContent =
+            `Chemin : /sdcard/${currentDir}`;
+
+          let html = "";
+          // Bouton retour si on est dans un sous-dossier
+          if (currentDir !== "") {
+            html += `<div class="file-item" onclick="navigateUp()" style="background:#252526">
+                        <span><b>⬅ [..] Retour</b></span>
+                     </div>`;
+          }
+
+          if (data.files.length === 0 && currentDir === "") {
+            html += '<div style="padding:20px; color:#666;">La carte SD est vide ou non montée.</div>';
+          }
+
+          html += data.files
+            .map((f) => {
+              const isDir = f.type === "dir";
+              const icon = isDir ? "📁" : "📄";
+              const action = isDir
+                ? `navigateIn('${f.name}')`
+                : `loadFile('${f.name}')`;
+
+              return `
+                <div class="file-item" onclick="${action}">
+                    <div class="file-info">
+                        <span class="file-name">${icon} ${f.name}</span>
+                        <span class="file-meta">${isDir ? "[Dossier]" : formatSize(f.size)}</span>
+                    </div>
+                </div>`;
+            })
+            .join("");
+
+          container.innerHTML = html;
+          logToConsole("Liste mise à jour avec succès.", "ok");
+        } catch (err) {
+          logToConsole(`Erreur API List: ${err.message}`, "err");
+        }
+      }
+
+      // --- 2. NAVIGATION ---
+      function navigateIn(folderName) {
+        logToConsole(`Entrée dans le dossier : ${folderName}`);
+        currentDir = currentDir === "" ? folderName : `${currentDir}/${folderName}`;
+        refreshFileList();
+      }
+
+      function navigateUp() {
+        const parts = currentDir.split("/");
+        parts.pop();
+        currentDir = parts.join("/");
+        logToConsole(`Retour au dossier parent. Nouveau chemin : /${currentDir}`);
+        refreshFileList();
+      }
+
+      // --- 3. LECTURE DE FICHIER ---
+      async function loadFile(filename) {
+        const path = currentDir === "" ? filename : `${currentDir}/${filename}`;
+        logToConsole(`Chargement du fichier : ${path}...`);
+        try {
+          const response = await fetch(`${API_BASE}/read?file=${path}`);
+          if (!response.ok) throw new Error("Fichier introuvable ou erreur serveur");
+          
+          const text = await response.text();
+
+          document.getElementById("open-file-name").textContent = path;
+          document.getElementById("editor-container").value = text;
+          document.getElementById("editor-title").textContent = `Édition : ${filename}`;
+          
+          logToConsole(`Fichier "${filename}" chargé.`, "ok");
+        } catch (err) {
+          logToConsole(`Erreur lors de la lecture : ${err.message}`, "err");
+          alert("Erreur lors de la lecture du fichier.");
+        }
+      }
+
+      // --- 4. ÉCRITURE / CRÉATION DE FICHIER ---
+      async function saveFile() {
+        const content = document.getElementById("editor-container").value;
+        let filename = document.getElementById("new-item-name").value;
+
+        // Si on édite un fichier déjà ouvert et que l'input est vide
+        const openedFile = document.getElementById("open-file-name").textContent;
+        if (openedFile !== "Aucun" && !filename) {
+          filename = openedFile;
+        } else if (currentDir !== "") {
+          // Si on crée un nouveau fichier dans un sous-dossier
+          if(filename && !filename.includes('/')) {
+             filename = `${currentDir}/${filename}`;
+          }
+        }
+
+        if (!filename || filename.endsWith("/")) {
+          logToConsole("Échec : Nom de fichier invalide.", "err");
+          alert("Veuillez spécifier un nom de fichier valide.");
+          return;
+        }
+
+        logToConsole(`Tentative d'enregistrement : ${filename}...`);
+        try {
+          const response = await fetch(`${API_BASE}/write?file=${filename}`, {
+            method: "POST",
+            body: content,
+          });
+          
+          if (response.ok) {
+            logToConsole(`Fichier "${filename}" enregistré !`, "ok");
+            alert("Enregistré !");
+            refreshFileList();
+          } else {
+             throw new Error("Erreur serveur lors de l'écriture");
+          }
+        } catch (err) {
+          logToConsole(`Erreur d'écriture : ${err.message}`, "err");
+          alert("Erreur d'écriture.");
+        }
+      }
+
+      // --- 5. GESTION DES DOSSIERS ---
+      async function createFolder() {
+        const folder = document.getElementById("new-item-name").value;
+        if (!folder) {
+          logToConsole("Échec : Nom de dossier vide.", "err");
+          return;
+        }
+        const fullPath = currentDir === "" ? folder : `${currentDir}/${folder}`;
+
+        logToConsole(`Création du dossier : ${fullPath}...`);
+        try {
+          const res = await fetch(`${API_BASE}/mkdir?path=${fullPath}`, {
+            method: "POST",
+          });
+          if (res.ok) {
+            logToConsole(`Dossier "${folder}" créé.`, "ok");
+            document.getElementById("new-item-name").value = "";
+            refreshFileList();
+          } else {
+            logToConsole("Erreur lors de la création du dossier.", "err");
+          }
+        } catch (e) {
+          logToConsole(`Erreur réseau (mkdir) : ${e.message}`, "err");
+        }
+      }
+
+      async function deleteFolder() {
+        const folderName = document.getElementById("new-item-name").value;
+        if (!folderName) {
+          logToConsole("Échec : Saisir le nom du dossier à supprimer.", "err");
+          alert("Veuillez saisir le nom du dossier à supprimer dans le champ texte.");
+          return;
+        }
+
+        const fullPath = currentDir === "" ? folderName : `${currentDir}/${folderName}`;
+
+        if (!confirm(`Supprimer le dossier "${fullPath}" ?\nNote: Le dossier doit être vide.`)) return;
+
+        logToConsole(`Suppression du dossier : ${fullPath}...`);
+        try {
+          const res = await fetch(`${API_BASE}/rmdir?path=${fullPath}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            logToConsole("Dossier supprimé avec succès.", "ok");
+            document.getElementById("new-item-name").value = "";
+            refreshFileList();
+          } else {
+            const errorMsg = await res.text();
+            logToConsole(`Échec suppression : ${errorMsg || "Dossier non vide"}`, "err");
+            alert("Erreur: " + (errorMsg || "Dossier non vide ou introuvable."));
+          }
+        } catch (e) {
+          logToConsole(`Erreur réseau (rmdir) : ${e.message}`, "err");
+        }
+      }
+
+      // --- 6. SUPPRESSION FICHIER / ITEM ---
+      async function deleteItem() {
+        let path = document.getElementById("new-item-name").value;
+        const opened = document.getElementById("open-file-name").textContent;
+
+        if (!path && opened !== "Aucun") path = opened;
+        if (!path) {
+          logToConsole("Échec : Aucun fichier sélectionné pour suppression.", "err");
+          return;
+        }
+        
+        if (!confirm(`Supprimer ${path} ?`)) return;
+
+        logToConsole(`Tentative de suppression de : ${path}...`);
+        try {
+          // Tentative suppression fichier
+          let res = await fetch(`${API_BASE}/delete?file=${path}`, {
+            method: "DELETE",
+          });
+
+          // Si échec (peut-être un dossier), tentative rmdir
+          if (!res.ok) {
+            logToConsole("Échec suppression fichier, tentative rmdir...", "info");
+            res = await fetch(`${API_BASE}/rmdir?path=${path}`, {
+              method: "DELETE",
+            });
+          }
+
+          if (res.ok) {
+            logToConsole(`"${path}" a été supprimé.`, "ok");
+            clearEditor();
+            refreshFileList();
+          } else {
+            logToConsole("Erreur : Le fichier n'existe pas ou le dossier n'est pas vide.", "err");
+            alert("Erreur: Le fichier n'existe pas ou le dossier n'est pas vide.");
+          }
+        } catch (e) {
+          logToConsole(`Erreur réseau (delete) : ${e.message}`, "err");
+        }
+      }
+
+      // --- OUTILS ---
+      function clearEditor() {
+        logToConsole("Nettoyage de l'éditeur.");
+        document.getElementById("open-file-name").textContent = "Aucun";
+        document.getElementById("editor-container").value = "";
+        document.getElementById("editor-title").textContent = "Éditeur (Nouveau)";
+        document.getElementById("new-item-name").value = "";
+      }
+
+      function formatSize(bytes) {
+        if (bytes < 1024) return bytes + " o";
+        return (bytes / 1024).toFixed(1) + " Ko";
+      }
+
+      // Initialisation au chargement
+      window.onload = () => {
+        logToConsole("Initialisation de l'application...");
+        refreshFileList();
+      };
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

@@ -17,7 +17,7 @@
 
 static const char *TAG = "MAIN_APP";
 
-void test_storage(void);
+void test_sd_card(void);
 
 void app_main(void) {
     ESP_LOGI(TAG, "Démarrage du système...");
@@ -71,7 +71,8 @@ void app_main(void) {
     ESP_LOGI(TAG,"Chargement du programme de chauffage ...");
     heating_init(&config);
 
-    test_storage();
+    test_sd_card();
+
     // // --- 10. Boucle principale (optionnelle) ---
     // // Si tu veux surveiller l'état du système périodiquement :
     // while (1) {

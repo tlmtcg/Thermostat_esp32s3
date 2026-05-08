@@ -6,6 +6,12 @@
 
 static const char *TAG = "time_storage";
 #define TIME_NAMESPACE "time_cfg"
+// time_utils_config_t g_time_cfg = {0};
+
+// Fonction pour que les autres composants lisent l'état
+// void time_utils_get_cfg(time_utils_config_t *dest) {
+//     if (dest) memcpy(dest, &g_time_cfg, sizeof(time_utils_config_t));
+// }
 
 bool time_utils_storage_load(time_utils_config_t *cfg) {
     nvs_handle_t nvs;
@@ -16,25 +22,27 @@ bool time_utils_storage_load(time_utils_config_t *cfg) {
         return false;
     }
 
+    // 1. Lecture du serveur NTP
     size_t len = sizeof(cfg->ntp_server);
     if (nvs_get_str(nvs, "ntp_server", cfg->ntp_server, &len) != ESP_OK) {
-        cfg->ntp_server[0] = '\0';
+        strlcpy(cfg->ntp_server, CONFIG_SNTP_SERVER_NAME, sizeof(cfg->ntp_server));
     }
 
-    // Correction type : ntp_max_retry est bien uint8_t
+    // 2. Lecture Max Retry (uint8_t)
     if (nvs_get_u8(nvs, "ntp_max_retry", &cfg->ntp_max_retry) != ESP_OK) {
         cfg->ntp_max_retry = 10;
     }
 
-    // Correction nom : ntp_sync_interval_sec
+    // 3. Lecture Intervalle (uint32_t)
     if (nvs_get_u32(nvs, "ntp_sync_int", &cfg->ntp_sync_interval_sec) != ESP_OK) {
         cfg->ntp_sync_interval_sec = 3600;
     }
 
     nvs_close(nvs);
 
-    ESP_LOGI(TAG, "Config chargée: Server=%s, MaxRetry=%u, Interval=%lu s", 
-             cfg->ntp_server, cfg->ntp_max_retry, (unsigned long)cfg->ntp_sync_interval_sec);
+    // 4. MISE À JOUR DE LA GLOBALE
+    // Au lieu de copier champ par champ, on copie toute la structure d'un coup
+    // memcpy(&T, cfg, sizeof(time_utils_config_t));
              
     return true;
 }

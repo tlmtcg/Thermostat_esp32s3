@@ -15,6 +15,8 @@
 #include "ws_api_sys.h"
 #include "ws_api_jeedom.h"
 #include "ws_api_relay.h"
+#include "ws_api_sd.h"
+
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -34,6 +36,7 @@ static ws_register_fn_t registry[] = {
     ws_register_program_api,
     ws_register_jeedom_api,
     ws_register_relay_api,
+    ws_register_sd_api,
     ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
 };
 

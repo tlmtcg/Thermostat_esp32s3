@@ -249,4 +249,40 @@ menu "Configuration Thermostat"
 
     endmenu
 
+    menu "SD Card Configuration"
+
+    config SD_CARD_ENABLED
+        bool "Enable SD Card Component"
+        default y
+        help
+            Désactivez cette option pour ne pas compiler le support SD.
+
+    config SD_CARD_MOSI_GPIO
+        int "MOSI GPIO Pin"
+        default 2
+        range 0 48
+
+    config SD_CARD_MISO_GPIO
+        int "MISO GPIO Pin"
+        default 5
+        range 0 48
+
+    config SD_CARD_SCLK_GPIO
+        int "SCLK GPIO Pin"
+        default 4
+        range 0 48
+
+    config SD_CARD_CS_GPIO
+        int "CS GPIO Pin"
+        default 1
+        range 0 48
+
+    config SD_CARD_FORMAT_IF_FAILED
+        bool "Format card if mount fails"
+        default y
+        help
+            Formate automatiquement la carte en FAT32 si elle est illisible.
+
+    endmenu
+
 endmenu

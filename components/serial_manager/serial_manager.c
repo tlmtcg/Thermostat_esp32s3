@@ -11,6 +11,7 @@
 #include "driver/uart.h"
 #include "heating_program.h"
 #include <strings.h>
+#include "time_utils.h"
 
 static const char *TAG = "SERIAL_MGR";
 #define BUF_SIZE 256
@@ -51,12 +52,16 @@ static void do_heat_get(const char *arg)
     }
 }
 
-static void do_heat_json(const char *arg) {
+static void do_heat_json(const char *arg)
+{
     char *json_out = heating_get_json(&config);
-    if (json_out) {
+    if (json_out)
+    {
         printf("\n%s\n", json_out);
         free(json_out); // Très important pour éviter les fuites mémoire
-    } else {
+    }
+    else
+    {
         printf("\n[ERR] Impossible de générer le JSON\n");
     }
 }
@@ -89,6 +94,9 @@ static void do_status(const char *arg)
 static void do_wifi_disc(const char *arg) { wifi_manager_force_disconnect(); }
 static void do_wifi_conn(const char *arg) { esp_wifi_connect(); }
 
+static void do_time_status_dump(const char *arg) { time_utils_status_dump(); }
+
+
 // --- Tableau des commandes (à enrichir) ---
 
 static const command_t cmd_list[] = {
@@ -103,7 +111,8 @@ static const command_t cmd_list[] = {
     {"HEAT SET ", "Regler: <J_IDX 0-6> <IDX> <H> <M> <S> <T>", do_heat_set},
     {"HEAT GET ", "Lire: <J_IDX 0-6> <H> <M> <S>", do_heat_get},
     {"HEAT GET_JSON", "Lire le programme json", do_heat_json},
-     {"HEAT RESET", "Reset le programme json",  do_heat_reset}, 
+    {"HEAT RESET", "Reset le programme json", do_heat_reset},
+    {"TIME STATUS", "Affiche le runtime NTP actuelle", do_time_status_dump},
 };
 
 #define CMD_COUNT (sizeof(cmd_list) / sizeof(command_t))
