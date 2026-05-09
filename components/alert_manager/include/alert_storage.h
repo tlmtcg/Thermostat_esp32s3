@@ -23,6 +23,8 @@ void alert_storage_purge(void);
 /** Rotation manuelle : alerts.log → alerts.log.1 */
 void alert_storage_rotate(void);
 
+void alert_storage_task(void *arg);
+
 #ifdef __cplusplus
 }
 #endif

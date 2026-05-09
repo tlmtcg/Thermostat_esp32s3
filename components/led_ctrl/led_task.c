@@ -7,7 +7,7 @@
 #include "led_driver.h"
 #include "led_db.h"
 #include "alert_manager.h"
-
+#include "task_manager.h"
 #include <math.h>
 
 static const char *TAG = "LED_TASK";
@@ -22,14 +22,19 @@ extern int current_bg_speed;
 /* =========================================================
    TÂCHE LED
    ========================================================= */
-static void led_task(void *pvParameters)
+void led_task(void *pvParameters)
 {
     uint32_t step = 0;
     led_color_t last_displayed_color = {0, 0, 0};
     bool first_run = true;
+    // On récupère le handle via le getter
+    EventGroupHandle_t ev_group = task_manager_get_event_group();
 
     while (1)
     {
+        // Cette ligne bloque la tâche si l'interrupteur est sur OFF
+        xEventGroupWaitBits(ev_group, BIT_LED_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+
         /* =====================================================
            1. Récupération des alarmes actives (triées)
            ===================================================== */
@@ -119,7 +124,11 @@ static void led_task(void *pvParameters)
 
 /* =========================================================
    DÉMARRAGE DE LA TÂCHE
-   ========================================================= */
+   ========================================================= 
+   La tache est créée dans le task_manager, mais on fournit une
+   fonction de démarrage dédiée pour faciliter l'intégration et
+   la gestion des erreurs.
+*/
 esp_err_t led_task_start(void)
 {
     ESP_LOGI(TAG, "Démarrage de la tâche LED (pipeline A)");

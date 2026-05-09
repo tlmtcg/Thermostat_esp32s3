@@ -34,14 +34,14 @@ static TaskHandle_t s_alert_task = NULL;
 /* =========================================================
    TÂCHE D'ÉCRITURE SD
    ========================================================= */
-static void alert_storage_task(void *arg)
+void alert_storage_task(void *arg)
 {
-    alert_sd_msg_t msg;
-
     ESP_LOGI(TAG, "Tâche alert_storage_task démarrée, log_path=%s", log_path);
 
     for (;;)
     {
+        alert_sd_msg_t msg;
+
         if (xQueueReceive(s_alert_queue, &msg, portMAX_DELAY) == pdTRUE)
         {
             ESP_LOGI(TAG, "Réception message SD : %s", msg.line);
@@ -140,7 +140,7 @@ void alert_storage_init(const char *path)
 
     ESP_LOGI(TAG, "Initialisation du stockage SD : %s", log_path);
 
-    // Création de la queue
+    // Création de la queue (Obligatoire avant de lancer la tâche)
     s_alert_queue = xQueueCreate(32, sizeof(alert_sd_msg_t));
     if (!s_alert_queue)
     {
@@ -148,25 +148,8 @@ void alert_storage_init(const char *path)
         return;
     }
 
-    // Création de la tâche
-    BaseType_t ok = xTaskCreate(
-        alert_storage_task,
-        "alert_storage_task",
-        8192,
-        NULL,
-        10,
-        &s_alert_task);
-
-    if (ok != pdPASS)
-    {
-        ESP_LOGE(TAG, "Impossible de créer la tâche alert_storage_task");
-        s_alert_task = NULL;
-        return;
-    }
-
     // Enregistrement du callback
     alert_register_callback(sd_on_alert_event);
-
     ESP_LOGI(TAG, "Callback SD enregistré");
 }
 
@@ -176,7 +159,8 @@ void alert_storage_init(const char *path)
 void alert_storage_load(void)
 {
     FILE *f = fopen(log_path, "r");
-    if (!f) return;
+    if (!f)
+        return;
 
     alert_clear_all();
     char line[256];
@@ -190,11 +174,12 @@ void alert_storage_load(void)
 
         // Correction du sscanf pour lire le timestamp entre guillemets
         // On utilise %31[^"] pour lire la chaîne jusqu'au prochain guillemet
-        int found = sscanf(line, 
-               "{ \"timestamp\": \"%31[^\"]\", \"name\": \"%63[^\"]\", \"activated\": %d }",
-               time_str, name, &activated);
+        int found = sscanf(line,
+                           "{ \"timestamp\": \"%31[^\"]\", \"name\": \"%63[^\"]\", \"activated\": %d }",
+                           time_str, name, &activated);
 
-        if (found < 3) continue; 
+        if (found < 3)
+            continue;
 
         alert_log_t log;
         // Si votre structure attend un long, il faudra convertir time_str en epoch
@@ -205,7 +190,8 @@ void alert_storage_load(void)
 
         alert_push_history(&log);
 
-        if (++line_count > MAX_LOG_LINES) {
+        if (++line_count > MAX_LOG_LINES)
+        {
             fclose(f);
             alert_storage_rotate();
             return;

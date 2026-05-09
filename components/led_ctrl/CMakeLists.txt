@@ -19,4 +19,5 @@ idf_component_register(
         led_strip
         joltwallet__littlefs
         alert_manager
+        task_manager
 )

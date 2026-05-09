@@ -45,12 +45,14 @@ esp_err_t led_init(void)
     alert_manager_init();
 
     // 5. Tâche LED
-    ret = led_task_start();
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Échec démarrage tâche LED");
-        return ret;
-    }
+    // La tâche est créée dans le task_manager, mais on fournit une fonction
+    // de démarrage dédiée pour faciliter l'intégration et la gestion des erreurs.
+    // ret = led_task_start();
+    // if (ret != ESP_OK)
+    // {
+    //     ESP_LOGE(TAG, "Échec démarrage tâche LED");
+    //     return ret;
+    // }
 
     return ESP_OK;
 }

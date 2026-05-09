@@ -1,17 +1,19 @@
-#include "serial_manager.h"
-#include "alert_manager.h"
-#include "wifi_manager.h" // Pour wifi_manager_force_disconnect
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_wifi.h"     // Pour esp_wifi_connect
 #include "esp_log.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <strings.h>
+
 #include "driver/uart.h"
 #include "heating_program.h"
-#include <strings.h>
 #include "time_utils.h"
+#include "task_manager.h"
+#include "serial_manager.h"
+#include "alert_manager.h"
+#include "wifi_manager.h" // Pour wifi_manager_force_disconnect
 
 static const char *TAG = "SERIAL_MGR";
 #define BUF_SIZE 256
@@ -153,18 +155,25 @@ void handle_command(const char *cmd)
     fflush(stdout);
 }
 
-static void serial_task(void *arg)
+void serial_task(void *arg)
 {
     uint8_t c;
     char line[BUF_SIZE];
     int line_pos = 0;
+    EventGroupHandle_t ev_group = task_manager_get_event_group();
 
     printf("\nTerminal pret. Tapez une commande :\n> ");
     fflush(stdout);
 
     while (1)
     {
-        // Lecture d'un seul octet (bloquant jusqu'au timeout)
+        // 1. BLOCAGE TOTAL si désactivé par le Web
+        // On reste ici indéfiniment tant que le bit est à 0
+        xEventGroupWaitBits(ev_group, BIT_SERIAL_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+        
+        // 2. LECTURE SI ACTIVE
+        // Si on est ici, c'est que le Serial est "ON". 
+        // On lit les données par petits morceaux.
         int len = uart_read_bytes(UART_NUM_0, &c, 1, pdMS_TO_TICKS(20));
 
         if (len > 0)
@@ -211,7 +220,8 @@ void serial_manager_init(void)
     // Utilisation d'un buffer RX pour ne pas perdre de données
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, BUF_SIZE * 2, 0, 0, NULL, 0));
 
-    // Création de la tâche (priorité légèrement supérieure à la normale)
-    xTaskCreate(serial_task, "serial_task", 4096, NULL, 5, NULL);
-    ESP_LOGI(TAG, "Serial manager actif.");
+    // Création de la tâche
+    // Note : La création de la tâche est maintenant gérée dans le task_manager pour un meilleur contrôle global
+    // xTaskCreate(serial_task, "serial_task", 4096, NULL, 5, NULL);
+    // ESP_LOGI(TAG, "Serial manager actif.");
 }

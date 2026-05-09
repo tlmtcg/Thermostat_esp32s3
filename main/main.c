@@ -43,7 +43,7 @@ void app_main(void)
         return;
     }
 
-    alert_storage_init(MOUNT_POINT "/alerts.log");
+    // alert_storage_init(MOUNT_POINT "/alerts.log");
     led_storage_init();
 
     // --- 3bis; Initialisation du backend LED (doit être après la SD) ---
@@ -70,9 +70,6 @@ void app_main(void)
     // --- 5. Initialisation du SNTP ---
     ESP_LOGI(TAG, "Démarrage du SNTP...");
     time_utils_init();
-
-    // --- 7. Initialisation du serial manager ---
-    serial_manager_init();
 
     // --- 8. Affichage de l'état de la base de données LED ---
     led_db_print_status();
