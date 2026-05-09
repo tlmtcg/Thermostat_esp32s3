@@ -7,6 +7,8 @@
 #include "freertos/timers.h"
 #include "led_ctrl.h"
 #include "alert_manager.h"
+#include "task_manager.h"
+
 
 static const char *TAG = "WIFI_APP";
 
@@ -37,17 +39,19 @@ static void on_sta_connected(const esp_ip4_addr_t *ip)
 {
     alert_remove("Panne wifi");
     ESP_LOGI(TAG, "STA connectée ! IP : " IPSTR, IP2STR(ip));
+    // C'est ici qu'on autorise les tâches à travailler
+        task_manager_set_active(BIT_WEATHER_EN | BIT_JEEDOM_EN | BIT_NTP_EN, true);
 
     if (xReconnectTimer)
         xTimerStop(xReconnectTimer, 0);
-
-
     // start_webserver();
 }
 
 static void on_sta_failed(int reason)
 {
     alert_add("Panne wifi"); // La LED clignote en erreur
+    // Sécurité : On coupe les tâches si plus de réseau
+        task_manager_set_active(BIT_WEATHER_EN | BIT_JEEDOM_EN | BIT_NTP_EN, false);
     if (xReconnectTimer)
         xTimerStart(xReconnectTimer, 0);
 }

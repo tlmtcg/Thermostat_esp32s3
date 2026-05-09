@@ -16,6 +16,7 @@ idf_component_register(
         "ws_api_jeedom.c"
         "ws_api_relay.c"
         "ws_api_sd.c"
+        "ws_api_task.c"
 
     INCLUDE_DIRS 
         "include"
@@ -35,6 +36,7 @@ idf_component_register(
         jeedom
         relay
         sd_card
+        task_manager
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -56,6 +58,7 @@ idf_component_register(
         "www/relay.html"
         "www/sd.html"
         "www/nav.html"
+        "www/tasks.html"
         "www/logs.html"
         "www/jeedom.html"
         "www/common.css"

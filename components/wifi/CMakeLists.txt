@@ -16,4 +16,5 @@ idf_component_register(
         freertos
         led_ctrl
         alert_manager
+        task_manager
 )

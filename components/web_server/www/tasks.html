@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Gestion des Tâches</title>
+    <style>
+      /* Style pour les cartes de tâches type Dashboard */
+      .task-card {
+        background: #252526;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .task-info {
+        flex-grow: 1;
+      }
+
+      .task-name {
+        font-weight: bold;
+        color: var(--orange); /* Utilisation de ta variable orange */
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .task-meta {
+        font-family: 'Consolas', monospace;
+        font-size: 0.8rem;
+        color: #999;
+        margin-top: 5px;
+      }
+
+      /* Badges d'état */
+      .badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+      .bg-running   { background: #1e3a1e; color: #4ec9b0; border: 1px solid #4ec9b0; }
+      .bg-blocked   { background: #3e3e10; color: #dcdcaa; border: 1px solid #dcdcaa; }
+      .bg-suspended { background: #2d2d2d; color: #808080; border: 1px solid #808080; }
+      .bg-ready     { background: #112a45; color: #569cd6; border: 1px solid #569cd6; }
+
+      .stack-warn { color: #f48771; font-weight: bold; } /* Couleur d'erreur */
+
+      /* Toggle Switch personnalisé au style sombre */
+      .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider {
+        position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #444; transition: .3s; border-radius: 20px;
+      }
+      .slider:before {
+        position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
+        background-color: white; transition: .3s; border-radius: 50%;
+      }
+      input:checked + .slider { background-color: var(--orange); }
+      input:checked + .slider:before { transform: translateX(20px); }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+      }
+      button.secondary { background-color: #444; }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Gestion des Tâches</h1>
+
+    <div class="box">
+      <h2>Contrôles Globaux</h2>
+      <div class="controls">
+        <button onclick="loadTasks()">Rafraîchir</button>
+        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">Auto Update: ON</button>
+      </div>
+      <div class="line" style="margin-top: 10px;">
+        <span class="label">Dernier relevé</span>
+        <span id="last-update" class="value">--</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Processus Système</h2>
+      <div id="task-container">
+        <!-- Les tâches seront injectées ici -->
+        <div style="color: #666; font-style: italic;">Chargement des données...</div>
+      </div>
+    </div>
+
+    <script>
+      let autoRefreshInterval = null;
+
+      async function loadTasks() {
+        try {
+          const response = await fetch('/api/tasks');
+          const tasks = await response.json();
+          render(tasks);
+          document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+        } catch (err) {
+          console.error("Erreur fetch tasks:", err);
+        }
+      }
+
+      function render(tasks) {
+        const container = document.getElementById('task-container');
+        
+        container.innerHTML = tasks.map(t => {
+          const stateClass = t.state ? `bg-${t.state.toLowerCase()}` : 'bg-suspended';
+          const stackClass = t.stack_min_ever < 300 ? 'stack-warn' : '';
+
+          return `
+            <div class="task-card">
+              <div class="task-info">
+                <div class="task-name">
+                  ${t.name}
+                  <span class="badge ${stateClass}">${t.state || 'Unknown'}</span>
+                </div>
+                <div class="task-meta">
+                  PRIO: ${t.prio_curr} | 
+                  STACK: <span class="${stackClass}">${t.stack_min_ever}B</span> / ${t.stack_cfg}B
+                </div>
+              </div>
+              <div>
+                <label class="switch">
+                  <input type="checkbox" ${t.active ? 'checked' : ''} 
+                         onchange="toggleTask('${t.key}', this.checked)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      async function toggleTask(taskKey, isActive) {
+        try {
+          await fetch('/api/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: taskKey, active: isActive })
+          });
+        } catch (err) {
+          console.error("Erreur toggle:", err);
+        }
+      }
+
+      function toggleAutoRefresh() {
+        const btn = document.getElementById('btn-auto');
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          btn.textContent = "Auto Update: OFF";
+        } else {
+          autoRefreshInterval = setInterval(loadTasks, 3000);
+          btn.textContent = "Auto Update: ON";
+        }
+      }
+
+      // Initialisation
+      loadTasks();
+      autoRefreshInterval = setInterval(loadTasks, 3000);
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

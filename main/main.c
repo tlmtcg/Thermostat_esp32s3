@@ -24,6 +24,9 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Démarrage du système...");
 
+    // --- 6. Initialisation des tâches ---
+    task_manager_init();
+
     // --- 1. Initialisation NVS ---
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
@@ -41,7 +44,7 @@ void app_main(void)
     }
 
     alert_storage_init(MOUNT_POINT "/alerts.log");
-    led_storage_init(); 
+    led_storage_init();
 
     // --- 3bis; Initialisation du backend LED (doit être après la SD) ---
     led_init();
@@ -68,9 +71,6 @@ void app_main(void)
     ESP_LOGI(TAG, "Démarrage du SNTP...");
     time_utils_init();
 
-    // --- 6. Initialisation des tâches ---
-    task_manager_init();
-
     // --- 7. Initialisation du serial manager ---
     serial_manager_init();
 
@@ -80,5 +80,4 @@ void app_main(void)
     // --- 9. Test du programme de chauffage ---
     ESP_LOGI(TAG, "Chargement du programme de chauffage ...");
     heating_init(&config);
-
 }

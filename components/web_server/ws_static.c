@@ -41,8 +41,9 @@ extern const uint8_t jeedom_html_end[] asm("_binary_jeedom_html_end");
 extern const uint8_t relay_html_start[] asm("_binary_relay_html_start");
 extern const uint8_t relay_html_end[] asm("_binary_relay_html_end");
 extern const uint8_t sd_html_start[] asm("_binary_sd_html_start");
-extern const uint8_t sd_html_end[] asm("_binary_sd_html_end");    
-
+extern const uint8_t sd_html_end[] asm("_binary_sd_html_end");
+extern const uint8_t tasks_html_start[] asm("_binary_tasks_html_start");
+extern const uint8_t tasks_html_end[] asm("_binary_tasks_html_end");
 
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
@@ -143,7 +144,7 @@ static esp_err_t get_program(httpd_req_t *req)
 static esp_err_t get_jeedom(httpd_req_t *req)
 {
     return send_embedded_file(req, jeedom_html_start, jeedom_html_end, "text/html");
-}   
+}
 
 static esp_err_t get_relay(httpd_req_t *req)
 {
@@ -153,6 +154,11 @@ static esp_err_t get_relay(httpd_req_t *req)
 static esp_err_t get_sd(httpd_req_t *req)
 {
     return send_embedded_file(req, sd_html_start, sd_html_end, "text/html");
+}
+
+static esp_err_t get_tasks(httpd_req_t *req)
+{
+    return send_embedded_file(req, tasks_html_start, tasks_html_end, "text/html");
 }
 
 /**
@@ -179,7 +185,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_jeedom = {.uri = "/jeedom", .method = HTTP_GET, .handler = get_jeedom};
     httpd_uri_t uri_relay = {.uri = "/relay", .method = HTTP_GET, .handler = get_relay};
     httpd_uri_t uri_sd = {.uri = "/sd", .method = HTTP_GET, .handler = get_sd};
-
+    httpd_uri_t uri_tasks = {.uri = "/tasks", .method = HTTP_GET, .handler = get_tasks};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -198,7 +204,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_jeedom);
     httpd_register_uri_handler(server, &uri_relay);
     httpd_register_uri_handler(server, &uri_sd);
-    
+    httpd_register_uri_handler(server, &uri_tasks);
+
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;
 }
