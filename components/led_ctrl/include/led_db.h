@@ -19,7 +19,7 @@
    ============================================================================ */
 
 /**
- * @brief Fonction définie dans led_ctrl.c, utilisée par led_db_internal_simulate().
+ * @brief Fonction définie dans led_ctrl.c, utilisée par led_db_simulate().
  */
 extern void led_set_background(led_mode_t mode, led_color_t color, int speed_ms);
 
@@ -30,42 +30,42 @@ extern void led_set_background(led_mode_t mode, led_color_t color, int speed_ms)
 /**
  * @brief Ajoute une ambiance (info) dans la DB.
  */
-void led_db_internal_add_info(const char *name, led_color_t color);
+void led_db_add_info(const char *name, led_color_t color);
 
 /**
  * @brief Ajoute une alarme dans la DB.
  */
-void led_db_internal_add_alarm(const char *name, int blinks, led_color_t color);
+void led_db_add_alarm(const char *name, int blinks, led_color_t color);
 
 /**
  * @brief Supprime une entrée (info ou alarme) par son nom.
  */
-void led_db_internal_delete_by_name(const char *name);
+void led_db_delete_by_name(const char *name);
 
 /**
  * @brief Affiche l'état de la DB dans les logs.
  */
-void led_db_internal_print_status(void);
+void led_db_print_status(void);
 
 /**
  * @brief Nombre d'ambiances stockées.
  */
-int led_db_internal_get_info_count(void);
+int led_db_get_info_count(void);
 
 /**
  * @brief Nombre d'alarmes stockées.
  */
-int led_db_internal_get_alarm_count(void);
+int led_db_get_alarm_count(void);
 
 /**
  * @brief Récupère une ambiance par index.
  */
-stored_info_t *led_db_internal_get_info_by_idx(int idx);
+stored_info_t *led_db_get_info_by_idx(int idx);
 
 /**
  * @brief Récupère une alarme par index.
  */
-stored_alarm_t *led_db_internal_get_alarm_by_idx(int idx);
+stored_alarm_t *led_db_get_alarm_by_idx(int idx);
 
 /**
  * @brief Simule une ambiance + une alarme.
@@ -73,7 +73,7 @@ stored_alarm_t *led_db_internal_get_alarm_by_idx(int idx);
  *        - alarm_idx >= 0 → alert_add(name)
  *        - alarm_idx == -1 → alert_clear_all()
  */
-void led_db_internal_simulate(int info_idx, int alarm_idx);
+void led_db_simulate(int info_idx, int alarm_idx);
 
 /* ============================================================================
    FONCTIONS PUBLIQUES

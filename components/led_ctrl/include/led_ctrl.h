@@ -47,25 +47,6 @@ void led_stop(void);
 void led_set_background(led_mode_t mode, led_color_t color, int speed_ms);
 
 /* ============================================================================
-   API LEGACY (pipeline B) — conservée mais NEUTRE en pipeline A
-   ============================================================================ */
-
-/**
- * @deprecated Ne fait rien en pipeline A.
- */
-void led_add_alarm(int nb_blinks, led_color_t color);
-
-/**
- * @deprecated Redirigé vers alert_clear_all().
- */
-void led_clear_alarms(void);
-
-/**
- * @deprecated Redirigé vers led_set_background().
- */
-void led_set_effect(led_mode_t mode, led_color_t color, int count, int speed_ms);
-
-/* ============================================================================
    BASE DE DONNÉES LED (délégation vers led_db.c)
    ============================================================================ */
 

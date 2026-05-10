@@ -177,8 +177,8 @@ const int *alert_get_active_list(void)
         {
             for (int j = i + 1; j < s_active_count; j++)
             {
-                stored_alarm_t *ai = led_db_internal_get_alarm_by_idx(sorted[i]);
-                stored_alarm_t *aj = led_db_internal_get_alarm_by_idx(sorted[j]);
+                stored_alarm_t *ai = led_db_get_alarm_by_idx(sorted[i]);
+                stored_alarm_t *aj = led_db_get_alarm_by_idx(sorted[j]);
 
                 int sevi = get_alarm_severity(ai->name);
                 int sevj = get_alarm_severity(aj->name);
@@ -224,7 +224,7 @@ int alert_get_top_priority(void)
 
     for (int i = 0; i < s_active_count; i++)
     {
-        stored_alarm_t *a = led_db_internal_get_alarm_by_idx(s_active_alarm_indices[i]);
+        stored_alarm_t *a = led_db_get_alarm_by_idx(s_active_alarm_indices[i]);
         if (!a)
             continue;
 

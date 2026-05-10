@@ -19,6 +19,22 @@
 #define BIT_STORAGE_EN   (1 << 4)
 #define BIT_SERIAL_EN  (1 << 5)
 
+/* --- Structure pour le monitoring et la configuration --- */
+typedef struct
+{
+    const char *pcName;
+    const char *key;
+    uint32_t usStackDepth;
+    UBaseType_t uxPriority;
+    uint32_t event_bit;
+    TaskHandle_t pxTask;
+    uint32_t delay_ms;
+} task_info_t;
+
+/* Tableau global */
+extern task_info_t my_tasks[];
+extern const int TASK_COUNT;
+
 /**
  * @brief Initialise le groupe d'événements et lance les tâches système.
  */

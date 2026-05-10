@@ -13,42 +13,97 @@
 #include "led_task.h"
 #include "alert_storage.h"
 #include "serial_manager.h"
+#include "wifi_manager.h"
+#include "config_storage.h"
+#include "task_manager.h"
 
 static const char *TAG = "TASK_MGR";
 static EventGroupHandle_t s_task_event_group;
 
-/* --- Structure pour le monitoring et la configuration --- */
-typedef struct
-{
-    const char *pcName;     // Nom affiché (FreeRTOS)
-    const char *key;        // Identifiant pour l'API Web
-    uint32_t usStackDepth;  // Taille de pile allouée
-    UBaseType_t uxPriority; // Priorité
-    uint32_t event_bit;     // Bit d'activation
-    TaskHandle_t pxTask;    // Handle (rempli à la création)
-    uint32_t delay_ms;      // Délai de mise à jour
-} task_info_t;
-
 /* --- Tableau centralisé des tâches --- */
-static task_info_t my_tasks[] = {
+task_info_t my_tasks[] = {
     {"Meteo", "weather", 6200, 5, BIT_WEATHER_EN, NULL, 15 * 60 * 1000},
     {"Jeedom", "jeedom", 3100, 5, BIT_JEEDOM_EN, NULL, 60 * 1000},
-    {"NTP", "ntp", 2100, 5, BIT_NTP_EN, NULL, 60 * 1000},
+    {"NTP", "ntp", 2200, 5, BIT_NTP_EN, NULL, 60 * 1000},
     {"Led", "led", 4600, 5, BIT_LED_EN, NULL, 0},
     {"Storage", "storage", 8000, 10, BIT_STORAGE_EN, NULL, 0},
     {"Serial", "serial", 4000, 5, BIT_SERIAL_EN, NULL, 0},
 };
 
-#define TASK_COUNT (sizeof(my_tasks) / sizeof(task_info_t))
+const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);
 
 /* --- Implémentation des tâches avec WaitBits --- */
+static void task_manager_apply_kconfig(void)
+{
+    // On part d'un event group vide
+    xEventGroupClearBits(s_task_event_group, 0xFFFFFF);
+
+    // Activation selon Kconfig
+    if (CONFIG_BIT_WEATHER_EN) xEventGroupSetBits(s_task_event_group, BIT_WEATHER_EN);
+    if (CONFIG_BIT_JEEDOM_EN)  xEventGroupSetBits(s_task_event_group, BIT_JEEDOM_EN);
+    if (CONFIG_BIT_NTP_EN)     xEventGroupSetBits(s_task_event_group, BIT_NTP_EN);
+    if (CONFIG_BIT_LED_EN)     xEventGroupSetBits(s_task_event_group, BIT_LED_EN);
+    if (CONFIG_BIT_SERIAL_EN)  xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
+
+    // Storage TOUJOURS activée
+    xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
+}
+
+void task_manager_apply_json(cJSON *root)
+{
+    if (!root) return;
+
+    cJSON *tasks = cJSON_GetObjectItem(root, "tasks");
+    if (!cJSON_IsArray(tasks)) return;
+
+    cJSON *item = NULL;
+    cJSON_ArrayForEach(item, tasks)
+    {
+        cJSON *id = cJSON_GetObjectItem(item, "id");
+        if (!cJSON_IsString(id)) continue;
+
+        cJSON *enabled = cJSON_GetObjectItem(item, "enabled");
+        cJSON *delay   = cJSON_GetObjectItem(item, "delay_ms");
+
+        for (int i = 0; i < TASK_COUNT; i++)
+        {
+            if (strcmp(my_tasks[i].key, id->valuestring) == 0)
+            {
+                // Mise à jour du délai
+                if (cJSON_IsNumber(delay))
+                    my_tasks[i].delay_ms = delay->valueint;
+
+                // Mise à jour du bit
+                if (cJSON_IsBool(enabled))
+                {
+                    if (enabled->valueint)
+                        xEventGroupSetBits(s_task_event_group, my_tasks[i].event_bit);
+                    else
+                        xEventGroupClearBits(s_task_event_group, my_tasks[i].event_bit);
+                }
+            }
+        }
+    }
+
+    // Storage TOUJOURS activée
+    xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
+}
+
 
 static void weather_update_task(void *pvParameters)
 {
     while (1)
     {
-        // Attend le bit d'activation (ne consomme rien si désactivé)
+        // 1. Attend le bit d'activation (ne consomme rien si désactivé)
         xEventGroupWaitBits(s_task_event_group, BIT_WEATHER_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        // 2. On attend que le wifi soit connecté (sécurité)
+        if (wifi_get_state() != WIFI_STATE_STA_CONNECTED)
+        {
+            ESP_LOGW(TAG, "Weather: WiFi non connecté, attente...");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            continue;
+        }
 
         ESP_LOGI(TAG, "Démarrage du cycle de mise à jour météo...");
 
@@ -79,6 +134,14 @@ static void jeedom_send_task(void *pvParameters)
         // Attend le bit d'activation
         xEventGroupWaitBits(s_task_event_group, BIT_JEEDOM_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
+                // 2. On attend que le wifi soit connecté (sécurité)
+        if (wifi_get_state() != WIFI_STATE_STA_CONNECTED)
+        {
+            ESP_LOGW(TAG, "Jeedom: WiFi non connecté, attente...");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            continue;
+        }
+
         ESP_LOGI(TAG, "Envoi des données à Jeedom...");
 
         // Appel de ta fonction globale d'envoi
@@ -96,6 +159,14 @@ static void ntp_monitor_task(void *pvParameters)
     {
         // Attend le bit d'activation
         xEventGroupWaitBits(s_task_event_group, BIT_NTP_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        // 2. On attend que le wifi soit connecté (sécurité)
+        if (wifi_get_state() != WIFI_STATE_STA_CONNECTED)
+        {
+            ESP_LOGW(TAG, "NTP: WiFi non connecté, attente...");
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            continue;
+        }
 
         time_t now;
         struct tm timeinfo;
@@ -125,7 +196,7 @@ static void ntp_monitor_task(void *pvParameters)
 
 /* --- Fonctions publiques --- */
 
-void task_manager_init(void)
+void task_manager_init_old(void)
 {
     s_task_event_group = xEventGroupCreate();
 
@@ -148,6 +219,63 @@ void task_manager_init(void)
     xTaskCreate(serial_task, my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);  
 }
 
+static void task_manager_dump_config(void)
+{
+    ESP_LOGI(TAG, "===== CONFIGURATION DES TACHES =====");
+
+    uint32_t bits = xEventGroupGetBits(s_task_event_group);
+
+    for (int i = 0; i < TASK_COUNT; i++)
+    {
+        bool active = (bits & my_tasks[i].event_bit) != 0;
+
+        ESP_LOGI(TAG,
+                 "[%s] key=%s | bit=0x%X | active=%s | delay=%lu ms | stack=%lu | prio=%lu",
+                 my_tasks[i].pcName,
+                 my_tasks[i].key,
+                 my_tasks[i].event_bit,
+                 active ? "ON" : "OFF",
+                 my_tasks[i].delay_ms,
+                 my_tasks[i].usStackDepth,
+                 my_tasks[i].uxPriority);
+    }
+
+    ESP_LOGI(TAG, "====================================");
+}
+
+
+void task_manager_init(void)
+{
+    s_task_event_group = xEventGroupCreate();
+
+    // Initialisation des composants
+    serial_manager_init();
+    weather_store_init();
+    alert_storage_init("/sdcard/alerts.log");
+
+    // 1) Appliquer Kconfig
+    task_manager_apply_kconfig();
+
+    // 2) Charger JSON si présent
+    cJSON *json = load_json_from_sdcard("/sdcard/tasks.json");
+    if (json)
+    {
+        ESP_LOGI(TAG, "Configuration JSON trouvée sur SD. Application des paramètres...");
+        task_manager_apply_json(json);
+        cJSON_Delete(json);
+    }
+
+    task_manager_dump_config();
+
+    // 3) Création des tâches
+    xTaskCreate(weather_update_task, my_tasks[0].pcName, my_tasks[0].usStackDepth, NULL, my_tasks[0].uxPriority, &my_tasks[0].pxTask);
+    xTaskCreate(jeedom_send_task,  my_tasks[1].pcName, my_tasks[1].usStackDepth, NULL, my_tasks[1].uxPriority, &my_tasks[1].pxTask);
+    xTaskCreate(ntp_monitor_task,  my_tasks[2].pcName, my_tasks[2].usStackDepth, NULL, my_tasks[2].uxPriority, &my_tasks[2].pxTask);
+    xTaskCreate(led_task,          my_tasks[3].pcName, my_tasks[3].usStackDepth, NULL, my_tasks[3].uxPriority, &my_tasks[3].pxTask);
+    xTaskCreate(alert_storage_task,my_tasks[4].pcName, my_tasks[4].usStackDepth, NULL, my_tasks[4].uxPriority, &my_tasks[4].pxTask);
+    xTaskCreate(serial_task,       my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);
+}
+
 void task_manager_set_active(uint32_t bit, bool active)
 {
     // SÉCURITÉ : Idem ici
@@ -158,6 +286,9 @@ void task_manager_set_active(uint32_t bit, bool active)
         xEventGroupSetBits(s_task_event_group, bit);
     else
         xEventGroupClearBits(s_task_event_group, bit);
+
+    // Sauvegarde immédiate de la config à chaque changement
+    save_json_to_sdcard("/sdcard/tasks.json");
 }
 
 cJSON *task_manager_get_all_info_json(void)
@@ -219,7 +350,6 @@ cJSON *task_manager_get_all_info_json(void)
 }
 
 void task_manager_set_delay(const char* key, uint32_t delay_ms) {
-    if (delay_ms < 1000) delay_ms = 1000; 
     
     for (int i = 0; i < TASK_COUNT; i++) {
         if (strcmp(my_tasks[i].key, key) == 0) {
@@ -228,6 +358,8 @@ void task_manager_set_delay(const char* key, uint32_t delay_ms) {
             break;
         }
     }
+    // Sauvegarde immédiate de la config à chaque changement
+    save_json_to_sdcard("/sdcard/tasks.json");
 }
 
 // Envoi le handler via le get

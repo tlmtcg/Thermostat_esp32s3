@@ -22,7 +22,7 @@ static int alarm_count = 0;
 // FONCTIONS INTERNES
 // =============================================================================
 
-void led_db_internal_add_info(const char *name, led_color_t color)
+void led_db_add_info(const char *name, led_color_t color)
 {
     if (info_count >= 10)
     {
@@ -38,7 +38,7 @@ void led_db_internal_add_info(const char *name, led_color_t color)
     led_db_save();
 }
 
-void led_db_internal_add_alarm(const char *name, int blinks, led_color_t color)
+void led_db_add_alarm(const char *name, int blinks, led_color_t color)
 {
     if (alarm_count >= 10)
     {
@@ -55,7 +55,7 @@ void led_db_internal_add_alarm(const char *name, int blinks, led_color_t color)
     led_db_save();
 }
 
-void led_db_internal_delete_by_name(const char *name)
+void led_db_delete_by_name(const char *name)
 {
     if (!name)
         return;
@@ -93,31 +93,31 @@ void led_db_internal_delete_by_name(const char *name)
     ESP_LOGW(TAG, "Aucun élément trouvé avec le nom '%s'", name);
 }
 
-int led_db_internal_get_info_count(void)
+int led_db_get_info_count(void)
 {
     return info_count;
 }
 
-int led_db_internal_get_alarm_count(void)
+int led_db_get_alarm_count(void)
 {
     return alarm_count;
 }
 
-stored_info_t *led_db_internal_get_info_by_idx(int idx)
+stored_info_t *led_db_get_info_by_idx(int idx)
 {
     if (idx >= 0 && idx < info_count)
         return &info_db[idx];
     return NULL;
 }
 
-stored_alarm_t *led_db_internal_get_alarm_by_idx(int idx)
+stored_alarm_t *led_db_get_alarm_by_idx(int idx)
 {
     if (idx >= 0 && idx < alarm_count)
         return &alarm_db[idx];
     return NULL;
 }
 
-void led_db_internal_print_status(void)
+void led_db_print_status(void)
 {
     ESP_LOGI(TAG, "--- État de la base de données LED ---");
     ESP_LOGI(TAG, "[Infos: %d]", info_count);
@@ -140,7 +140,7 @@ void led_db_internal_print_status(void)
     }
 }
 
-void led_db_internal_simulate(int info_idx, int alarm_idx)
+void led_db_simulate(int info_idx, int alarm_idx)
 {
     // 1. Ambiance
     if (info_idx >= 0 && info_idx < info_count)
