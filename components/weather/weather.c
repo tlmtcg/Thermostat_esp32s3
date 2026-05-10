@@ -70,7 +70,6 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
         .event_handler = _http_event_handler, // accumule les fragments de réponse
         .timeout_ms = timeout_ms,
         .skip_cert_common_name_check = true, // ignore CN du certificat
-        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     ESP_LOGI(TAG, "Lancement de la requête url %s", url);

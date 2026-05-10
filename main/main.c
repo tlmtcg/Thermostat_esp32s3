@@ -20,6 +20,8 @@
 
 static const char *TAG = "MAIN_APP";
 
+void test_email(void);
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Démarrage du système...");
@@ -77,4 +79,6 @@ void app_main(void)
     // --- 9. Test du programme de chauffage ---
     ESP_LOGI(TAG, "Chargement du programme de chauffage ...");
     heating_init(&config);
+
+    test_email();
 }

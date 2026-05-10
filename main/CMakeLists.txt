@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c"
+    SRCS "main.c" "test_email.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES esp_http_server joltwallet__littlefs
     REQUIRES 
@@ -14,4 +14,5 @@ idf_component_register(
         heating_program
         relay
         sd_card
+        email_service
 )

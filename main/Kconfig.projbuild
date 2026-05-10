@@ -359,5 +359,20 @@ menu "Configuration Thermostat"
 
 endmenu
 
+    menu "Mail Configuration"
 
+    config SMTP_USER
+        string "User"
+        default "dup.cordon@gmail.com"
+
+    config SMTP_PASS
+        string "Password"
+        default "sxul btjb alns gpzk"
+
+    config SMTP_RCPT_TO
+        string "Send To"
+        default "dup.cordon@gmail.com"
+
+
+endmenu
 endmenu
