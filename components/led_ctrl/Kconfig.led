@@ -1,0 +1,32 @@
+menu "LED Control Configuration"
+
+    config LED_STRIP_GPIO
+            int "GPIO number for the RGB LED"
+            range 0 48
+            default 48
+            help
+                The GPIO pin connected to the WS2812/NeoPixel LED. 
+                Default is 48 on most ESP32-S3 DevKits.
+
+        config LED_STRIP_BRIGHTNESS
+            int "Maximum LED Brightness (0-255)"
+            range 0 255
+            default 50
+            help
+                Global brightness limit to prevent eye strain and high current draw.
+                A value of 50 is usually sufficient for indoor use.
+
+        config LED_ALARM_COLOR_RED
+            int "Alarm Red Intensity"
+            range 0 255
+            default 255
+            help
+                Red component intensity during alarm blinks.
+
+        config LED_ALARM_BLINK_SPEED_MS
+            int "Alarm Blink Speed (ms)"
+            default 200
+            help
+                Duration of the 'on' and 'off' phases during an alarm blink.
+
+    endmenu

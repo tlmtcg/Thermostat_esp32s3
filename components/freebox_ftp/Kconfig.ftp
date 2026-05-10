@@ -1,0 +1,30 @@
+menu "Freebox FTP Configuration"
+
+        config FB_FTP_HOST
+            string "IP de la Freebox"
+            default "192.168.0.254"
+            help
+                L'adresse IP locale de votre Freebox.
+
+        config FREEBOX_FTP_USER
+            string "FTP Username"
+            default "freebox"
+
+        config FREEBOX_FTP_PASS
+            string "FTP Password"
+            default "Tr2s_76142505"
+
+        config FB_FTP_PORT
+            int "Port FTP"
+            default 21
+            help
+                Le port standard est 21.
+
+        config FB_FTP_PATH
+            string "Dossier cible"
+            default "Freebox/Logs"
+            help
+                Le dossier sur la Freebox où les fichiers seront stockés.
+
+
+    endmenu

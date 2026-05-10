@@ -1,0 +1,67 @@
+menu "Tasks Configuration"
+
+    menu "Weather Task"
+    config BIT_WEATHER_EN
+        bool "Enable Weather Task"
+        default y
+
+    config WEATHER_DELAY_MS
+        int "Weather task delay (ms)"
+        default 900000   # 15 * 60 * 1000
+        range 0 3600000
+    endmenu
+
+    menu "Jeedom Task"
+    config BIT_JEEDOM_EN
+        bool "Enable Jeedom Task"
+        default y
+
+    config JEEDOM_DELAY_MS
+        int "Jeedom task delay (ms)"
+        default 60000
+        range 0 3600000
+    endmenu
+
+    menu "NTP Task"
+    config BIT_NTP_EN
+        bool "Enable NTP Task"
+        default y
+
+    config NTP_DELAY_MS
+        int "NTP task delay (ms)"
+        default 60000
+        range 0 3600000
+    endmenu
+
+    menu "LED Task"
+    config BIT_LED_EN
+        bool "Enable LED Task"
+        default y
+
+    config LED_DELAY_MS
+        int 
+        default 0
+    endmenu
+
+    menu "Storage Task"
+    config BIT_STORAGE_EN
+        bool 
+        default y
+
+    config STORAGE_DELAY_MS
+        int 
+        default 0
+    endmenu
+
+    menu "Serial Task"
+    config BIT_SERIAL_EN
+        bool "Enable Serial Task"
+        default y
+
+    config SERIAL_DELAY_MS
+        int 
+        default 0
+
+    endmenu
+
+endmenu
