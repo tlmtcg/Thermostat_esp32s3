@@ -1,0 +1,11 @@
+menu "Configuration Storage"
+
+config CONFIG_STORAGE_FILENAME
+    string "Nom du fichier de configuration"
+    default "config.json"
+
+config CONFIG_STORAGE_ENABLE
+    bool "Activer la sauvegarde automatique de la configuration"
+    default y
+
+endmenu

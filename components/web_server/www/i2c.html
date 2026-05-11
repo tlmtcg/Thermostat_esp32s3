@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Gestion I2C</title>
+    <style>
+      /* Styles spécifiques pour la page I2C */
+      .box {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .page-title {
+        color: white;
+        margin-bottom: 20px;
+      }
+
+      h2 {
+        color: white;
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 1.1rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      input, select {
+        background: #252526;
+        border: 1px solid #444;
+        color: white;
+        padding: 5px 8px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+        font-size: 0.9rem;
+      }
+
+      button.secondary {
+        background-color: #444;
+      }
+
+      button.danger {
+        background-color: #832a2a;
+      }
+
+      button.success {
+        background-color: #2a834d;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        color: white;
+      }
+
+      th, td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid #333;
+      }
+
+      th {
+        background-color: #252526;
+        font-weight: bold;
+      }
+
+      tr:hover {
+        background-color: #2a2a2a;
+      }
+
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .config-item {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .config-item label {
+        margin-bottom: 5px;
+        font-size: 0.85rem;
+        color: #aaa;
+      }
+
+      .status {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+
+      .status.success {
+        background-color: rgba(42, 131, 77, 0.2);
+        color: #2a834d;
+        border: 1px solid #2a834d;
+      }
+
+      .status.error {
+        background-color: rgba(131, 42, 42, 0.2);
+        color: #f48771;
+        border: 1px solid #f48771;
+      }
+
+      .status.info {
+        background-color: rgba(100, 100, 255, 0.2);
+        color: #888;
+        border: 1px solid #555;
+      }
+
+      #scan-result {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Gestion I2C</h1>
+
+    <!-- Section Scan I2C -->
+    <div class="box">
+      <h2>Scan I2C</h2>
+      <div class="controls">
+        <button onclick="scanI2C()">Lancer le scan I2C</button>
+        <button class="secondary" onclick="loadDevices()">Rafraîchir la liste</button>
+      </div>
+      <div id="scan-result" class="status"></div>
+    </div>
+
+    <!-- Section Périphériques détectés -->
+    <div class="box">
+      <h2>Périphériques I2C détectés</h2>
+      <table id="devicesTable">
+        <thead>
+          <tr>
+            <th>Adresse (Hex)</th>
+            <th>Adresse (Décimal)</th>
+          </tr>
+        </thead>
+        <tbody id="devicesList">
+          <tr><td colspan="2">Aucun scan effectué</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section Configuration I2C -->
+    <div class="box">
+      <h2>Configuration I2C</h2>
+      <div class="config-grid">
+        <div class="config-item">
+          <label for="sda">GPIO SDA</label>
+          <input type="number" id="sda" min="0" max="40" value="8">
+        </div>
+        <div class="config-item">
+          <label for="scl">GPIO SCL</label>
+          <input type="number" id="scl" min="0" max="40" value="9">
+        </div>
+        <div class="config-item">
+          <label for="freq">Fréquence (Hz)</label>
+          <input type="number" id="freq" min="10000" max="5000000" value="400000">
+        </div>
+      </div>
+      <div class="controls" style="margin-top: 15px;">
+        <button onclick="loadConfig()">Charger la configuration</button>
+        <button class="success" onclick="saveConfig()">Enregistrer</button>
+      </div>
+      <div id="config-status" class="status"></div>
+    </div>
+
+    <script>
+      // Variables globales
+      let devicesData = [];
+
+      // Fonction pour afficher un message de statut
+      function showStatus(elementId, message, type = "info") {
+        const element = document.getElementById(elementId);
+        element.textContent = message;
+        element.className = `status ${type}`;
+      }
+
+      // Fonction pour scanner l'I2C
+      async function scanI2C() {
+        showStatus("scan-result", "Scan en cours...", "info");
+        try {
+          const response = await fetch('/api/i2c/scan', { method: 'POST' });
+          if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+          devicesData = await response.json();
+          showStatus("scan-result", `Scan terminé: ${devicesData.devices.length} périphérique(s) trouvé(s)`, "success");
+          renderDevices();
+        } catch (err) {
+          showStatus("scan-result", `Erreur: ${err.message}`, "error");
+          console.error("Erreur scan I2C:", err);
+        }
+      }
+
+      // Fonction pour charger la liste des périphériques
+      async function loadDevices() {
+        try {
+          const response = await fetch('/api/i2c/devices');
+          if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+          devicesData = await response.json();
+          renderDevices();
+        } catch (err) {
+          showStatus("scan-result", `Erreur: ${err.message}`, "error");
+          console.error("Erreur chargement périphériques:", err);
+        }
+      }
+
+      // Fonction pour afficher les périphériques dans le tableau
+      function renderDevices() {
+        const tbody = document.getElementById('devicesList');
+        tbody.innerHTML = '';
+
+        if (!devicesData.devices || devicesData.devices.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="2">Aucun périphérique détecté</td></tr>';
+          return;
+        }
+
+        devicesData.devices.forEach(device => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>0x${device.address.toString(16).toUpperCase().padStart(2, '0')}</td>
+            <td>${device.address}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      // Fonction pour charger la configuration
+      async function loadConfig() {
+        showStatus("config-status", "Chargement de la configuration...", "info");
+        try {
+          const response = await fetch('/api/i2c/config');
+          if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+          const config = await response.json();
+
+          document.getElementById('sda').value = config.sda;
+          document.getElementById('scl').value = config.scl;
+          document.getElementById('freq').value = config.freq;
+
+          showStatus("config-status", "Configuration chargée", "success");
+        } catch (err) {
+          showStatus("config-status", `Erreur: ${err.message}`, "error");
+          console.error("Erreur chargement config:", err);
+        }
+      }
+
+      // Fonction pour sauvegarder la configuration
+      async function saveConfig() {
+        showStatus("config-status", "Enregistrement en cours...", "info");
+        try {
+          const config = {
+            sda: parseInt(document.getElementById('sda').value),
+            scl: parseInt(document.getElementById('scl').value),
+            freq: parseInt(document.getElementById('freq').value)
+          };
+
+          const response = await fetch('/api/i2c/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+          });
+
+          if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+
+          const result = await response.text();
+          showStatus("config-status", result, "success");
+
+          // Recharger les périphériques après modification de la config
+          setTimeout(() => scanI2C(), 1000);
+        } catch (err) {
+          showStatus("config-status", `Erreur: ${err.message}`, "error");
+          console.error("Erreur sauvegarde config:", err);
+        }
+      }
+
+      // Initialisation au chargement de la page
+      window.onload = function() {
+        loadConfig();
+        loadDevices();
+      };
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

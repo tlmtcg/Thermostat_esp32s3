@@ -1,0 +1,21 @@
+menu "I2C Manager Configuration"
+
+config I2C_MANAGER_SDA
+    int "I2C SDA GPIO"
+    default 8
+    help
+        GPIO utilisé pour SDA du bus I2C
+
+config I2C_MANAGER_SCL
+    int "I2C SCL GPIO"
+    default 9
+    help
+        GPIO utilisé pour SCL du bus I2C
+
+config I2C_MANAGER_FREQ
+    int "Fréquence du bus I2C (Hz)"
+    default 400000
+    help
+        Fréquence du bus I2C en Hertz (100k, 400k, etc.)
+
+endmenu

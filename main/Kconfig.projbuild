@@ -12,6 +12,8 @@ menu "Configuration Thermostat"
     rsource "../components/led_ctrl/Kconfig.led"
     rsource "../components/relay/Kconfig.relay"
     rsource "../components/sd_card/Kconfig.sd"
+    rsource "../components/i2c_manager/Kconfig.i2c"
+    rsource "../components/config_storage/Kconfig.storage"
     endmenu
     
     menu "Expert"

@@ -96,8 +96,7 @@ static void do_status(const char *arg)
 static void do_wifi_disc(const char *arg) { wifi_manager_force_disconnect(); }
 static void do_wifi_conn(const char *arg) { esp_wifi_connect(); }
 
-static void do_time_status_dump(const char *arg) { time_utils_status_dump(); }
-
+void do_time_status_dump(const char *arg) { time_utils_status_dump(); }
 
 // --- Tableau des commandes (à enrichir) ---
 

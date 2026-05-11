@@ -198,3 +198,60 @@ error:
 
     return ok;
 }
+
+bool save_kconfig_to_sdcard(const char *path)
+{
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return false;
+
+    // --- Section I2C ---
+    cJSON *i2c = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "i2c", i2c);
+
+    cJSON_AddNumberToObject(i2c, "sda", CONFIG_I2C_MANAGER_SDA);
+    cJSON_AddNumberToObject(i2c, "scl", CONFIG_I2C_MANAGER_SCL);
+    cJSON_AddNumberToObject(i2c, "freq", CONFIG_I2C_MANAGER_FREQ);
+
+    // --- Section SD ---
+    cJSON *sd = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "sdcard", sd);
+
+    cJSON_AddNumberToObject(sd, "mosi", CONFIG_SD_CARD_MOSI_GPIO);
+    cJSON_AddNumberToObject(sd, "miso", CONFIG_SD_CARD_MISO_GPIO);
+    cJSON_AddNumberToObject(sd, "clk",  CONFIG_SD_CARD_SCLK_GPIO);
+    cJSON_AddNumberToObject(sd, "cs",   CONFIG_SD_CARD_CS_GPIO);
+
+    /* --- Section TASKS (dynamique) --- */
+    cJSON *tasks = cJSON_CreateArray();
+    cJSON_AddItemToObject(root, "tasks", tasks);
+
+    for (int i = 0; i < TASK_COUNT; i++)
+    {
+        cJSON *t = cJSON_CreateObject();
+        cJSON_AddItemToArray(tasks, t);
+
+        cJSON_AddStringToObject(t, "id", my_tasks[i].key);
+
+        // Valeur par défaut : enabled = true
+        cJSON_AddBoolToObject(t, "enabled", true);
+
+        // delay_ms = valeur définie dans le tableau
+        cJSON_AddNumberToObject(t, "delay_ms", my_tasks[i].delay_ms);
+    }
+
+    // Conversion JSON → string
+    char *json_str = cJSON_Print(root);
+    if (!json_str) {
+        cJSON_Delete(root);
+        return false;
+    }
+
+    // Sauvegarde sur SD
+    bool ok = (config_storage_save(path, json_str, strlen(json_str)) == ESP_OK);
+
+    free(json_str);
+    cJSON_Delete(root);
+
+    return ok;
+}
+

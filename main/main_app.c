@@ -17,8 +17,18 @@
 #include "sd_card.h"
 #include "alert_storage.h"
 #include "led_storage.h"
+// Includes pour les composants manquants
+#include "config_storage.h"   // Pour load_json_from_sdcard et save_kconfig_to_sdcard
+#include "i2c_manager.h"      // Pour i2c_manager_init, i2c_manager_scan, i2c_manager_get_devices_json
+#include "email_service.h"    // Pour email_send_log_async
+#include "cJSON.h"            // Pour manipuler le JSON
 
 static const char *TAG = "MAIN_APP";
+
+// Définition de CONFIG_FILE si non définie dans un header
+#ifndef CONFIG_FILE
+#define CONFIG_FILE "/sdcard/config.json"
+#endif
 
 void test_email();
 
@@ -44,6 +54,24 @@ void app_main(void)
         ESP_LOGW(TAG, "La carte SD n'est pas disponible. Les fonctionnalités de stockage seront limitées.");
         return;
     }
+
+    // 2) Charger la config JSON si elle existe
+    cJSON *config_json = load_json_from_sdcard(CONFIG_FILE);
+
+    if (config_json) {
+        ESP_LOGI(TAG, "Configuration chargée depuis %s", CONFIG_FILE);
+
+        // TODO : appliquer la config JSON (I2C, SD, etc.)
+        // apply_config_json(config_json);
+
+        cJSON_Delete(config_json);
+    } else {
+        ESP_LOGW(TAG, "Aucune config JSON → génération depuis Kconfig");
+
+        // 3) Sauvegarder la config Kconfig → JSON
+        save_kconfig_to_sdcard(CONFIG_FILE);
+    }
+
 
     // alert_storage_init(MOUNT_POINT "/alerts.log");
     led_storage_init();
@@ -80,7 +108,22 @@ void app_main(void)
     ESP_LOGI(TAG, "Chargement du programme de chauffage ...");
     heating_init(&config);
 
-    test_email();
+    // test_email();
+
+     // Initialiser le bus I2C
+    i2c_manager_init();
+
+    // Scanner les périphériques I2C
+    i2c_manager_scan();
+
+    // Récupérer le JSON
+    cJSON *devices_json = i2c_manager_get_devices_json();
+    if (devices_json != NULL) {
+        char *json_str = cJSON_Print(devices_json);
+        ESP_LOGI("MAIN", "JSON des périphériques I2C:\n%s", json_str);
+        free(json_str);  // Libérer la chaîne après utilisation
+    }
+
 }
 
 void test_email(){

@@ -16,6 +16,7 @@
 #include "ws_api_relay.h"
 #include "ws_api_sd.h"
 #include "ws_api_task.h"
+#include "ws_api_i2c.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -74,6 +75,7 @@ httpd_handle_t start_webserver(void)
     register_module(server, "relay", ws_register_relay_api);
     register_module(server, "sd", ws_register_sd_api);
     register_module(server, "tasks", ws_register_tasks_api);
+    register_module(server, "i2c", ws_register_i2c_api);
     
     ESP_LOGI(TAG, "Serveur Web prêt.");
     return server;
