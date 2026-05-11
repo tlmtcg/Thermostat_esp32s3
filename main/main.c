@@ -7,7 +7,7 @@
 #include "web_server.h"
 #include "wifi_app.h"
 #include "time_utils.h"
-#include "led_ctrl.h" // Module LED refactorisé
+#include "led_ctrl.h" 
 #include "esp_littlefs.h"
 #include "alert_manager.h"
 #include "task_manager.h"
@@ -20,7 +20,7 @@
 
 static const char *TAG = "MAIN_APP";
 
-void test_email(void);
+void test_email();
 
 void app_main(void)
 {
@@ -81,4 +81,16 @@ void app_main(void)
     heating_init(&config);
 
     test_email();
+}
+
+void test_email(){
+    const char *target_file = "/sdcard/alerts.log"; 
+
+    ESP_LOGI(TAG, "Envoi de l'email...");
+    email_send_log_async(
+        "dup.cordon@gmail.com",
+        "ESP32 Logs",
+        "Ceci est le corps du mail",
+       target_file       
+    );
 }

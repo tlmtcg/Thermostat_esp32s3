@@ -16,22 +16,43 @@ static TimerHandle_t xReconnectTimer = NULL;
 
 // --- CALLBACKS ---
 
+// static void vTimerReconnectCallback(TimerHandle_t xTimer)
+// {
+//     int count = wifi_get_ap_client_count();
+
+//     if (count > 0)
+//     {
+//         // Il y a au moins un client connecté
+//         ESP_LOGW(TAG, "Client AP détecté (%d). On évite de perturber la radio.", count);
+//         xTimerStart(xReconnectTimer, 0);
+//     }
+//     else
+//     {
+//         // Personne n'est connecté, on peut réessayer le mode STA
+//         ESP_LOGI(TAG, "AP libre. Tentative de reconnexion STA...");
+//         esp_wifi_connect();
+//     }
+// }
+
+#include "esp_wifi.h"
+
 static void vTimerReconnectCallback(TimerHandle_t xTimer)
 {
-    int count = wifi_get_ap_client_count();
+    wifi_sta_list_t clients;
+    // v6.0 : Récupère la liste complète des stations connectées à ton AP
+    if (esp_wifi_ap_get_sta_list(&clients) == ESP_OK)
+    {
+        if (clients.num > 0)
+        {
+            ESP_LOGW(TAG, "%d client(s) actifs sur l'AP. Report du scan STA...", clients.num);
+            xTimerStart(xReconnectTimer, 0);
+            return;
+        }
+    }
 
-    if (count > 0)
-    {
-        // Il y a au moins un client connecté
-        ESP_LOGW(TAG, "Client AP détecté (%d). On évite de perturber la radio.", count);
-        xTimerStart(xReconnectTimer, 0);
-    }
-    else
-    {
-        // Personne n'est connecté, on peut réessayer le mode STA
-        ESP_LOGI(TAG, "AP libre. Tentative de reconnexion STA...");
-        esp_wifi_connect();
-    }
+    // Si on arrive ici, l'AP est seul : on tente la reconnexion
+    ESP_LOGI(TAG, "Lancement de la reconnexion STA...");
+    esp_wifi_connect();
 }
 
 static void on_sta_connected(const esp_ip4_addr_t *ip)
@@ -48,9 +69,20 @@ static void on_sta_connected(const esp_ip4_addr_t *ip)
 
 static void on_sta_failed(int reason)
 {
-    alert_add("Panne wifi"); // La LED clignote en erreur
-    // Sécurité : On coupe les tâches si plus de réseau
-    // task_manager_set_active(BIT_WEATHER_EN | BIT_JEEDOM_EN | BIT_NTP_EN, false);
+    switch (reason)
+    {
+    case WIFI_REASON_AUTH_EXPIRE:
+    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+        alert_add("Erreur mot de passe WiFi");
+        break;
+    case WIFI_REASON_NO_AP_FOUND:
+        alert_add("Box WiFi introuvable");
+        break;
+    default:
+        alert_add("Panne wifi");
+        break;
+    }
+
     if (xReconnectTimer)
         xTimerStart(xReconnectTimer, 0);
 }

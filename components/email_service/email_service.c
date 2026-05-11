@@ -519,9 +519,14 @@ bool email_send_log_async(
     strncpy(msg.to, to, sizeof(msg.to) - 1);
     strncpy(msg.subject, subject, sizeof(msg.subject) - 1);
     strncpy(msg.body, body, sizeof(msg.body) - 1);
-    strncpy(msg.filepath, filepath, sizeof(msg.filepath) - 1);
 
-    msg.has_attachment = true;
+    // Vérification : si filepath n'est pas NULL et n'est pas une chaîne vide
+    if (filepath != NULL && strlen(filepath) > 0) {
+        strncpy(msg.filepath, filepath, sizeof(msg.filepath) - 1);
+        msg.has_attachment = true;
+    } else {
+        msg.has_attachment = false; // Sécurité explicite
+    }
 
     return xQueueSend(email_queue, &msg, pdMS_TO_TICKS(100)) == pdPASS;
 }
