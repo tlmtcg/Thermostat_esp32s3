@@ -7,11 +7,6 @@
 #include "weather.h"
 #include "esp_crt_bundle.h"
 #include "alert_manager.h"
-#include "esp_crt_bundle.h"
-
-// Le certificat est inclus dans le binaire
-extern const uint8_t open_meteo_cert_pem_start[] asm("_binary_open_meteo_cert_pem_start");
-extern const uint8_t open_meteo_cert_pem_end[] asm("_binary_open_meteo_cert_pem_end");
 
 static const char *TAG = "WEATHER_SERVICE";
 static char *response_data = NULL;
@@ -63,12 +58,10 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     // Configuration du client HTTP
     esp_http_client_config_t config = {
         .url = url,
+        .method = HTTP_METHOD_GET,
         .event_handler = _http_event_handler,
+        .crt_bundle_attach = esp_crt_bundle_attach,
         .timeout_ms = timeout_ms,
-        .cert_pem = (const char *)open_meteo_cert_pem_start,
-        .cert_len = open_meteo_cert_pem_end - open_meteo_cert_pem_start,
-        .use_global_ca_store = false,         // Désactive le magasin global (on utilise notre certificat)
-        .skip_cert_common_name_check = false, // Vérifie le nom commun du certificat
     };
 
     ESP_LOGI(TAG, "Lancement de la requête URL: %s", url);

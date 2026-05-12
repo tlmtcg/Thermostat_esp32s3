@@ -69,7 +69,7 @@ esp_err_t time_utils_init(void)
     for (int retry = 0; retry < cfg.ntp_max_retry; retry++) {
         // MISE À JOUR RUNTIME
         s_time_status.current_retry = retry + 1;
-        if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
+        if (s_last_sync != 0) {
             s_time_status.last_sync_time = (uint32_t)time(NULL);
             s_time_status.is_syncing = false;
             synced = true;

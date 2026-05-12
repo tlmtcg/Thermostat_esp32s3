@@ -94,6 +94,15 @@ static void weather_update_task(void *pvParameters)
 {
     while (1)
     {
+        // Attendre que l'heure soit synchronisée
+        time_t now;
+        time(&now);
+        if (now < 1609459200) { // 1er janvier 2021 (timestamp)
+            ESP_LOGW(TAG, "Heure non synchronisée. Attente...");
+            vTaskDelay(5000 / portTICK_PERIOD_MS); // Attendre 5 secondes
+            continue;
+        }
+        
         // 1. Attend le bit d'activation (ne consomme rien si désactivé)
         xEventGroupWaitBits(s_task_event_group, BIT_WEATHER_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
