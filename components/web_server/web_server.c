@@ -20,18 +20,31 @@
 
 static const char *TAG = "WEB_SERVER";
 
+static httpd_handle_t server = NULL;
+
+ int g_http_handlers_used = 0;
+ int g_http_handlers_max = 128;
+
 /**
  * @brief Enregistre toutes les routes d’un module et log en cas d’erreur.
  */
-static void register_module(httpd_handle_t server,
-                            const char *name,
-                            esp_err_t (*fn)(httpd_handle_t))
+esp_err_t register_module(httpd_handle_t server,
+                          const char *name,
+                          esp_err_t (*fn)(httpd_handle_t))
 {
-    esp_err_t err = fn(server);
-    if (err != ESP_OK)
-        ESP_LOGE(TAG, "Échec enregistrement module %s : %s", name, esp_err_to_name(err));
-    else
-        ESP_LOGI(TAG, "Module %s OK", name);
+    static const char *registered[32];
+    static int count = 0;
+
+    for (int i = 0; i < count; i++) {
+        if (strcmp(registered[i], name) == 0) {
+            ESP_LOGW(TAG, "Module %s déjà enregistré", name);
+            return ESP_OK;
+        }
+    }
+
+    registered[count++] = name;
+
+    return fn(server);
 }
 
 /**
@@ -39,28 +52,36 @@ static void register_module(httpd_handle_t server,
  */
 httpd_handle_t start_webserver(void)
 {
-    httpd_handle_t server = NULL;
+    if (server != NULL)
+    {
+        ESP_LOGW(TAG, "Serveur déjà démarré");
+        return server;
+    }
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 64;
+
+    config.max_uri_handlers = 128;
     config.stack_size = 8192;
     config.lru_purge_enable = true;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
-    ESP_LOGI("CHECK", "Max handlers autorisés : %d", config.max_uri_handlers);
-
-    ESP_LOGI(TAG, "Démarrage du serveur HTTP sur le port %d...", config.server_port);
+    ESP_LOGI(TAG, "Démarrage du serveur HTTP sur le port %d...",
+             config.server_port);
 
     esp_err_t err = httpd_start(&server, &config);
+
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Erreur httpd_start() : %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Erreur httpd_start() : %s",
+                 esp_err_to_name(err));
+
+        server = NULL;
+
         return NULL;
     }
 
     ESP_LOGI(TAG, "Serveur HTTP démarré, enregistrement des routes...");
 
-    // --- Enregistrement modulaire (SOLID) ---
     register_module(server, "static", ws_register_static);
     register_module(server, "wifi", ws_register_wifi_api);
     register_module(server, "time", ws_register_time_api);
@@ -76,7 +97,20 @@ httpd_handle_t start_webserver(void)
     register_module(server, "sd", ws_register_sd_api);
     register_module(server, "tasks", ws_register_tasks_api);
     register_module(server, "i2c", ws_register_i2c_api);
-    
+
     ESP_LOGI(TAG, "Serveur Web prêt.");
+
     return server;
+}
+
+void stop_webserver(void)
+{
+    if (server)
+    {
+        ESP_LOGI(TAG, "Arrêt du serveur HTTP");
+
+        httpd_stop(server);
+
+        server = NULL;
+    }
 }

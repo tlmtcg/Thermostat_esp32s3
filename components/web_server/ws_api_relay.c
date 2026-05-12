@@ -4,6 +4,7 @@
 #include "relay.h"
 #include <string.h>
 #include "ws_api_relay.h"
+#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_RELAY";
 
@@ -195,20 +196,76 @@ static esp_err_t relay_off_handler(httpd_req_t *req)
 /* -------------------------------------------------------------------------- */
 /*  ENREGISTREMENT DES ROUTES                                                */
 /* -------------------------------------------------------------------------- */
-
 esp_err_t ws_register_relay_api(httpd_handle_t server)
 {
-    httpd_uri_t get_uri  = { .uri = "/api/relay",     .method = HTTP_GET,  .handler = relay_get_handler };
-    httpd_uri_t post_uri = { .uri = "/api/relay",     .method = HTTP_POST, .handler = relay_post_handler };
-    httpd_uri_t on_uri   = { .uri = "/api/relay/on",  .method = HTTP_POST, .handler = relay_on_handler };
-    httpd_uri_t off_uri  = { .uri = "/api/relay/off", .method = HTTP_POST, .handler = relay_off_handler };
+    // ESP_LOGI(TAG, "=== WS_API_RELAY: START REGISTER ===");
 
-    httpd_register_uri_handler(server, &get_uri);
-    httpd_register_uri_handler(server, &post_uri);
-    httpd_register_uri_handler(server, &on_uri);
-    httpd_register_uri_handler(server, &off_uri);
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
-    ESP_LOGI(TAG, "API Relay enregistrée (GET/POST + ON/OFF)");
+    esp_err_t err;
+
+    // ---------------- GET STATE ----------------
+    httpd_uri_t get_uri = {
+        .uri = "/api/relay",
+        .method = HTTP_GET,
+        .handler = relay_get_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (GET)", get_uri.uri);
+
+    err = httpd_register_uri_handler(server, &get_uri);
+    ESP_LOGI(TAG, "Result GET /relay -> %s", esp_err_to_name(err));
+
+    // ---------------- POST STATE ----------------
+    httpd_uri_t post_uri = {
+        .uri = "/api/relay",
+        .method = HTTP_POST,
+        .handler = relay_post_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (POST)", post_uri.uri);
+
+    err = httpd_register_uri_handler(server, &post_uri);
+    ESP_LOGI(TAG, "Result POST /relay -> %s", esp_err_to_name(err));
+
+    // ---------------- ON ----------------
+    httpd_uri_t on_uri = {
+        .uri = "/api/relay/on",
+        .method = HTTP_POST,
+        .handler = relay_on_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (POST ON)", on_uri.uri);
+
+    err = httpd_register_uri_handler(server, &on_uri);
+    ESP_LOGI(TAG, "Result /on -> %s", esp_err_to_name(err));
+
+    // ---------------- OFF ----------------
+    httpd_uri_t off_uri = {
+        .uri = "/api/relay/off",
+        .method = HTTP_POST,
+        .handler = relay_off_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (POST OFF)", off_uri.uri);
+
+    err = httpd_register_uri_handler(server, &off_uri);
+    ESP_LOGI(TAG, "Result /off -> %s", esp_err_to_name(err));
+
+    // ---------------- FINAL ----------------
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // ESP_LOGI(TAG, "=== WS_API_RELAY: END REGISTER ===");
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Relay API registration FAILED");
+        return err;
+    }
+
+    ESP_LOGI(TAG, "API Relay enregistrée avec succès");
     return ESP_OK;
 }
-

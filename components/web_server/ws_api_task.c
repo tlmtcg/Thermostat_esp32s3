@@ -3,6 +3,7 @@
 #include "cJSON.h"
 #include "task_manager.h"
 #include <string.h>
+#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_TASK";
 
@@ -67,14 +68,21 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
                 bool is_active = cJSON_IsTrue(active);
                 uint32_t bit = 0;
 
-                if (strcmp(task_name, "weather") == 0)      bit = BIT_WEATHER_EN;
-                else if (strcmp(task_name, "jeedom") == 0) bit = BIT_JEEDOM_EN;
-                else if (strcmp(task_name, "ntp") == 0)    bit = BIT_NTP_EN;
-                else if (strcmp(task_name, "led") == 0)    bit = BIT_LED_EN;
-                else if (strcmp(task_name, "storage") == 0) bit = BIT_STORAGE_EN;
-                else if (strcmp(task_name, "serial") == 0) bit = BIT_SERIAL_EN;
-                
-                if (bit != 0) {
+                if (strcmp(task_name, "weather") == 0)
+                    bit = BIT_WEATHER_EN;
+                else if (strcmp(task_name, "jeedom") == 0)
+                    bit = BIT_JEEDOM_EN;
+                else if (strcmp(task_name, "ntp") == 0)
+                    bit = BIT_NTP_EN;
+                else if (strcmp(task_name, "led") == 0)
+                    bit = BIT_LED_EN;
+                else if (strcmp(task_name, "storage") == 0)
+                    bit = BIT_STORAGE_EN;
+                else if (strcmp(task_name, "serial") == 0)
+                    bit = BIT_SERIAL_EN;
+
+                if (bit != 0)
+                {
                     task_manager_set_active(bit, is_active);
                     ESP_LOGI(TAG, "Tâche '%s' mise à jour : %s", task_name, is_active ? "ON" : "OFF");
                 }
@@ -85,7 +93,7 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
             {
                 // Conversion des minutes reçues en millisecondes
                 uint32_t new_delay_ms = (uint32_t)(delay->valuedouble * 60 * 1000);
-                
+
                 task_manager_set_delay(task_name, new_delay_ms);
                 ESP_LOGI(TAG, "Tâche '%s' -> Nouvel intervalle : %.0f min", task_name, delay->valuedouble);
             }
@@ -104,23 +112,63 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
 /* -------------------------------------------------------------------------- */
 void ws_register_tasks_api(httpd_handle_t server)
 {
-    // Configuration de la route GET
+    // ESP_LOGI(TAG, "=== WS_API_TASKS: START REGISTER ===");
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    esp_err_t err;
+
+    // ---------------- GET TASKS ----------------
     httpd_uri_t get_uri = {
         .uri = "/api/tasks",
         .method = HTTP_GET,
         .handler = tasks_get_handler,
         .user_ctx = NULL};
 
-    // Configuration de la route POST
+    ESP_LOGI(TAG, "Register: %s (GET tasks)", get_uri.uri);
+
+    err = httpd_register_uri_handler(server, &get_uri);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "GET /api/tasks failed: %s", esp_err_to_name(err));
+
+        g_http_handlers_used += 1;
+        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+        return;
+    }
+
+    ESP_LOGI(TAG, "GET /api/tasks -> OK");
+
+    // ---------------- POST TASKS ----------------
     httpd_uri_t post_uri = {
         .uri = "/api/tasks",
         .method = HTTP_POST,
         .handler = tasks_post_handler,
         .user_ctx = NULL};
 
-    // Enregistrement effectif auprès du serveur
-    httpd_register_uri_handler(server, &get_uri);
-    httpd_register_uri_handler(server, &post_uri);
+    ESP_LOGI(TAG, "Register: %s (POST tasks)", post_uri.uri);
 
-    ESP_LOGI(TAG, "API de gestion des tâches enregistrée avec succès.");
+    err = httpd_register_uri_handler(server, &post_uri);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "POST /api/tasks failed: %s", esp_err_to_name(err));
+
+        g_http_handlers_used += 1;
+        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+        return;
+    }
+
+    ESP_LOGI(TAG, "POST /api/tasks -> OK");
+
+    // ---------------- FINAL ----------------
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // ESP_LOGI(TAG, "=== WS_API_TASKS: END REGISTER ===");
+
+    ESP_LOGI(TAG, "API tasks enregistrée avec succès.");
 }

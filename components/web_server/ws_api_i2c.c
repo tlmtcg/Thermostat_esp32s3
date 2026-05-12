@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "cJSON.h"
 #include <string.h>
+#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_I2C";
 
@@ -103,17 +104,21 @@ static esp_err_t i2c_config_post_handler(httpd_req_t *req)
 {
     int total = req->content_len;
 
-    if (total <= 0 || total > 1024) {
+    if (total <= 0 || total > 1024)
+    {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload invalide");
     }
 
     char *buf = malloc(total + 1);
-    if (!buf) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
+    if (!buf)
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
 
     int received = 0;
-    while (received < total) {
+    while (received < total)
+    {
         int r = httpd_req_recv(req, buf + received, total - received);
-        if (r <= 0) {
+        if (r <= 0)
+        {
             free(buf);
             return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Lecture incomplète");
         }
@@ -127,7 +132,8 @@ static esp_err_t i2c_config_post_handler(httpd_req_t *req)
     cJSON *root = cJSON_Parse(buf);
     free(buf);
 
-    if (!root) {
+    if (!root)
+    {
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON invalide");
     }
 
@@ -135,15 +141,19 @@ static esp_err_t i2c_config_post_handler(httpd_req_t *req)
     cJSON *scl_json = cJSON_GetObjectItem(root, "scl");
     cJSON *freq_json = cJSON_GetObjectItem(root, "freq");
 
-    if (sda_json) current_config.sda_gpio = sda_json->valueint;
-    if (scl_json) current_config.scl_gpio = scl_json->valueint;
-    if (freq_json) current_config.freq_hz = freq_json->valueint;
+    if (sda_json)
+        current_config.sda_gpio = sda_json->valueint;
+    if (scl_json)
+        current_config.scl_gpio = scl_json->valueint;
+    if (freq_json)
+        current_config.freq_hz = freq_json->valueint;
 
     cJSON_Delete(root);
 
     // Sauvegarde + réinit
     i2c_save_config_to_sdcard();
-    if (i2c_manager_reinit(current_config.sda_gpio, current_config.scl_gpio, current_config.freq_hz) != ESP_OK) {
+    if (i2c_manager_reinit(current_config.sda_gpio, current_config.scl_gpio, current_config.freq_hz) != ESP_OK)
+    {
         return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Réinit I2C échouée");
     }
 
@@ -243,37 +253,70 @@ void i2c_save_config_to_sdcard(void)
 /* --- ENREGISTREMENT DES URI --- */
 esp_err_t ws_register_i2c_api(httpd_handle_t server)
 {
-    // Charger la configuration I2C depuis la SD card au démarrage
+    // ESP_LOGI(TAG, "=== WS_API_I2C: START REGISTER ===");
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // Charger la config SD
     i2c_load_config_from_sdcard();
 
-    // --- Route POST : Lancer un scan I2C ---
+    esp_err_t err;
+
+    // ---------------- SCAN ----------------
     httpd_uri_t uri_scan = {
         .uri = "/api/i2c/scan",
-        .method = HTTP_POST, // <-- CORRIGÉ : POST et non GET
-        .handler = i2c_scan_handler};
-    httpd_register_uri_handler(server, &uri_scan);
+        .method = HTTP_POST,
+        .handler = i2c_scan_handler,
+        .user_ctx = NULL};
 
-    // --- Route GET : Lister les périphériques I2C ---
+    ESP_LOGI(TAG, "Register: %s (POST scan)", uri_scan.uri);
+
+    err = httpd_register_uri_handler(server, &uri_scan);
+    ESP_LOGI(TAG, "Result /scan -> %s", esp_err_to_name(err));
+
+    // ---------------- DEVICES ----------------
     httpd_uri_t uri_devices = {
         .uri = "/api/i2c/devices",
-        .method = HTTP_GET, // GET pour récupérer la liste
-        .handler = i2c_devices_handler};
-    httpd_register_uri_handler(server, &uri_devices);
+        .method = HTTP_GET,
+        .handler = i2c_devices_handler,
+        .user_ctx = NULL};
 
-    // --- Route GET : Récupérer la config I2C ---
+    ESP_LOGI(TAG, "Register: %s (GET devices)", uri_devices.uri);
+
+    err = httpd_register_uri_handler(server, &uri_devices);
+    ESP_LOGI(TAG, "Result /devices -> %s", esp_err_to_name(err));
+
+    // ---------------- CONFIG GET ----------------
     httpd_uri_t uri_config_get = {
         .uri = "/api/i2c/config",
-        .method = HTTP_GET, // GET pour récupérer la config
-        .handler = i2c_config_get_handler};
-    httpd_register_uri_handler(server, &uri_config_get);
+        .method = HTTP_GET,
+        .handler = i2c_config_get_handler,
+        .user_ctx = NULL};
 
-    // --- Route POST : Modifier la config I2C ---
+    ESP_LOGI(TAG, "Register: %s (GET config)", uri_config_get.uri);
+
+    err = httpd_register_uri_handler(server, &uri_config_get);
+    ESP_LOGI(TAG, "Result /config GET -> %s", esp_err_to_name(err));
+
+    // ---------------- CONFIG POST ----------------
     httpd_uri_t uri_config_post = {
-        .uri = "/api/i2c/config/set", // Même URI que pour GET
-        .method = HTTP_POST,      // <-- CORRIGÉ : POST pour modifier
-        .handler = i2c_config_post_handler};
-    httpd_register_uri_handler(server, &uri_config_post);
+        .uri = "/api/i2c/config/set",
+        .method = HTTP_POST,
+        .handler = i2c_config_post_handler,
+        .user_ctx = NULL};
 
-    ESP_LOGI(TAG, "API I2C enregistrée avec succès (GET/POST).");
+    ESP_LOGI(TAG, "Register: %s (POST config set)", uri_config_post.uri);
+
+    err = httpd_register_uri_handler(server, &uri_config_post);
+    ESP_LOGI(TAG, "Result /config POST -> %s", esp_err_to_name(err));
+
+    // ---------------- FINAL ----------------
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // ESP_LOGI(TAG, "=== WS_API_I2C: END REGISTER ===");
+
     return ESP_OK;
 }

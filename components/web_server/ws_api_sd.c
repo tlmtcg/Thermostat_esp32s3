@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "ff.h"
+#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_SD";
 #define MOUNT_POINT "/sdcard"
@@ -68,7 +69,6 @@ static esp_err_t sd_list_handler(httpd_req_t *req)
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
 }
-
 
 // --- Handler : Lire un fichier (ex: /api/sd/read?file=alerts.log) ---
 static esp_err_t sd_read_handler(httpd_req_t *req)
@@ -159,7 +159,6 @@ static esp_err_t sd_write_handler(httpd_req_t *req)
 
     return ESP_OK;
 }
-
 
 // --- Handler : Renommer un fichier (PUT) ---
 // Utilisation : /api/sd/rename?old=ancien.txt&new=nouveau.txt
@@ -317,63 +316,110 @@ static esp_err_t sd_rmdir_handler(httpd_req_t *req)
 // --- Enregistrement des URIs ---
 esp_err_t ws_register_sd_api(httpd_handle_t server)
 {
-    // --- Définition des URIs ---
-    
-    // Lecture et Listing
+    // ESP_LOGI(TAG, "=== WS_API_SD: START REGISTER ===");
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    esp_err_t err;
+
+    // ---------------- LIST ----------------
     httpd_uri_t list_uri = {
-        .uri      = "/api/sd/list",
-        .method   = HTTP_GET,
-        .handler  = sd_list_handler
-    };
+        .uri = "/api/sd/list",
+        .method = HTTP_GET,
+        .handler = sd_list_handler,
+        .user_ctx = NULL};
 
+    ESP_LOGI(TAG, "Register: %s (LIST GET)", list_uri.uri);
+
+    err = httpd_register_uri_handler(server, &list_uri);
+    ESP_LOGI(TAG, "Result /list -> %s", esp_err_to_name(err));
+
+    // ---------------- READ ----------------
     httpd_uri_t read_uri = {
-        .uri      = "/api/sd/read",
-        .method   = HTTP_GET,
-        .handler  = sd_read_handler
-    };
+        .uri = "/api/sd/read",
+        .method = HTTP_GET,
+        .handler = sd_read_handler,
+        .user_ctx = NULL};
 
-    // Manipulation de fichiers
+    ESP_LOGI(TAG, "Register: %s (READ GET)", read_uri.uri);
+
+    err = httpd_register_uri_handler(server, &read_uri);
+    ESP_LOGI(TAG, "Result /read -> %s", esp_err_to_name(err));
+
+    // ---------------- WRITE ----------------
     httpd_uri_t write_uri = {
-        .uri      = "/api/sd/write",
-        .method   = HTTP_POST,
-        .handler  = sd_write_handler
-    };
+        .uri = "/api/sd/write",
+        .method = HTTP_POST,
+        .handler = sd_write_handler,
+        .user_ctx = NULL};
 
+    ESP_LOGI(TAG, "Register: %s (WRITE POST)", write_uri.uri);
+
+    err = httpd_register_uri_handler(server, &write_uri);
+    ESP_LOGI(TAG, "Result /write -> %s", esp_err_to_name(err));
+
+    // ---------------- RENAME ----------------
     httpd_uri_t rename_uri = {
-        .uri      = "/api/sd/rename",
-        .method   = HTTP_PUT,
-        .handler  = sd_rename_handler
-    };
+        .uri = "/api/sd/rename",
+        .method = HTTP_PUT,
+        .handler = sd_rename_handler,
+        .user_ctx = NULL};
 
+    ESP_LOGI(TAG, "Register: %s (RENAME PUT)", rename_uri.uri);
+
+    err = httpd_register_uri_handler(server, &rename_uri);
+    ESP_LOGI(TAG, "Result /rename -> %s", esp_err_to_name(err));
+
+    // ---------------- DELETE ----------------
     httpd_uri_t delete_uri = {
-        .uri      = "/api/sd/delete",
-        .method   = HTTP_DELETE,
-        .handler  = sd_delete_handler
-    };
+        .uri = "/api/sd/delete",
+        .method = HTTP_DELETE,
+        .handler = sd_delete_handler,
+        .user_ctx = NULL};
 
-    // Gestion des dossiers
+    ESP_LOGI(TAG, "Register: %s (DELETE)", delete_uri.uri);
+
+    err = httpd_register_uri_handler(server, &delete_uri);
+    ESP_LOGI(TAG, "Result /delete -> %s", esp_err_to_name(err));
+
+    // ---------------- MKDIR ----------------
     httpd_uri_t mkdir_uri = {
-        .uri      = "/api/sd/mkdir",
-        .method   = HTTP_POST,
-        .handler  = sd_mkdir_handler
-    };
+        .uri = "/api/sd/mkdir",
+        .method = HTTP_POST,
+        .handler = sd_mkdir_handler,
+        .user_ctx = NULL};
 
+    ESP_LOGI(TAG, "Register: %s (MKDIR POST)", mkdir_uri.uri);
+
+    err = httpd_register_uri_handler(server, &mkdir_uri);
+    ESP_LOGI(TAG, "Result /mkdir -> %s", esp_err_to_name(err));
+
+    // ---------------- RMDIR ----------------
     httpd_uri_t rmdir_uri = {
-        .uri      = "/api/sd/rmdir",
-        .method   = HTTP_DELETE,
-        .handler  = sd_rmdir_handler
-    };
+        .uri = "/api/sd/rmdir",
+        .method = HTTP_DELETE,
+        .handler = sd_rmdir_handler,
+        .user_ctx = NULL};
 
-    // --- Enregistrement des Handlers ---
-    
-    httpd_register_uri_handler(server, &list_uri);
-    httpd_register_uri_handler(server, &read_uri);
-    httpd_register_uri_handler(server, &write_uri);
-    httpd_register_uri_handler(server, &rename_uri);
-    httpd_register_uri_handler(server, &delete_uri);
-    httpd_register_uri_handler(server, &mkdir_uri);
-    httpd_register_uri_handler(server, &rmdir_uri);
+    ESP_LOGI(TAG, "Register: %s (RMDIR DELETE)", rmdir_uri.uri);
 
-    ESP_LOGI(TAG, "API SD enregistrée : Full File Manager Ready");
+    err = httpd_register_uri_handler(server, &rmdir_uri);
+    ESP_LOGI(TAG, "Result /rmdir -> %s", esp_err_to_name(err));
+
+    // ---------------- FINAL ----------------
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // ESP_LOGI(TAG, "=== WS_API_SD: END REGISTER ===");
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "SD API registration FAILED");
+        return err;
+    }
+
+    ESP_LOGI(TAG, "API SD enregistrée avec succès");
     return ESP_OK;
 }

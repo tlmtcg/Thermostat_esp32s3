@@ -3,6 +3,7 @@
 #include "freebox_ftp.h" // Nouvelle inclusion
 #include "cJSON.h"
 #include <stdlib.h>
+#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_FB";
 
@@ -174,19 +175,79 @@ esp_err_t post_fb_rename_handler(httpd_req_t *req)
 
 esp_err_t ws_register_freebox_api(httpd_handle_t server)
 {
-    ESP_LOGI(TAG, "Enregistrement de l'API Freebox...");
+    // ESP_LOGI(TAG, "=== WS_API_FREEBOX: START REGISTER ===");
 
-    httpd_uri_t uri_fb_list = {.uri = "/api/freebox/list", .method = HTTP_GET, .handler = get_fb_list_handler};
-    httpd_uri_t uri_fb_read = {.uri = "/api/freebox/read", .method = HTTP_GET, .handler = get_fb_read_handler};
-    httpd_uri_t uri_fb_save = {.uri = "/api/freebox/save", .method = HTTP_POST, .handler = post_fb_save_handler};
-    httpd_uri_t uri_fb_rename = {.uri = "/api/freebox/rename", .method = HTTP_POST, .handler = post_fb_rename_handler};
-    httpd_uri_t uri_fb_del = {.uri = "/api/freebox/delete", .method = HTTP_DELETE, .handler = delete_fb_handler};
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
-    httpd_register_uri_handler(server, &uri_fb_list);
-    httpd_register_uri_handler(server, &uri_fb_read);
-    httpd_register_uri_handler(server, &uri_fb_save);
-    httpd_register_uri_handler(server, &uri_fb_rename);
-    httpd_register_uri_handler(server, &uri_fb_del);
+    esp_err_t err;
+
+    // ---------------- LIST ----------------
+    httpd_uri_t uri_fb_list = {
+        .uri = "/api/freebox/list",
+        .method = HTTP_GET,
+        .handler = get_fb_list_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (GET)", uri_fb_list.uri);
+
+    err = httpd_register_uri_handler(server, &uri_fb_list);
+    ESP_LOGI(TAG, "Result /list -> %s", esp_err_to_name(err));
+
+    // ---------------- READ ----------------
+    httpd_uri_t uri_fb_read = {
+        .uri = "/api/freebox/read",
+        .method = HTTP_GET,
+        .handler = get_fb_read_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (GET)", uri_fb_read.uri);
+
+    err = httpd_register_uri_handler(server, &uri_fb_read);
+    ESP_LOGI(TAG, "Result /read -> %s", esp_err_to_name(err));
+
+    // ---------------- SAVE ----------------
+    httpd_uri_t uri_fb_save = {
+        .uri = "/api/freebox/save",
+        .method = HTTP_POST,
+        .handler = post_fb_save_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (POST)", uri_fb_save.uri);
+
+    err = httpd_register_uri_handler(server, &uri_fb_save);
+    ESP_LOGI(TAG, "Result /save -> %s", esp_err_to_name(err));
+
+    // ---------------- RENAME ----------------
+    httpd_uri_t uri_fb_rename = {
+        .uri = "/api/freebox/rename",
+        .method = HTTP_POST,
+        .handler = post_fb_rename_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (POST)", uri_fb_rename.uri);
+
+    err = httpd_register_uri_handler(server, &uri_fb_rename);
+    ESP_LOGI(TAG, "Result /rename -> %s", esp_err_to_name(err));
+
+    // ---------------- DELETE ----------------
+    httpd_uri_t uri_fb_del = {
+        .uri = "/api/freebox/delete",
+        .method = HTTP_DELETE,
+        .handler = delete_fb_handler,
+        .user_ctx = NULL};
+
+    ESP_LOGI(TAG, "Register: %s (DELETE)", uri_fb_del.uri);
+
+    err = httpd_register_uri_handler(server, &uri_fb_del);
+    ESP_LOGI(TAG, "Result /delete -> %s", esp_err_to_name(err));
+
+    // ---------------- FINAL ----------------
+
+    g_http_handlers_used += 1;
+    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
+
+    // ESP_LOGI(TAG, "=== WS_API_FREEBOX: END REGISTER ===");
 
     return ESP_OK;
 }

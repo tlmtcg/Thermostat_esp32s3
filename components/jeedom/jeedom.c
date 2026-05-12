@@ -46,8 +46,8 @@ bool SendStatusJeedom()
 {
 // 1. Garde : on vérifie si l'intégration est ACTIVÉE
 #ifndef CONFIG_JEEDOM_ENABLE
-    ESP_LOGW(TAG, "L'intégration Jeedom est désactivée.");
-    return false;
+    ESP_LOGW(TAG, "L'intégration Jeedom est activée.");
+    return true;
 #endif
 
     bool success = false;
