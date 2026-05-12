@@ -46,6 +46,8 @@ extern const uint8_t tasks_html_start[] asm("_binary_tasks_html_start");
 extern const uint8_t tasks_html_end[] asm("_binary_tasks_html_end");
 extern const uint8_t i2c_html_start[] asm("_binary_i2c_html_start");
 extern const uint8_t i2c_html_end[] asm("_binary_i2c_html_end");
+extern const uint8_t sht31_html_start[] asm("_binary_sht31_html_start");
+extern const uint8_t sht31_html_end[]   asm("_binary_sht31_html_end");
 
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
@@ -167,6 +169,12 @@ static esp_err_t get_i2c(httpd_req_t *req)
 {
     return send_embedded_file(req, i2c_html_start, i2c_html_end, "text/html");
 }
+
+static esp_err_t get_sht31(httpd_req_t *req)
+{
+    return send_embedded_file(req, sht31_html_start, sht31_html_end, "text/html");
+}
+
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -193,6 +201,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_sd = {.uri = "/sd", .method = HTTP_GET, .handler = get_sd};
     httpd_uri_t uri_tasks = {.uri = "/tasks", .method = HTTP_GET, .handler = get_tasks};
     httpd_uri_t uri_i2c = {.uri = "/i2c", .method = HTTP_GET, .handler = get_i2c};
+    httpd_uri_t uri_sht31 = {.uri = "/sht31", .method = HTTP_GET, .handler = get_sht31};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -213,6 +222,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_sd);
     httpd_register_uri_handler(server, &uri_tasks);
     httpd_register_uri_handler(server, &uri_i2c);
+    httpd_register_uri_handler(server, &uri_sht31);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;

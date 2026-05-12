@@ -18,6 +18,7 @@ idf_component_register(
         "ws_api_sd.c"
         "ws_api_task.c"
         "ws_api_i2c.c"
+        "ws_api_sht31.c"
 
     INCLUDE_DIRS 
         "include"
@@ -39,6 +40,7 @@ idf_component_register(
         sd_card
         task_manager
         i2c_manager
+        sht31
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -63,6 +65,7 @@ idf_component_register(
         "www/tasks.html"
         "www/i2c.html"
         "www/logs.html"
+        "www/sht31.html"
         "www/jeedom.html"
         "www/common.css"
         "www/index.js"

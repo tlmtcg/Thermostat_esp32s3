@@ -90,7 +90,7 @@ esp_err_t ws_register_sys_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_SYS: START REGISTER ===");
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     esp_err_t err;
@@ -106,7 +106,7 @@ esp_err_t ws_register_sys_api(httpd_handle_t server)
     err = httpd_register_uri_handler(server, &uri_api_sys);
     ESP_LOGI(TAG, "Result /api/sys -> %s", esp_err_to_name(err));
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_SYS: END REGISTER ===");

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+
+    <title>SHT31 - Température & Humidité</title>
+
+    <style>
+      .sensor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .sensor-card {
+        background: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .sensor-title {
+        font-size: 1rem;
+        color: #aaa;
+        margin-bottom: 10px;
+      }
+
+      .sensor-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+      }
+
+      .temp {
+        color: #ff9800;
+      }
+
+      .hum {
+        color: #4fc3f7;
+      }
+
+      .status-ok {
+        color: #4caf50;
+        font-weight: bold;
+      }
+
+      .status-error {
+        color: #f44336;
+        font-weight: bold;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 8px 14px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+      }
+
+      button.secondary {
+        background-color: #444;
+      }
+
+      .info-line {
+        margin-top: 10px;
+        font-size: 0.9rem;
+        color: #aaa;
+      }
+
+      .big-status {
+        font-size: 1.1rem;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Capteur SHT31</h1>
+
+    <div class="box">
+      <h2>Mesures en Temps Réel</h2>
+
+      <div class="sensor-grid">
+        <div class="sensor-card">
+          <div class="sensor-title">🌡 Température</div>
+          <div class="sensor-value temp" id="temperature">
+            --.- °C
+          </div>
+        </div>
+
+        <div class="sensor-card">
+          <div class="sensor-title">💧 Humidité</div>
+          <div class="sensor-value hum" id="humidity">
+            --.- %
+          </div>
+        </div>
+      </div>
+
+      <div class="big-status">
+        Statut :
+        <span id="status" class="status-error">
+          Déconnexion
+        </span>
+      </div>
+
+      <div class="info-line">
+        Dernière mise à jour :
+        <span id="last-update">--</span>
+      </div>
+
+      <div class="controls">
+        <button onclick="fetchSHT31()">
+          Rafraîchir
+        </button>
+
+        <button
+          class="secondary"
+          id="btn-auto"
+          onclick="toggleAutoRefresh()"
+        >
+          Auto: ON
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let autoRefreshInterval = null;
+
+      async function fetchSHT31() {
+        try {
+          const response = await fetch('/api/sensors/sht31');
+
+          if (!response.ok) {
+            throw new Error("Erreur HTTP");
+          }
+
+          const data = await response.json();
+
+          updateUI(data);
+
+        } catch (err) {
+
+          console.error("Erreur SHT31:", err);
+
+          document.getElementById('status').textContent = "Erreur API";
+          document.getElementById('status').className = "status-error";
+        }
+      }
+
+      function updateUI(data) {
+
+        document.getElementById('temperature').textContent =
+          `${data.temperature.toFixed(1)} °C`;
+
+        document.getElementById('humidity').textContent =
+          `${data.humidity.toFixed(1)} %`;
+
+        const status = document.getElementById('status');
+
+        if (data.valid) {
+
+          status.textContent = "Capteur OK";
+          status.className = "status-ok";
+
+        } else {
+
+          status.textContent = "Capteur indisponible";
+          status.className = "status-error";
+        }
+
+        if (data.last_update > 0) {
+
+          const d = new Date(data.last_update * 1000);
+
+          document.getElementById('last-update').textContent =
+            d.toLocaleString();
+
+        } else {
+
+          document.getElementById('last-update').textContent = "--";
+        }
+      }
+
+      function toggleAutoRefresh() {
+
+        const btn = document.getElementById('btn-auto');
+
+        if (autoRefreshInterval) {
+
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+
+          btn.textContent = "Auto: OFF";
+
+        } else {
+
+          autoRefreshInterval = setInterval(fetchSHT31, 3000);
+
+          btn.textContent = "Auto: ON";
+        }
+      }
+
+      // Initialisation
+      fetchSHT31();
+
+      autoRefreshInterval = setInterval(fetchSHT31, 3000);
+    </script>
+
+    <script src="index.js"></script>
+  </body>
+</html>

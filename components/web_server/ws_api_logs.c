@@ -49,7 +49,7 @@ esp_err_t ws_register_logs_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_LOGS: START REGISTER ===");
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // Redirection logs vers Web
@@ -69,7 +69,7 @@ esp_err_t ws_register_logs_api(httpd_handle_t server)
 
     ESP_LOGI(TAG, "Result /api/logs -> %s", esp_err_to_name(err));
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_LOGS: END REGISTER ===");

@@ -18,6 +18,7 @@
 #include "ws_api_sd.h"
 #include "ws_api_task.h"
 #include "ws_api_i2c.h"
+#include "ws_api_sht31.h"
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -40,6 +41,7 @@ static ws_register_fn_t registry[] = {
     ws_register_sd_api,
     ws_register_tasks_api,
     ws_register_i2c_api,
+    ws_register_sht31_api,
     ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
 };
 

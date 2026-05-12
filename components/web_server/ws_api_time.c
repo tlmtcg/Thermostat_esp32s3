@@ -77,7 +77,7 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_TIME: START REGISTER ===");
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     esp_err_t err;
@@ -97,7 +97,7 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "GET /api/time failed: %s", esp_err_to_name(err));
 
-        g_http_handlers_used += 1;
+        // g_http_handlers_used += 1;
         // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return err;
     }
@@ -119,7 +119,7 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "POST /api/time failed: %s", esp_err_to_name(err));
 
-        g_http_handlers_used += 1;
+        // g_http_handlers_used += 1;
         // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return err;
     }
@@ -128,7 +128,7 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
 
     // ---------------- FINAL ----------------
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_TIME: END REGISTER ===");

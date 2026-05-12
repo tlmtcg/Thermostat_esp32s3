@@ -17,6 +17,8 @@ set(my_requires
     email_service
     i2c_manager
     config_storage
+    sht31
+    ssd1306
 )
 
 # Enregistrement du composant principal

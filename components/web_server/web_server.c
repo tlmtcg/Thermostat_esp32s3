@@ -17,13 +17,14 @@
 #include "ws_api_sd.h"
 #include "ws_api_task.h"
 #include "ws_api_i2c.h"
+#include "ws_api_sht31.h"
 
 static const char *TAG = "WEB_SERVER";
 
 static httpd_handle_t server = NULL;
 
- int g_http_handlers_used = 0;
- int g_http_handlers_max = 128;
+//  int g_http_handlers_used = 0;
+//  int g_http_handlers_max = 128;
 
 /**
  * @brief Enregistre toutes les routes d’un module et log en cas d’erreur.
@@ -97,6 +98,7 @@ httpd_handle_t start_webserver(void)
     register_module(server, "sd", ws_register_sd_api);
     register_module(server, "tasks", ws_register_tasks_api);
     register_module(server, "i2c", ws_register_i2c_api);
+    register_module(server, "sht31", ws_register_sht31_api);
 
     ESP_LOGI(TAG, "Serveur Web prêt.");
 

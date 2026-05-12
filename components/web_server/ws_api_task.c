@@ -114,7 +114,7 @@ void ws_register_tasks_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_TASKS: START REGISTER ===");
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     esp_err_t err;
@@ -134,7 +134,7 @@ void ws_register_tasks_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "GET /api/tasks failed: %s", esp_err_to_name(err));
 
-        g_http_handlers_used += 1;
+        // g_http_handlers_used += 1;
         // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return;
     }
@@ -156,7 +156,7 @@ void ws_register_tasks_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "POST /api/tasks failed: %s", esp_err_to_name(err));
 
-        g_http_handlers_used += 1;
+        // g_http_handlers_used += 1;
         // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return;
     }
@@ -165,7 +165,7 @@ void ws_register_tasks_api(httpd_handle_t server)
 
     // ---------------- FINAL ----------------
 
-    g_http_handlers_used += 1;
+    // g_http_handlers_used += 1;
     // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_TASKS: END REGISTER ===");

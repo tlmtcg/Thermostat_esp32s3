@@ -1,28 +1,34 @@
 #pragma once
 
-#include "esp_err.h"
 #include "driver/i2c_master.h"
+#include "esp_err.h"
 #include "cJSON.h"
+#include <stdbool.h>
+#include <stdint.h>
 
-// Déclarer la structure i2c_scan_result_t AVANT son utilisation
+/* =========================
+ *  GLOBAL BUS
+ * ========================= */
+extern i2c_master_bus_handle_t i2c_bus;
+
+/* =========================
+ *  SCAN STRUCT
+ * ========================= */
 typedef struct {
-    uint8_t *addresses;  // Tableau des adresses I2C
-    size_t count;        // Nombre d'adresses trouvées
-    char timestamp[20];  // Timestamp au format "JJ/MM/AAAA HH:MM:SS"
+    uint8_t *addresses;
+    size_t count;
+    char timestamp[32];
 } i2c_scan_result_t;
 
-// Initialisation du bus I2C
+/* =========================
+ *  API
+ * ========================= */
 esp_err_t i2c_manager_init(void);
-
-// Scan des périphériques I2C
 esp_err_t i2c_manager_scan(void);
 
-// Récupère le JSON des périphériques (pour l'API)
-cJSON *i2c_manager_get_devices_json(void);
+bool i2c_device_exists(i2c_master_bus_handle_t bus, uint8_t addr);
 
-// Récupère le résultat brut du scan
+cJSON *i2c_manager_get_devices_json(void);
 const i2c_scan_result_t *i2c_manager_get_scan_result(void);
 
-// Reconfigure le bus I2C avec de nouveaux paramètres
-esp_err_t i2c_manager_reinit(int sda_gpio, int scl_gpio, int freq_hz);
-
+extern i2c_master_bus_handle_t i2c_bus;
