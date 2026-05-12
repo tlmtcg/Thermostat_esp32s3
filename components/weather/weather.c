@@ -7,6 +7,11 @@
 #include "weather.h"
 #include "esp_crt_bundle.h"
 #include "alert_manager.h"
+#include "esp_crt_bundle.h"
+
+// Le certificat est inclus dans le binaire
+extern const uint8_t open_meteo_cert_pem_start[] asm("_binary_open_meteo_cert_pem_start");
+extern const uint8_t open_meteo_cert_pem_end[] asm("_binary_open_meteo_cert_pem_end");
 
 static const char *TAG = "WEATHER_SERVICE";
 static char *response_data = NULL;
@@ -18,80 +23,88 @@ weather_data_t latest_weather;
 // Ce code accumule les données reçues par fragments lors d’une requête HTTP
 // et les stocke dans un buffer dynamique (response_data)
 // jusqu’à atteindre une taille maximale.
-esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+// Handler d'événements HTTP (doit être défini quelque part)
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
-    if (evt->event_id == HTTP_EVENT_ON_DATA)
-    // Un fragment de la réponse HTTP vient d’arriver.
+    switch (evt->event_id)
     {
-        if (response_len + evt->data_len < MAX_HTTP_RECV_BUFFER)
-        // Sécurité : évite un dépassement de buffer
+    case HTTP_EVENT_ON_DATA:
+        // Allouer ou réallouer le buffer pour les nouvelles données
+        char *new_data = realloc(response_data, response_len + evt->data_len + 1);
+        if (new_data == NULL)
         {
-            // On agrandit response_data pour y ajouter le nouveau fragment
-            char *new_ptr = realloc(response_data, response_len + evt->data_len + 1);
-            if (new_ptr)
-            {
-                // copie le fragment reçu à la suite du buffer existant
-                response_data = new_ptr;
-                memcpy(response_data + response_len, evt->data, evt->data_len);
-                // met à jour la longueur totale
-                response_len += evt->data_len;
-                // le buffer devient une chaîne C valide
-                response_data[response_len] = '\0';
-            }
-            else
-            {
-                ESP_LOGE(TAG, "Échec realloc buffer HTTP");
-            }
+            ESP_LOGE(TAG, "Échec de l'allocation mémoire pour la réponse");
+            free(response_data);
+            response_data = NULL;
+            response_len = 0;
+            return ESP_FAIL;
         }
-        else
-        {
-            ESP_LOGW(TAG, "Buffer HTTP plein, données ignorées");
-        }
+        response_data = new_data;
+        memcpy(response_data + response_len, evt->data, evt->data_len);
+        response_len += evt->data_len;
+        response_data[response_len] = '\0'; // Terminaison nulle
+        break;
+    default:
+        break;
     }
     return ESP_OK;
 }
 
 esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
 {
-    // Reset buffer global
-    // Avant chaque requête, on remet à zéro :
-    // response_data (buffer dynamique)
-    // response_len (taille accumulée)
-    // Evite les fuites mémoire entre deux appels.
-
-    if (response_data)
+    // Réinitialiser le buffer avant chaque requête
+    if (response_data != NULL)
+    {
         free(response_data);
-    response_data = NULL;
-    response_len = 0;
+        response_data = NULL;
+        response_len = 0;
+    }
 
-    // Configuration du client http
+    // Configuration du client HTTP
     esp_http_client_config_t config = {
         .url = url,
-        .event_handler = _http_event_handler, // accumule les fragments de réponse
+        .event_handler = _http_event_handler,
         .timeout_ms = timeout_ms,
-        .skip_cert_common_name_check = true, // ignore CN du certificat
+        .cert_pem = (const char *)open_meteo_cert_pem_start,
+        .cert_len = open_meteo_cert_pem_end - open_meteo_cert_pem_start,
+        .use_global_ca_store = false,         // Désactive le magasin global (on utilise notre certificat)
+        .skip_cert_common_name_check = false, // Vérifie le nom commun du certificat
     };
 
-    ESP_LOGI(TAG, "Lancement de la requête url %s", url);
-    // Lancement de la requête
-    // Ouvre la connexion, envoie la requête, reçoit la réponse par fragments
-    // Appelle _http_event_handler à chaque fragment
+    ESP_LOGI(TAG, "Lancement de la requête URL: %s", url);
+
+    // Initialiser le client HTTP
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL)
+    {
+        ESP_LOGE(TAG, "Échec de l'initialisation du client HTTP");
+        alert_add("Absence météo");
+        return ESP_FAIL;
+    }
+
+    // Exécuter la requête
     esp_err_t err = esp_http_client_perform(client);
 
+    // Nettoyer le client HTTP
     esp_http_client_cleanup(client);
 
     if (err != ESP_OK)
     {
-        alert_add("Absence météo"); // La LED clignote en erreur
+        ESP_LOGE(TAG, "Erreur HTTP: %s", esp_err_to_name(err));
+        alert_add("Absence météo");
         return err;
     }
 
-    // Vérification que la réponse existe
-    if (response_data == NULL)
+    // Vérifier que la réponse existe et n'est pas vide
+    if (response_data == NULL || response_len == 0)
+    {
+        ESP_LOGE(TAG, "Aucune donnée reçue");
+        alert_add("Absence météo");
         return ESP_FAIL;
+    }
 
-    alert_remove("Absence météo"); // La LED clignote en erreur
+    // Succès : supprimer l'alerte si elle existait
+    alert_remove("Absence météo");
     return ESP_OK;
 }
 

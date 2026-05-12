@@ -99,47 +99,55 @@ static esp_err_t i2c_config_get_handler(httpd_req_t *req)
 }
 
 /* --- HANDLER POST : Modifier la config I2C --- */
-static esp_err_t i2c_config_post_handler(httpd_req_t *req) {
-    char buf[256];
-    int ret, remaining = req->content_len;
+static esp_err_t i2c_config_post_handler(httpd_req_t *req)
+{
+    int total = req->content_len;
 
-    if (remaining >= sizeof(buf)) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload trop grand");
-        return ESP_FAIL;
+    if (total <= 0 || total > 1024) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload invalide");
     }
 
-    ret = httpd_req_recv(req, buf, remaining);
-    if (ret <= 0) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Échec de la lecture de la requête");
-        return ESP_FAIL;
-    }
-    buf[ret] = '\0';
+    char *buf = malloc(total + 1);
+    if (!buf) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
 
+    int received = 0;
+    while (received < total) {
+        int r = httpd_req_recv(req, buf + received, total - received);
+        if (r <= 0) {
+            free(buf);
+            return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Lecture incomplète");
+        }
+        received += r;
+    }
+
+    buf[received] = '\0';
+    ESP_LOGI("I2C_API", "POST body = %s", buf);
+
+    // --- Parse JSON ---
     cJSON *root = cJSON_Parse(buf);
-    if (root == NULL) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON invalide");
-        return ESP_FAIL;
+    free(buf);
+
+    if (!root) {
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON invalide");
     }
 
     cJSON *sda_json = cJSON_GetObjectItem(root, "sda");
     cJSON *scl_json = cJSON_GetObjectItem(root, "scl");
     cJSON *freq_json = cJSON_GetObjectItem(root, "freq");
 
-    if (sda_json != NULL) current_config.sda_gpio = sda_json->valueint;
-    if (scl_json != NULL) current_config.scl_gpio = scl_json->valueint;
-    if (freq_json != NULL) current_config.freq_hz = freq_json->valueint;
+    if (sda_json) current_config.sda_gpio = sda_json->valueint;
+    if (scl_json) current_config.scl_gpio = scl_json->valueint;
+    if (freq_json) current_config.freq_hz = freq_json->valueint;
 
     cJSON_Delete(root);
 
+    // Sauvegarde + réinit
     i2c_save_config_to_sdcard();
-    esp_err_t i2c_ret = i2c_manager_reinit(current_config.sda_gpio, current_config.scl_gpio, current_config.freq_hz);
-    if (i2c_ret != ESP_OK) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Échec de la réinitialisation I2C");
-        return ESP_FAIL;
+    if (i2c_manager_reinit(current_config.sda_gpio, current_config.scl_gpio, current_config.freq_hz) != ESP_OK) {
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Réinit I2C échouée");
     }
 
-    httpd_resp_sendstr(req, "Configuration I2C mise à jour et sauvegardée.");
-    return ESP_OK;
+    return httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
 }
 
 // Charge la configuration I2C depuis config.json
@@ -261,7 +269,7 @@ esp_err_t ws_register_i2c_api(httpd_handle_t server)
 
     // --- Route POST : Modifier la config I2C ---
     httpd_uri_t uri_config_post = {
-        .uri = "/api/i2c/config", // Même URI que pour GET
+        .uri = "/api/i2c/config/set", // Même URI que pour GET
         .method = HTTP_POST,      // <-- CORRIGÉ : POST pour modifier
         .handler = i2c_config_post_handler};
     httpd_register_uri_handler(server, &uri_config_post);

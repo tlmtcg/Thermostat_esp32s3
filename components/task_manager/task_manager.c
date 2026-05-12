@@ -22,12 +22,12 @@ static EventGroupHandle_t s_task_event_group;
 
 /* --- Tableau centralisé des tâches --- */
 task_info_t my_tasks[] = {
-    {"Meteo", "weather", 6200, 5, BIT_WEATHER_EN, NULL, 15 * 60 * 1000},
-    {"Jeedom", "jeedom", 3100, 5, BIT_JEEDOM_EN, NULL, 60 * 1000},
-    {"NTP", "ntp", 2200, 5, BIT_NTP_EN, NULL, 60 * 1000},
+    {"Meteo", "weather", 8192, 5, BIT_WEATHER_EN, NULL, 15 * 60 * 1000},
+    {"Jeedom", "jeedom", 4096, 5, BIT_JEEDOM_EN, NULL, 60 * 1000},
+    {"NTP", "ntp", 4096, 5, BIT_NTP_EN, NULL, 60 * 1000},
     {"Led", "led", 4600, 5, BIT_LED_EN, NULL, 0},
-    {"Storage", "storage", 8000, 10, BIT_STORAGE_EN, NULL, 0},
-    {"Serial", "serial", 4000, 5, BIT_SERIAL_EN, NULL, 0},
+    {"Storage", "storage", 8192, 10, BIT_STORAGE_EN, NULL, 0},
+    {"Serial", "serial", 4096, 5, BIT_SERIAL_EN, NULL, 0},
 };
 
 const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);

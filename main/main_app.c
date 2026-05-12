@@ -120,7 +120,7 @@ void app_main(void)
     cJSON *devices_json = i2c_manager_get_devices_json();
     if (devices_json != NULL) {
         char *json_str = cJSON_Print(devices_json);
-        ESP_LOGI("MAIN", "JSON des périphériques I2C:\n%s", json_str);
+        // ESP_LOGI("MAIN", "JSON des périphériques I2C:\n%s", json_str);
         free(json_str);  // Libérer la chaîne après utilisation
     }
 

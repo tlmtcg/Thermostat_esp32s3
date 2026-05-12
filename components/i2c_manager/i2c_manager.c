@@ -81,7 +81,7 @@ esp_err_t i2c_manager_scan(void) {
     i2c_manager_free_json();
     i2c_manager_free_scan_result();
 
-    ESP_LOGI(TAG, "Début du scan I2C...");
+    // ESP_LOGI(TAG, "Début du scan I2C...");
 
     // Allouer de la mémoire pour stocker les adresses (max 128 périphériques)
     scan_result.addresses = malloc(128 * sizeof(uint8_t));
@@ -93,7 +93,7 @@ esp_err_t i2c_manager_scan(void) {
 
     // Récupérer le timestamp actuel avec ton composant
     time_utils_get_time_str(scan_result.timestamp, sizeof(scan_result.timestamp));
-    ESP_LOGI(TAG, "Timestamp du scan: %s", scan_result.timestamp);
+    // ESP_LOGI(TAG, "Timestamp du scan: %s", scan_result.timestamp);
 
     // Scanner les adresses I2C de 0x08 à 0x77
     for (uint8_t address = 0x08; address <= 0x77; address++) {
@@ -107,7 +107,7 @@ esp_err_t i2c_manager_scan(void) {
         esp_err_t ret = i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &device_handle);
         if (ret == ESP_OK) {
             scan_result.addresses[scan_result.count++] = address;
-            ESP_LOGI(TAG, "Périphérique trouvé à l'adresse: 0x%02X", address);
+            // ESP_LOGI(TAG, "Périphérique trouvé à l'adresse: 0x%02X", address);
             i2c_master_bus_rm_device(device_handle);
         }
     }
@@ -148,7 +148,7 @@ esp_err_t i2c_manager_scan(void) {
         return ESP_ERR_NOT_FOUND;
     }
 
-    ESP_LOGI(TAG, "Scan terminé. %d périphérique(s) trouvé(s).", scan_result.count);
+    // ESP_LOGI(TAG, "Scan terminé. %d périphérique(s) trouvé(s).", scan_result.count);
     return ESP_OK;
 }
 
@@ -192,11 +192,11 @@ esp_err_t i2c_manager_reinit(int sda_gpio, int scl_gpio, int freq_hz) {
 
     // Configurer le nouveau bus I2C
     i2c_master_bus_config_t bus_cfg = {
-        .i2c_port = I2C_NUM_0,               // Port I2C (0 ou 1 pour ESP32-S3)
-        .sda_io_num = sda_gpio,             // Nouveau GPIO SDA
-        .scl_io_num = scl_gpio,             // Nouveau GPIO SCL
-        .clk_source = I2C_CLK_SRC_DEFAULT,  // Source d'horloge par défaut
-        .glitch_ignore_cnt = 7,              // Ignorer les glitches (par défaut)
+        .i2c_port = I2C_NUM_0,                // Port I2C (0 ou 1 pour ESP32-S3)
+        .sda_io_num = sda_gpio,               // Nouveau GPIO SDA
+        .scl_io_num = scl_gpio,               // Nouveau GPIO SCL
+        .clk_source = I2C_CLK_SRC_DEFAULT,    // Source d'horloge par défaut
+        .glitch_ignore_cnt = 7,               // Ignorer les glitches (par défaut)
         .flags.enable_internal_pullup = true, // Activer les pull-ups internes
     };
 
