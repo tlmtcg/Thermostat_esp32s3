@@ -78,24 +78,10 @@ esp_err_t i2c_manager_init(void)
  * ========================= */
 bool i2c_device_exists(i2c_master_bus_handle_t bus, uint8_t addr)
 {
-    if (!bus) return false;
+    if (!bus)
+        return false;
 
-    i2c_master_dev_handle_t dev;
-
-    i2c_device_config_t cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = addr,
-        .scl_speed_hz = CONFIG_I2C_MANAGER_FREQ,
-    };
-
-    esp_err_t err = i2c_master_bus_add_device(bus, &cfg, &dev);
-
-    if (err == ESP_OK) {
-        i2c_master_bus_rm_device(dev);
-        return true;
-    }
-
-    return false;
+    return i2c_master_probe(bus, addr, 1000) == ESP_OK;
 }
 
 /* =========================
@@ -115,33 +101,48 @@ esp_err_t i2c_manager_scan(void)
     if (!scan_result.addresses)
         return ESP_ERR_NO_MEM;
 
-    time_utils_get_time_str(scan_result.timestamp, sizeof(scan_result.timestamp));
+    time_utils_get_time_str(scan_result.timestamp,
+                            sizeof(scan_result.timestamp));
 
     for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
 
-        i2c_master_dev_handle_t dev;
+        esp_err_t err = i2c_master_probe(
+            i2c_bus,
+            addr,
+            1000
+        );
 
-        i2c_device_config_t cfg = {
-            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-            .device_address = addr,
-            .scl_speed_hz = CONFIG_I2C_MANAGER_FREQ,
-        };
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Device trouvé: 0x%02X", addr);
 
-        if (i2c_master_bus_add_device(i2c_bus, &cfg, &dev) == ESP_OK) {
             scan_result.addresses[scan_result.count++] = addr;
-            i2c_master_bus_rm_device(dev);
         }
     }
 
     /* JSON */
     i2c_devices_json = cJSON_CreateObject();
-    cJSON_AddStringToObject(i2c_devices_json, "timestamp", scan_result.timestamp);
 
-    cJSON *arr = cJSON_AddArrayToObject(i2c_devices_json, "devices");
+    cJSON_AddStringToObject(
+        i2c_devices_json,
+        "timestamp",
+        scan_result.timestamp
+    );
+
+    cJSON *arr = cJSON_AddArrayToObject(
+        i2c_devices_json,
+        "devices"
+    );
 
     for (size_t i = 0; i < scan_result.count; i++) {
+
         cJSON *obj = cJSON_CreateObject();
-        cJSON_AddNumberToObject(obj, "address", scan_result.addresses[i]);
+
+        cJSON_AddNumberToObject(
+            obj,
+            "address",
+            scan_result.addresses[i]
+        );
+
         cJSON_AddItemToArray(arr, obj);
     }
 
