@@ -7,6 +7,7 @@
 
 #include <string.h>
 #include <time.h>
+#include "oled_service.h"
 
 /* -------------------------------------------------------------------------- */
 /*  LOG TAG                                                                    */
@@ -291,12 +292,13 @@ static void sht31_task(void *arg)
                      "Temp=%.2f°C Hum=%.2f%%",
                      t,
                      h);
+            oled_service_show_temp_hum(t, h);
 
         } else {
 
             ESP_LOGW(TAG,
                      "Lecture SHT31 échouée");
-
+             oled_service_show_error("SHT31 ERROR");
             g_sht31.state.valid = false;
         }
 

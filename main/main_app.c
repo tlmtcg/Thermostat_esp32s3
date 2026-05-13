@@ -25,12 +25,11 @@
 #include "cJSON.h"
 #include "sht31.h"
 #include "ssd1306.h"
+#include "oled_service.h"
 
 #include "driver/i2c_master.h" // 🔥 IMPORTANT ESP-IDF v6
 
 static const char *TAG = "MAIN_APP";
-
-ssd1306_t oled;
 
 #ifndef CONFIG_FILE
 #define CONFIG_FILE "/sdcard/config.json"
@@ -39,44 +38,194 @@ ssd1306_t oled;
 // =======================
 // INIT I2C BUS (ESP-IDF v6)
 // =======================
-static void i2c_bus_init(void)
-{
-    i2c_master_bus_config_t bus_cfg = {
-        .i2c_port = I2C_NUM_0,
-        .sda_io_num = 8,
-        .scl_io_num = 9,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .flags.enable_internal_pullup = true,
-    };
+// static void i2c_bus_init(void)
+// {
+//     i2c_master_bus_config_t bus_cfg = {
+//         .i2c_port = I2C_NUM_0,
+//         .sda_io_num = 8,
+//         .scl_io_num = 9,
+//         .clk_source = I2C_CLK_SRC_DEFAULT,
+//         .glitch_ignore_cnt = 7,
+//         .flags.enable_internal_pullup = true,
+//     };
 
-    ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &i2c_bus));
-    ESP_LOGI(TAG, "I2C bus initialisé");
-}
+//     ESP_ERROR_CHECK(i2c_new_master_bus(&bus_cfg, &i2c_bus));
+//     ESP_LOGI(TAG, "I2C bus initialisé");
+// }
 
 void test_email();
+
+// void app_main(void)
+// {
+//     ESP_LOGI(TAG, "Démarrage du système...");
+
+//     // --- NVS ---
+//     esp_err_t ret = nvs_flash_init();
+//     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+//     {
+//         ESP_ERROR_CHECK(nvs_flash_erase());
+//         ESP_ERROR_CHECK(nvs_flash_init());
+//     }
+
+//     // --- SD CARD ---
+//     if (init_sd_card(NULL) != ESP_OK)
+//     {
+//         ESP_LOGW(TAG, "SD non disponible");
+//         return;
+//     }
+
+//     // --- CONFIG ---
+//     cJSON *config_json = load_json_from_sdcard(CONFIG_FILE);
+//     if (config_json)
+//     {
+//         ESP_LOGI(TAG, "Config chargée");
+//         cJSON_Delete(config_json);
+//     }
+//     else
+//     {
+//         ESP_LOGW(TAG, "Génération config");
+//         save_kconfig_to_sdcard(CONFIG_FILE);
+//     }
+
+//     led_storage_init();
+//     led_init();
+
+//     // --- WIFI ---
+//     wifi_app_start();
+
+//     // --- WEB SERVER ---
+//     ESP_LOGI(TAG, "Démarrage serveur web...");
+//     httpd_handle_t server = start_webserver();
+
+//     if (!server)
+//     {
+//         ESP_LOGE(TAG, "Serveur Web FAIL");
+//         return;
+//     }
+
+//     ESP_LOGI(TAG, "Serveur OK");
+
+//     // --- TIME ---
+//     time_utils_init();
+
+//     // --- LED DB ---
+//     led_db_print_status();
+
+//     // --- HEATING ---
+//     heating_init(&config);
+
+//     // =======================
+//     // 🔥 I2C INIT PROPRE
+//     // =======================
+//     i2c_bus_init();
+
+//     // Scan I2C
+//     i2c_manager_scan();
+
+//     // FIX IMPORTANT : i2c_device_exists DOIT recevoir bus + addr
+//     if (i2c_device_exists(i2c_bus, 0x44))
+//     {
+//         sht31_start(i2c_bus, 0x44);
+//     }
+//     else if (i2c_device_exists(i2c_bus, 0x45))
+//     {
+//         sht31_start(i2c_bus, 0x45);
+//     }
+
+//     if (i2c_device_exists(i2c_bus, 0x3C))
+//     {
+//         ESP_LOGI(TAG, "OLED SSD1306 détecté");
+
+//         ssd1306_init(&oled, i2c_bus, 0x3C);
+
+//         oled_service_init(i2c_bus);
+
+//         oled_service_show_boot();
+
+//     } else {
+//         ESP_LOGW(TAG,"OLE SSD1306 non détecté");
+//     }
+
+//     // DEBUG JSON I2C
+//     cJSON *devices_json = i2c_manager_get_devices_json();
+//     if (devices_json)
+//     {
+//         char *json_str = cJSON_Print(devices_json);
+//         free(json_str);
+//     }
+// }
 
 void app_main(void)
 {
     ESP_LOGI(TAG, "Démarrage du système...");
 
-    // --- NVS ---
+    /* ------------------------------------------------------- */
+    /* NVS */
+    /* ------------------------------------------------------- */
+
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
-    // --- SD CARD ---
+    /* ------------------------------------------------------- */
+    /* I2C EARLY INIT */
+    /* ------------------------------------------------------- */
+
+    ESP_ERROR_CHECK(
+        i2c_manager_init(
+            CONFIG_I2C_MANAGER_SDA,
+            CONFIG_I2C_MANAGER_SCL,
+            CONFIG_I2C_MANAGER_FREQ));
+
+    /* ------------------------------------------------------- */
+    /* OLED EARLY INIT */
+    /* ------------------------------------------------------- */
+
+    if (i2c_device_exists(i2c_bus, 0x3C))
+    {
+        ESP_LOGI(TAG, "OLED SSD1306 détecté");
+
+        ESP_ERROR_CHECK(
+            oled_service_init(i2c_bus));
+
+        oled_service_show_boot();
+    }
+
+    /* ------------------------------------------------------- */
+    /* SD CARD */
+    /* ------------------------------------------------------- */
+
+    oled_service_show_text(
+        "THERMOSTAT",
+        "Mount SD...",
+        NULL);
+
     if (init_sd_card(NULL) != ESP_OK)
     {
         ESP_LOGW(TAG, "SD non disponible");
+
+        oled_service_show_error("SD FAIL");
+
         return;
     }
 
-    // --- CONFIG ---
-    cJSON *config_json = load_json_from_sdcard(CONFIG_FILE);
+    /* ------------------------------------------------------- */
+    /* CONFIG */
+    /* ------------------------------------------------------- */
+
+    oled_service_show_text(
+        "THERMOSTAT",
+        "Load config...",
+        NULL);
+
+    cJSON *config_json =
+        load_json_from_sdcard(CONFIG_FILE);
+
     if (config_json)
     {
         ESP_LOGI(TAG, "Config chargée");
@@ -85,47 +234,72 @@ void app_main(void)
     else
     {
         ESP_LOGW(TAG, "Génération config");
+
         save_kconfig_to_sdcard(CONFIG_FILE);
     }
+
+    /* ------------------------------------------------------- */
+    /* LED */
+    /* ------------------------------------------------------- */
 
     led_storage_init();
     led_init();
 
-    // --- WIFI ---
+    /* ------------------------------------------------------- */
+    /* WIFI */
+    /* ------------------------------------------------------- */
+
+    oled_service_show_text(
+        "THERMOSTAT",
+        "Starting WiFi...",
+        NULL);
+
     wifi_app_start();
 
-    // --- WEB SERVER ---
-    ESP_LOGI(TAG, "Démarrage serveur web...");
-    httpd_handle_t server = start_webserver();
+    /* ------------------------------------------------------- */
+    /* WEB SERVER */
+    /* ------------------------------------------------------- */
+
+    oled_service_show_text(
+        "THERMOSTAT",
+        "Starting Web...",
+        NULL);
+
+    httpd_handle_t server =
+        start_webserver();
 
     if (!server)
     {
         ESP_LOGE(TAG, "Serveur Web FAIL");
+
+        oled_service_show_error(
+            "WEB FAIL");
+
         return;
     }
 
-    ESP_LOGI(TAG, "Serveur OK");
+    /* ------------------------------------------------------- */
+    /* TIME */
+    /* ------------------------------------------------------- */
 
-    // --- TIME ---
     time_utils_init();
 
-    // --- LED DB ---
-    led_db_print_status();
+    /* ------------------------------------------------------- */
+    /* HEATING */
+    /* ------------------------------------------------------- */
 
-    // --- HEATING ---
     heating_init(&config);
 
-    // =======================
-    // 🔥 I2C INIT PROPRE
-    // =======================
-    i2c_bus_init();
+    /* ------------------------------------------------------- */
+    /* I2C SCAN */
+    /* ------------------------------------------------------- */
 
-    // i2c_manager_init();
-
-    // Scan I2C
     i2c_manager_scan();
 
-    // FIX IMPORTANT : i2c_device_exists DOIT recevoir bus + addr
+    /* ------------------------------------------------------- */
+    /* SHT31 */
+    /* ------------------------------------------------------- */
+
     if (i2c_device_exists(i2c_bus, 0x44))
     {
         sht31_start(i2c_bus, 0x44);
@@ -135,28 +309,16 @@ void app_main(void)
         sht31_start(i2c_bus, 0x45);
     }
 
-    if (i2c_device_exists(i2c_bus, 0x3C))
-    {
-        ESP_LOGI(TAG, "OLED SSD1306 détecté");
+    /* ------------------------------------------------------- */
+    /* READY */
+    /* ------------------------------------------------------- */
 
-        ssd1306_init(&oled, i2c_bus, 0x3C);
+    oled_service_show_text(
+        "THERMOSTAT",
+        "System Ready",
+        NULL);
 
-        ssd1306_draw_string(&oled, 0, 0, "THERMOSTAT");
-
-        ssd1306_draw_string(&oled, 0, 16, "ESP32-S3");
-
-        ssd1306_update(&oled);
-    } else {
-        ESP_LOGW(TAG,"OLE SSD1306 non détecté");
-    }
-
-    // DEBUG JSON I2C
-    cJSON *devices_json = i2c_manager_get_devices_json();
-    if (devices_json)
-    {
-        char *json_str = cJSON_Print(devices_json);
-        free(json_str);
-    }
+    ESP_LOGI(TAG, "Boot terminé");
 }
 
 // =======================

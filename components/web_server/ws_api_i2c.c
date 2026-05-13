@@ -6,6 +6,7 @@
 #include "config_storage.h"
 
 #include "sht31.h"
+#include "ssd1306.h"
 
 #include "esp_log.h"
 
@@ -307,6 +308,7 @@ static esp_err_t i2c_config_post_handler(httpd_req_t *req)
      */
 
     sht31_deinit();
+    ssd1306_deinit(&oled);
 
     /* ---------------------------------------------------------------------- */
     /*  DELETE BUS                                                            */

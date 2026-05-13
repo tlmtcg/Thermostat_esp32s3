@@ -34,32 +34,6 @@ static esp_err_t ssd1306_write_cmd(ssd1306_t *lcd, uint8_t cmd)
         pdMS_TO_TICKS(100));
 }
 
-/* -------------------------------------------------------------------------- */
-/*  SAFE WRITE DATA                                                          */
-/* -------------------------------------------------------------------------- */
-
-static esp_err_t ssd1306_write_data(
-    ssd1306_t *lcd,
-    const uint8_t *data,
-    size_t len)
-{
-    if (!lcd || !lcd->dev || !data)
-        return ESP_ERR_INVALID_STATE;
-
-    uint8_t buf[SSD1306_WIDTH + 1];
-
-    if (len > SSD1306_WIDTH)
-        len = SSD1306_WIDTH;
-
-    buf[0] = SSD1306_CONTROL_DATA;
-    memcpy(&buf[1], data, len);
-
-    return i2c_master_transmit(
-        lcd->dev,
-        buf,
-        len + 1,
-        pdMS_TO_TICKS(200));
-}
 
 /* -------------------------------------------------------------------------- */
 /*  INIT                                                                     */
@@ -177,7 +151,38 @@ void ssd1306_draw_string(
 }
 
 /* -------------------------------------------------------------------------- */
-/*  UPDATE                                                                   */
+/*  WRITE DATA BLOCK                                                          */
+/* -------------------------------------------------------------------------- */
+
+static esp_err_t ssd1306_write_data(
+    ssd1306_t *lcd,
+    const uint8_t *data,
+    size_t len)
+{
+    if (!lcd || !lcd->dev || !data)
+        return ESP_ERR_INVALID_STATE;
+
+    /*
+     * +1 pour le byte CONTROL_DATA
+     */
+    uint8_t buf[129];
+
+    if (len > 128)
+        return ESP_ERR_INVALID_SIZE;
+
+    buf[0] = SSD1306_CONTROL_DATA;
+
+    memcpy(&buf[1], data, len);
+
+    return i2c_master_transmit(
+        lcd->dev,
+        buf,
+        len + 1,
+        pdMS_TO_TICKS(200));
+}
+
+/* -------------------------------------------------------------------------- */
+/*  UPDATE FULL DISPLAY                                                       */
 /* -------------------------------------------------------------------------- */
 
 esp_err_t ssd1306_update(ssd1306_t *lcd)
@@ -185,18 +190,53 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
     if (!lcd || !lcd->dev)
         return ESP_ERR_INVALID_STATE;
 
-    ssd1306_write_cmd(lcd, 0x21);
-    ssd1306_write_cmd(lcd, 0);
-    ssd1306_write_cmd(lcd, 127);
+    esp_err_t err;
 
-    ssd1306_write_cmd(lcd, 0x22);
-    ssd1306_write_cmd(lcd, 0);
-    ssd1306_write_cmd(lcd, 7);
+    /*
+     * Le SSD1306 possède 8 pages de 128 bytes
+     */
 
-    // Envoyer le buffer par morceaux de 128 octets (une page à la fois)
-    for (int i = 0; i < 8; i++) {
-        ssd1306_write_data(lcd, &lcd->buffer[i * SSD1306_WIDTH], SSD1306_WIDTH);
+    for (uint8_t page = 0; page < 8; page++) {
+
+        /* set page */
+        err = ssd1306_write_cmd(
+            lcd,
+            0xB0 + page);
+
+        if (err != ESP_OK)
+            return err;
+
+        /* lower column start address */
+        err = ssd1306_write_cmd(lcd, 0x00);
+
+        if (err != ESP_OK)
+            return err;
+
+        /* higher column start address */
+        err = ssd1306_write_cmd(lcd, 0x10);
+
+        if (err != ESP_OK)
+            return err;
+
+        /*
+         * Envoi des 128 bytes de la page
+         */
+
+        err = ssd1306_write_data(
+            lcd,
+            &lcd->buffer[page * 128],
+            128);
+
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG,
+                     "update page %d failed: %s",
+                     page,
+                     esp_err_to_name(err));
+
+            return err;
+        }
     }
+
     return ESP_OK;
 }
 

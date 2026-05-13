@@ -19,6 +19,7 @@ set(my_requires
     config_storage
     sht31
     ssd1306
+    oled_service
 )
 
 # Enregistrement du composant principal
