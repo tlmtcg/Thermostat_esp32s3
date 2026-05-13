@@ -2,7 +2,6 @@
 #include "esp_log.h"
 #include <stdarg.h>
 #include <stdio.h>
-#include "web_server_metrics.h"
 
 #define LOG_BUFFER_SIZE 4096
 static char log_buffer[LOG_BUFFER_SIZE];
@@ -49,9 +48,6 @@ esp_err_t ws_register_logs_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_LOGS: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     // Redirection logs vers Web
     esp_log_set_vprintf(web_log_vprintf);
 
@@ -68,9 +64,6 @@ esp_err_t ws_register_logs_api(httpd_handle_t server)
     err = httpd_register_uri_handler(server, &uri);
 
     ESP_LOGI(TAG, "Result /api/logs -> %s", esp_err_to_name(err));
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_LOGS: END REGISTER ===");
 

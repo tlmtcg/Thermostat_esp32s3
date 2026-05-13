@@ -19,6 +19,7 @@ idf_component_register(
         "ws_api_task.c"
         "ws_api_i2c.c"
         "ws_api_sht31.c"
+        "ws_api_ssd1306.c"
 
     INCLUDE_DIRS 
         "include"
@@ -41,6 +42,7 @@ idf_component_register(
         task_manager
         i2c_manager
         sht31
+        ssd1306
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -69,5 +71,5 @@ idf_component_register(
         "www/jeedom.html"
         "www/common.css"
         "www/index.js"
-
+        "www/ssd1306.html"
 )

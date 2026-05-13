@@ -4,7 +4,6 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include <string.h>
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_TIME";
 
@@ -77,9 +76,6 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_TIME: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     // ---------------- GET TIME ----------------
@@ -97,8 +93,6 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "GET /api/time failed: %s", esp_err_to_name(err));
 
-        // g_http_handlers_used += 1;
-        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return err;
     }
 
@@ -119,17 +113,12 @@ esp_err_t ws_register_time_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "POST /api/time failed: %s", esp_err_to_name(err));
 
-        // g_http_handlers_used += 1;
-        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return err;
     }
 
     ESP_LOGI(TAG, "POST /api/time -> OK");
 
     // ---------------- FINAL ----------------
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_TIME: END REGISTER ===");
 

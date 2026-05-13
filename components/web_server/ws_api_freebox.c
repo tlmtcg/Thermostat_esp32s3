@@ -3,7 +3,6 @@
 #include "freebox_ftp.h" // Nouvelle inclusion
 #include "cJSON.h"
 #include <stdlib.h>
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_FB";
 
@@ -175,11 +174,6 @@ esp_err_t post_fb_rename_handler(httpd_req_t *req)
 
 esp_err_t ws_register_freebox_api(httpd_handle_t server)
 {
-    // ESP_LOGI(TAG, "=== WS_API_FREEBOX: START REGISTER ===");
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     // ---------------- LIST ----------------
@@ -243,9 +237,6 @@ esp_err_t ws_register_freebox_api(httpd_handle_t server)
     ESP_LOGI(TAG, "Result /delete -> %s", esp_err_to_name(err));
 
     // ---------------- FINAL ----------------
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_FREEBOX: END REGISTER ===");
 

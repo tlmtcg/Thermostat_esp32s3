@@ -4,7 +4,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "ff.h"
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_SD";
 #define MOUNT_POINT "/sdcard"
@@ -318,9 +317,6 @@ esp_err_t ws_register_sd_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_SD: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     // ---------------- LIST ----------------
@@ -408,9 +404,6 @@ esp_err_t ws_register_sd_api(httpd_handle_t server)
     ESP_LOGI(TAG, "Result /rmdir -> %s", esp_err_to_name(err));
 
     // ---------------- FINAL ----------------
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_SD: END REGISTER ===");
 

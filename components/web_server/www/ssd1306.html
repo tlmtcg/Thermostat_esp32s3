@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>OLED Control</title>
+
+    <style>
+      #oled-preview {
+        background-color: #1a1a1a;
+        color: #d4d4d4;
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 10px;
+        height: 200px;
+        overflow: hidden;
+        font-family: 'Consolas', monospace;
+        font-size: 0.85rem;
+        margin-top: 10px;
+        white-space: pre;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      input, textarea {
+        background: #252526;
+        border: 1px solid #444;
+        color: white;
+        padding: 5px;
+        border-radius: 4px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+      }
+
+      button.secondary { background-color: #444; }
+      button.danger { background-color: #832a2a; }
+
+      textarea {
+        width: 100%;
+        height: 60px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">OLED Control Panel</h1>
+
+    <!-- CONTROLS -->
+    <div class="box">
+      <h2>Commandes OLED</h2>
+
+      <div class="controls">
+        <input type="number" id="x" placeholder="X (0-127)">
+        <input type="number" id="y" placeholder="Y (0-63)">
+        <textarea id="text" placeholder="Texte OLED..."></textarea>
+
+        <button onclick="sendWrite()">Envoyer texte</button>
+        <button class="secondary" onclick="clearOLED()">Clear</button>
+        <button class="secondary" onclick="invert(true)">Invert ON</button>
+        <button class="secondary" onclick="invert(false)">Invert OFF</button>
+      </div>
+    </div>
+
+    <!-- LINE MODE -->
+    <div class="box">
+      <h2>Mode lignes (UI rapide)</h2>
+
+      <div class="controls">
+        <input type="number" id="line" placeholder="Line (0-7)">
+        <input type="text" id="linetext" placeholder="Texte ligne">
+        <button onclick="sendLine()">Envoyer ligne</button>
+      </div>
+    </div>
+
+    <!-- PREVIEW -->
+    <div class="box">
+      <h2>Preview (debug UI)</h2>
+      <div id="oled-preview">Initialisation...</div>
+    </div>
+
+    <script>
+      const BASE = "/api/oled";
+
+      /* ---------------- OLED CLEAR ---------------- */
+      async function clearOLED() {
+        await fetch(BASE + "/clear", { method: "POST" });
+        refreshPreview();
+      }
+
+      /* ---------------- WRITE TEXT ---------------- */
+      async function sendWrite() {
+        const payload = {
+          x: parseInt(document.getElementById("x").value || 0),
+          y: parseInt(document.getElementById("y").value || 0),
+          text: document.getElementById("text").value
+        };
+
+        await fetch(BASE + "/write", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        refreshPreview();
+      }
+
+      /* ---------------- LINE ---------------- */
+      async function sendLine() {
+        const payload = {
+          line: parseInt(document.getElementById("line").value || 0),
+          text: document.getElementById("linetext").value
+        };
+
+        await fetch(BASE + "/line", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+
+        refreshPreview();
+      }
+
+      /* ---------------- INVERT ---------------- */
+      async function invert(state) {
+        await fetch(BASE + "/invert", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ invert: state })
+        });
+      }
+
+      /* ---------------- OPTIONAL PREVIEW ---------------- */
+      async function refreshPreview() {
+        const el = document.getElementById("oled-preview");
+
+        const x = document.getElementById("x").value || 0;
+        const y = document.getElementById("y").value || 0;
+        const t = document.getElementById("text").value || "";
+
+        el.textContent =
+`OLED STATE (simulation)
+
+x: ${x}
+y: ${y}
+text: ${t}
+
+(line mode possible)`;
+      }
+
+      setInterval(refreshPreview, 2000);
+    </script>
+
+    <script src="index.js"></script>
+  </body>
+</html>

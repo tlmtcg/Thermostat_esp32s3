@@ -4,7 +4,6 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_SYS";
 
@@ -90,9 +89,6 @@ esp_err_t ws_register_sys_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_SYS: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     httpd_uri_t uri_api_sys = {
@@ -105,9 +101,6 @@ esp_err_t ws_register_sys_api(httpd_handle_t server)
 
     err = httpd_register_uri_handler(server, &uri_api_sys);
     ESP_LOGI(TAG, "Result /api/sys -> %s", esp_err_to_name(err));
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_SYS: END REGISTER ===");
 

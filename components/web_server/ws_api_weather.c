@@ -3,7 +3,6 @@
 #include "esp_log.h"
 #include "cJSON.h"
 #include <math.h>
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_WEATHER";
 
@@ -71,9 +70,6 @@ esp_err_t ws_register_weather_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_WEATHER: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     httpd_uri_t meteo_data_uri = {
@@ -90,15 +86,10 @@ esp_err_t ws_register_weather_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "GET /api/weather failed: %s", esp_err_to_name(err));
 
-        // g_http_handlers_used += 1;
-        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return err;
     }
 
     ESP_LOGI(TAG, "GET /api/weather -> OK");
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_WEATHER: END REGISTER ===");
 

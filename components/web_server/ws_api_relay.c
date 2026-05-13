@@ -4,7 +4,6 @@
 #include "relay.h"
 #include <string.h>
 #include "ws_api_relay.h"
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_RELAY";
 
@@ -200,9 +199,6 @@ esp_err_t ws_register_relay_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_RELAY: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     // ---------------- GET STATE ----------------
@@ -254,9 +250,6 @@ esp_err_t ws_register_relay_api(httpd_handle_t server)
     ESP_LOGI(TAG, "Result /off -> %s", esp_err_to_name(err));
 
     // ---------------- FINAL ----------------
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_RELAY: END REGISTER ===");
 

@@ -15,7 +15,7 @@ static const char *TAG = "WS_API_ALARMS";
  * ========================================================= */
 esp_err_t get_active_alarms_handler(httpd_req_t *req)
 {
-    // ESP_LOGI("WS_API_ALARMS", "get_active_alarms_handler");WIFI
+    // ESP_LOGI("WS_API_ALARMS", "get_active_alarms_handler");
 
     cJSON *root = cJSON_CreateArray();
     if (!root)

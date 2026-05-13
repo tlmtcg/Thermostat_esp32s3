@@ -3,7 +3,6 @@
 #include "cJSON.h"
 #include "task_manager.h"
 #include <string.h>
-#include "web_server_metrics.h"
 
 static const char *TAG = "WS_API_TASK";
 
@@ -114,9 +113,6 @@ void ws_register_tasks_api(httpd_handle_t server)
 {
     // ESP_LOGI(TAG, "=== WS_API_TASKS: START REGISTER ===");
 
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
-
     esp_err_t err;
 
     // ---------------- GET TASKS ----------------
@@ -134,8 +130,6 @@ void ws_register_tasks_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "GET /api/tasks failed: %s", esp_err_to_name(err));
 
-        // g_http_handlers_used += 1;
-        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return;
     }
 
@@ -156,17 +150,12 @@ void ws_register_tasks_api(httpd_handle_t server)
     {
         ESP_LOGE(TAG, "POST /api/tasks failed: %s", esp_err_to_name(err));
 
-        // g_http_handlers_used += 1;
-        // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
         return;
     }
 
     ESP_LOGI(TAG, "POST /api/tasks -> OK");
 
     // ---------------- FINAL ----------------
-
-    // g_http_handlers_used += 1;
-    // ESP_LOGI(TAG, "HTTP usage: %d/%d", g_http_handlers_used, g_http_handlers_max);
 
     // ESP_LOGI(TAG, "=== WS_API_TASKS: END REGISTER ===");
 

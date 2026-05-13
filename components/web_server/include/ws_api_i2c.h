@@ -1,22 +1,38 @@
 #pragma once
 
-#include <esp_http_server.h>
-#include <stdbool.h>
+#include "esp_err.h"
+#include "esp_http_server.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Fichier de configuration général
-#define CONFIG_FILE "/sdcard/config.json"
+/* -------------------------------------------------------------------------- */
+/*  REGISTER API                                                              */
+/* -------------------------------------------------------------------------- */
 
-// Enregistre les routes API pour l'I2C
+/**
+ * @brief Enregistre toutes les routes HTTP I2C
+ *
+ * Routes :
+ *  - POST /api/i2c/scan
+ *  - GET  /api/i2c/devices
+ *  - GET  /api/i2c/config
+ *  - POST /api/i2c/config/set
+ */
 esp_err_t ws_register_i2c_api(httpd_handle_t server);
 
+/* -------------------------------------------------------------------------- */
+/*  CONFIG SAVE                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @brief Sauvegarde la configuration I2C dans le stockage (SD / flash)
+ *
+ * Utilisé après modification via API HTTP.
+ */
 void i2c_save_config_to_sdcard(void);
 
-// Reconfigure le bus I2C avec de nouveaux paramètres
-esp_err_t i2c_manager_reinit(int sda_gpio, int scl_gpio, int freq_hz);
 #ifdef __cplusplus
 }
 #endif

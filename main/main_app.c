@@ -30,7 +30,7 @@
 
 static const char *TAG = "MAIN_APP";
 
-static ssd1306_t oled;
+ssd1306_t oled;
 
 #ifndef CONFIG_FILE
 #define CONFIG_FILE "/sdcard/config.json"
@@ -120,7 +120,7 @@ void app_main(void)
     // =======================
     i2c_bus_init();
 
-    i2c_manager_init();
+    // i2c_manager_init();
 
     // Scan I2C
     i2c_manager_scan();
@@ -146,6 +146,8 @@ void app_main(void)
         ssd1306_draw_string(&oled, 0, 16, "ESP32-S3");
 
         ssd1306_update(&oled);
+    } else {
+        ESP_LOGW(TAG,"OLE SSD1306 non détecté");
     }
 
     // DEBUG JSON I2C
