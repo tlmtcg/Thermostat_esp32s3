@@ -286,22 +286,12 @@ static void sht31_task(void *arg)
 
     while (g_sht31.running) {
 
-        if (sht31_read(&t, &h) == ESP_OK) {
-
-            ESP_LOGI(TAG,
-                     "Temp=%.2f°C Hum=%.2f%%",
-                     t,
-                     h);
-            oled_service_show_temp_hum(t, h);
-
-        } else {
-
+        if (!sht31_read(&t, &h) == ESP_OK) {
             ESP_LOGW(TAG,
                      "Lecture SHT31 échouée");
-             oled_service_show_error("SHT31 ERROR");
+            oled_service_show_error("SHT31 ERROR");
             g_sht31.state.valid = false;
         }
-
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 

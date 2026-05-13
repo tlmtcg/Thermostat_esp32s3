@@ -57,7 +57,7 @@ static void oled_task(void *arg)
             snprintf(
                 line,
                 sizeof(line),
-                "T: %.1f C",
+                "TEMPERATURE : %.1f C",
                 state->temperature);
 
             ssd1306_draw_string(
@@ -69,7 +69,7 @@ static void oled_task(void *arg)
             snprintf(
                 line,
                 sizeof(line),
-                "H: %.1f %%", 
+                "HUMIDITE    : %.1f %%", 
                 state->humidity);
 
             ssd1306_draw_string(
@@ -105,8 +105,8 @@ static void oled_task(void *arg)
          * debug
          */
 
-        ESP_LOGI(TAG,
-                 "OLED refresh");
+        // ESP_LOGI(TAG,
+        //          "OLED refresh");
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
