@@ -193,10 +193,11 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
     ssd1306_write_cmd(lcd, 0);
     ssd1306_write_cmd(lcd, 7);
 
-    return ssd1306_write_data(
-        lcd,
-        lcd->buffer,
-        sizeof(lcd->buffer));
+    // Envoyer le buffer par morceaux de 128 octets (une page à la fois)
+    for (int i = 0; i < 8; i++) {
+        ssd1306_write_data(lcd, &lcd->buffer[i * SSD1306_WIDTH], SSD1306_WIDTH);
+    }
+    return ESP_OK;
 }
 
 /* -------------------------------------------------------------------------- */

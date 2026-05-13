@@ -28,6 +28,17 @@
         margin-top: 10px;
       }
 
+      /* Conteneur pour garder X et Y sur la même ligne */
+      .coords-row {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .coords-row input {
+        flex: 1; /* Les champs X et Y se partagent l'espace */
+      }
+
       input, textarea {
         background: #252526;
         border: 1px solid #444;
@@ -65,8 +76,13 @@
       <h2>Commandes OLED</h2>
 
       <div class="controls">
-        <input type="number" id="x" placeholder="X (0-127)">
-        <input type="number" id="y" placeholder="Y (0-63)">
+        <!-- Ligne pour X et Y -->
+        <div class="coords-row">
+          <input type="number" id="x" placeholder="X (0-127)">
+          <input type="number" id="y" placeholder="Y (0-63)">
+        </div>
+        
+        <!-- Le textarea passe en dessous car le parent est en flex-wrap -->
         <textarea id="text" placeholder="Texte OLED..."></textarea>
 
         <button onclick="sendWrite()">Envoyer texte</button>
@@ -79,7 +95,6 @@
     <!-- LINE MODE -->
     <div class="box">
       <h2>Mode lignes (UI rapide)</h2>
-
       <div class="controls">
         <input type="number" id="line" placeholder="Line (0-7)">
         <input type="text" id="linetext" placeholder="Texte ligne">
@@ -96,13 +111,11 @@
     <script>
       const BASE = "/api/oled";
 
-      /* ---------------- OLED CLEAR ---------------- */
       async function clearOLED() {
         await fetch(BASE + "/clear", { method: "POST" });
         refreshPreview();
       }
 
-      /* ---------------- WRITE TEXT ---------------- */
       async function sendWrite() {
         const payload = {
           x: parseInt(document.getElementById("x").value || 0),
@@ -110,7 +123,7 @@
           text: document.getElementById("text").value
         };
 
-        await fetch(BASE + "/write", {
+        await fetch(BASE + "/text", { // Corrigé : endpoint /text pour l'écriture de texte libre
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(payload)
@@ -119,7 +132,6 @@
         refreshPreview();
       }
 
-      /* ---------------- LINE ---------------- */
       async function sendLine() {
         const payload = {
           line: parseInt(document.getElementById("line").value || 0),
@@ -135,7 +147,6 @@
         refreshPreview();
       }
 
-      /* ---------------- INVERT ---------------- */
       async function invert(state) {
         await fetch(BASE + "/invert", {
           method: "POST",
@@ -144,27 +155,17 @@
         });
       }
 
-      /* ---------------- OPTIONAL PREVIEW ---------------- */
       async function refreshPreview() {
         const el = document.getElementById("oled-preview");
-
         const x = document.getElementById("x").value || 0;
         const y = document.getElementById("y").value || 0;
         const t = document.getElementById("text").value || "";
 
-        el.textContent =
-`OLED STATE (simulation)
-
-x: ${x}
-y: ${y}
-text: ${t}
-
-(line mode possible)`;
+        el.textContent = `OLED STATE (simulation)\n\nx: ${x}\ny: ${y}\ntext: ${t}\n\n(line mode possible)`;
       }
 
       setInterval(refreshPreview, 2000);
     </script>
-
     <script src="index.js"></script>
   </body>
 </html>
