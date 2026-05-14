@@ -186,12 +186,13 @@ void app_main(void)
     /* OLED EARLY INIT */
     /* ------------------------------------------------------- */
 
-    if (i2c_device_exists(i2c_bus, 0x3C))
+    if (i2c_device_exists(i2c_manager_get_bus(), 0x3C))
     {
         ESP_LOGI(TAG, "OLED SSD1306 détecté");
 
         ESP_ERROR_CHECK(
-            oled_service_init(i2c_bus));
+            oled_service_init(i2c_manager_get_bus())
+);
 
         oled_service_show_boot();
     }
@@ -300,15 +301,12 @@ void app_main(void)
     /* SHT31 */
     /* ------------------------------------------------------- */
 
-    if (i2c_device_exists(i2c_bus, 0x44))
+    if (i2c_device_exists(i2c_manager_get_bus(), 0x44))
     {
-        sht31_start(i2c_bus, 0x44);
+        sht31_start(i2c_manager_get_bus(), 0x44);
     }
-    else if (i2c_device_exists(i2c_bus, 0x45))
-    {
-        sht31_start(i2c_bus, 0x45);
-    }
-
+    
+    task_manager_init();
     /* ------------------------------------------------------- */
     /* READY */
     /* ------------------------------------------------------- */

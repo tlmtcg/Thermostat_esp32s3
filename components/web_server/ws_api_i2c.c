@@ -366,7 +366,7 @@ static esp_err_t i2c_config_post_handler(httpd_req_t *req)
              "Redémarrage SHT31...");
 
     err = sht31_start(
-        i2c_bus,
+        i2c_manager_get_bus(),
         0x44);
 
     if (err != ESP_OK)

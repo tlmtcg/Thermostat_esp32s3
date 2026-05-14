@@ -9,6 +9,9 @@
 #include "freertos/task.h"
 
 #include <stdio.h>
+#include "time_utils.h"
+#include "font3x5.h"
+#include "font5x7.h"
 
 static const char *TAG = "OLED_SERVICE";
 
@@ -26,8 +29,8 @@ static void oled_task(void *arg)
 {
     char line[32];
 
-    while (1) {
-
+    while (1)
+    {
         /*
          * IMPORTANT:
          * effacer framebuffer
@@ -39,21 +42,18 @@ static void oled_task(void *arg)
          * titre
          */
 
-        ssd1306_draw_string(
-            &oled,
-            0,
-            0,
-            "THERMOSTAT");
+        char hhmmss[16];
+        time_utils_get_hour_str(hhmmss, sizeof(hhmmss));
+        ssd1306_draw_string(&oled, 0, 0, hhmmss);
 
         /*
          * lecture SHT31
          */
 
-        const sht31_state_t *state =
-            sht31_get_state();
+        const sht31_state_t *state = sht31_get_state();
 
-        if (state->valid) {
-
+        if (state->valid)
+        {
             snprintf(
                 line,
                 sizeof(line),
@@ -69,7 +69,7 @@ static void oled_task(void *arg)
             snprintf(
                 line,
                 sizeof(line),
-                "HUMIDITE    : %.1f %%", 
+                "HUMIDITE    : %.1f %%",
                 state->humidity);
 
             ssd1306_draw_string(
@@ -77,9 +77,9 @@ static void oled_task(void *arg)
                 0,
                 32,
                 line);
-
-        } else {
-
+        }
+        else
+        {
             ssd1306_draw_string(
                 &oled,
                 0,
@@ -91,22 +91,14 @@ static void oled_task(void *arg)
          * UPDATE DISPLAY
          */
 
-        esp_err_t err =
-            ssd1306_update(&oled);
+        esp_err_t err = ssd1306_update(&oled);
 
-        if (err != ESP_OK) {
-
+        if (err != ESP_OK)
+        {
             ESP_LOGE(TAG,
                      "update failed: %s",
                      esp_err_to_name(err));
         }
-
-        /*
-         * debug
-         */
-
-        // ESP_LOGI(TAG,
-        //          "OLED refresh");
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -127,11 +119,10 @@ esp_err_t oled_service_init(
             bus,
             0x3C);
 
-    if (err != ESP_OK) {
-
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG,
                  "ssd1306 init failed");
-
         return err;
     }
 
@@ -208,8 +199,8 @@ void oled_service_show_error(
         0,
         "ERROR");
 
-    if (msg) {
-
+    if (msg)
+    {
         ssd1306_draw_string(
             &oled,
             0,
@@ -231,8 +222,8 @@ void oled_service_show_text(
 {
     ssd1306_clear(&oled);
 
-    if (line1) {
-
+    if (line1)
+    {
         ssd1306_draw_string(
             &oled,
             0,
@@ -240,8 +231,8 @@ void oled_service_show_text(
             line1);
     }
 
-    if (line2) {
-
+    if (line2)
+    {
         ssd1306_draw_string(
             &oled,
             0,
@@ -249,8 +240,8 @@ void oled_service_show_text(
             line2);
     }
 
-    if (line3) {
-
+    if (line3)
+    {
         ssd1306_draw_string(
             &oled,
             0,

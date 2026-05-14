@@ -38,6 +38,8 @@ time_t time_utils_get_last_sync(void);
 
 void time_utils_status_dump();
 
+void time_utils_get_hour_str(char *dest, size_t max);
+
 #ifdef __cplusplus
 }
 #endif

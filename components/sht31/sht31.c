@@ -8,6 +8,7 @@
 #include <string.h>
 #include <time.h>
 #include "oled_service.h"
+#include "i2c_manager.h"
 
 /* -------------------------------------------------------------------------- */
 /*  LOG TAG                                                                    */
@@ -19,14 +20,15 @@ static const char *TAG = "SHT31";
 /*  COMMANDES SHT31                                                            */
 /* -------------------------------------------------------------------------- */
 
-#define SHT31_CMD_MEAS_HIGHREP   0x2400
-#define SHT31_CMD_SOFT_RESET     0x30A2
+#define SHT31_CMD_MEAS_HIGHREP 0x2400
+#define SHT31_CMD_SOFT_RESET 0x30A2
 
 /* -------------------------------------------------------------------------- */
 /*  DRIVER INTERNAL CONTEXT                                                    */
 /* -------------------------------------------------------------------------- */
 
-typedef struct {
+typedef struct
+{
 
     /* handle device I2C */
     i2c_master_dev_handle_t dev;
@@ -63,11 +65,13 @@ static uint8_t sht31_crc8(const uint8_t *data,
 {
     uint8_t crc = 0xFF;
 
-    for (int i = 0; i < len; i++) {
+    for (int i = 0; i < len; i++)
+    {
 
         crc ^= data[i];
 
-        for (int b = 0; b < 8; b++) {
+        for (int b = 0; b < 8; b++)
+        {
 
             if (crc & 0x80)
                 crc = (crc << 1) ^ 0x31;
@@ -90,15 +94,15 @@ static esp_err_t sht31_write_cmd(uint16_t cmd)
 
     uint8_t data[2] = {
         (uint8_t)(cmd >> 8),
-        (uint8_t)(cmd & 0xFF)
-    };
+        (uint8_t)(cmd & 0xFF)};
 
-    return i2c_master_transmit(
+    esp_err_t err = i2c_master_transmit(
         g_sht31.dev,
         data,
         sizeof(data),
-        pdMS_TO_TICKS(100)
-    );
+        pdMS_TO_TICKS(500));
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -120,7 +124,8 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus,
     if (!bus)
         return ESP_ERR_INVALID_ARG;
 
-    if (g_sht31.initialized) {
+    if (g_sht31.initialized)
+    {
 
         ESP_LOGW(TAG, "SHT31 déjà initialisé");
 
@@ -139,13 +144,10 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus,
     };
 
     /* attach device to bus */
-    esp_err_t err = i2c_master_bus_add_device(
-        bus,
-        &cfg,
-        &g_sht31.dev
-    );
+    esp_err_t err = i2c_master_bus_add_device(bus, &cfg, &g_sht31.dev);
 
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
 
         ESP_LOGE(TAG,
                  "Erreur add device: %s",
@@ -173,12 +175,9 @@ void sht31_deinit(void)
     sht31_stop();
 
     /* remove device from I2C bus */
-    if (g_sht31.dev) {
-
-        i2c_master_bus_rm_device(
-            g_sht31.dev
-        );
-
+    if (g_sht31.dev)
+    {
+        i2c_master_bus_rm_device(g_sht31.dev);
         g_sht31.dev = NULL;
     }
 
@@ -194,8 +193,7 @@ void sht31_deinit(void)
 esp_err_t sht31_reset(void)
 {
     return sht31_write_cmd(
-        SHT31_CMD_SOFT_RESET
-    );
+        SHT31_CMD_SOFT_RESET);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -212,31 +210,30 @@ esp_err_t sht31_read(float *temp,
         return ESP_ERR_INVALID_ARG;
 
     uint8_t rx[6];
+    esp_err_t err;
 
     /* lancer mesure */
-    esp_err_t err = sht31_write_cmd(
-        SHT31_CMD_MEAS_HIGHREP
-    );
+    err = sht31_write_cmd(SHT31_CMD_MEAS_HIGHREP);
 
     if (err != ESP_OK)
         return err;
 
     /* temps conversion */
-    vTaskDelay(pdMS_TO_TICKS(20));
+    vTaskDelay(pdMS_TO_TICKS(25));
 
     /* lecture résultat */
     err = i2c_master_receive(
         g_sht31.dev,
         rx,
         sizeof(rx),
-        pdMS_TO_TICKS(100)
-    );
+        pdMS_TO_TICKS(500));
 
     if (err != ESP_OK)
         return err;
 
     /* vérification CRC température */
-    if (sht31_crc8(&rx[0], 2) != rx[2]) {
+    if (sht31_crc8(&rx[0], 2) != rx[2])
+    {
 
         ESP_LOGE(TAG, "CRC température invalide");
 
@@ -244,7 +241,8 @@ esp_err_t sht31_read(float *temp,
     }
 
     /* vérification CRC humidité */
-    if (sht31_crc8(&rx[3], 2) != rx[5]) {
+    if (sht31_crc8(&rx[3], 2) != rx[5])
+    {
 
         ESP_LOGE(TAG, "CRC humidité invalide");
 
@@ -284,9 +282,11 @@ static void sht31_task(void *arg)
     float t;
     float h;
 
-    while (g_sht31.running) {
+    while (g_sht31.running)
+    {
 
-        if (!sht31_read(&t, &h) == ESP_OK) {
+        if (sht31_read(&t, &h) != ESP_OK)
+        {
             ESP_LOGW(TAG,
                      "Lecture SHT31 échouée");
             oled_service_show_error("SHT31 ERROR");
@@ -307,7 +307,8 @@ static void sht31_task(void *arg)
 esp_err_t sht31_start(i2c_master_bus_handle_t bus,
                       uint8_t addr)
 {
-    if (g_sht31.running) {
+    if (g_sht31.running)
+    {
 
         ESP_LOGW(TAG,
                  "Task déjà démarrée");
@@ -317,8 +318,7 @@ esp_err_t sht31_start(i2c_master_bus_handle_t bus,
 
     esp_err_t err = sht31_init(
         bus,
-        addr
-    );
+        addr);
 
     if (err != ESP_OK)
         return err;
@@ -330,11 +330,11 @@ esp_err_t sht31_start(i2c_master_bus_handle_t bus,
         "sht31_task",
         4096,
         NULL,
-        5,
-        &g_sht31.task
-    );
+        4,
+        &g_sht31.task);
 
-    if (ok != pdPASS) {
+    if (ok != pdPASS)
+    {
 
         sht31_deinit();
 
@@ -354,11 +354,11 @@ void sht31_stop(void)
 {
     g_sht31.running = false;
 
-    if (g_sht31.task) {
+    if (g_sht31.task)
+    {
 
         vTaskDelete(
-            g_sht31.task
-        );
+            g_sht31.task);
 
         g_sht31.task = NULL;
     }

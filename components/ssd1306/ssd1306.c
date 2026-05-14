@@ -7,11 +7,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "ssd1306_font.h"
+#include "font5x7.h"
 
 static const char *TAG = "SSD1306";
 
-#define SSD1306_CONTROL_CMD 0x00
+#define SSD1306_CONTROL_CMD  0x00
 #define SSD1306_CONTROL_DATA 0x40
 
 /* -------------------------------------------------------------------------- */
@@ -25,15 +25,18 @@ static esp_err_t ssd1306_write_cmd(ssd1306_t *lcd, uint8_t cmd)
 
     uint8_t data[2] = {
         SSD1306_CONTROL_CMD,
-        cmd};
+        cmd
+    };
 
-    return i2c_master_transmit(
+    esp_err_t err = i2c_master_transmit(
         lcd->dev,
         data,
         sizeof(data),
-        pdMS_TO_TICKS(100));
-}
+        pdMS_TO_TICKS(100)
+    );
 
+    return err;
+}
 
 /* -------------------------------------------------------------------------- */
 /*  INIT                                                                     */
@@ -45,6 +48,7 @@ esp_err_t ssd1306_init(
     uint8_t address)
 {
     ESP_LOGI(TAG, "init");
+    lcd->font = &SSD1306_FONT_5X7;
 
     if (!lcd || !bus)
         return ESP_ERR_INVALID_ARG;
@@ -106,13 +110,11 @@ static void ssd1306_draw_char(
 
     const uint8_t *bitmap = font5x7[(uint8_t)c];
 
-    for (int col = 0; col < 5; col++)
-    {
+    for (int col = 0; col < 5; col++) {
 
         uint8_t line = bitmap[col];
 
-        for (int row = 0; row < 7; row++)
-        {
+        for (int row = 0; row < 7; row++) {
 
             bool pixel = line & (1 << row);
 
@@ -138,8 +140,7 @@ void ssd1306_draw_string(
     if (!lcd || !str)
         return;
 
-    while (*str)
-    {
+    while (*str) {
 
         ssd1306_draw_char(lcd, x, y, *str++);
 
@@ -162,23 +163,24 @@ static esp_err_t ssd1306_write_data(
     if (!lcd || !lcd->dev || !data)
         return ESP_ERR_INVALID_STATE;
 
-    /*
-     * +1 pour le byte CONTROL_DATA
-     */
     uint8_t buf[129];
 
     if (len > 128)
         return ESP_ERR_INVALID_SIZE;
 
     buf[0] = SSD1306_CONTROL_DATA;
-
     memcpy(&buf[1], data, len);
 
-    return i2c_master_transmit(
+
+    esp_err_t err = i2c_master_transmit(
         lcd->dev,
         buf,
         len + 1,
-        pdMS_TO_TICKS(200));
+        pdMS_TO_TICKS(200)
+    );
+  
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -218,10 +220,7 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
         if (err != ESP_OK)
             return err;
 
-        /*
-         * Envoi des 128 bytes de la page
-         */
-
+        /* Envoi des 128 bytes de la page */
         err = ssd1306_write_data(
             lcd,
             &lcd->buffer[page * 128],
@@ -232,8 +231,10 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
                      "update page %d failed: %s",
                      page,
                      esp_err_to_name(err));
-
             return err;
+
+        vTaskDelay(1);
+
         }
     }
 
@@ -251,11 +252,12 @@ esp_err_t ssd1306_deinit(ssd1306_t *lcd)
 
     if (lcd->dev)
     {
-
         /* OFF display avant suppression */
         ssd1306_write_cmd(lcd, 0xAE);
 
+      
         esp_err_t err = i2c_master_bus_rm_device(lcd->dev);
+    
 
         if (err != ESP_OK)
         {
@@ -295,20 +297,20 @@ esp_err_t ssd1306_reinit(
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = address,
-        .scl_speed_hz = 400000,
+        .scl_speed_hz = 100000,
     };
 
     esp_err_t err = i2c_master_bus_add_device(
         bus,
         &dev_cfg,
         &lcd->dev);
-
+   
     if (err != ESP_OK)
         return err;
 
     lcd->address = address;
 
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(500));
 
     /* INIT SSD1306 */
     const uint8_t init_cmds[] = {
@@ -322,11 +324,14 @@ esp_err_t ssd1306_reinit(
         0xD3, 0x00,
         0xD5, 0x80,
         0x8D, 0x14,
-        0xAF};
+        0xAF
+    };
 
     for (int i = 0; i < sizeof(init_cmds); i++)
     {
-        ssd1306_write_cmd(lcd, init_cmds[i]);
+        esp_err_t e = ssd1306_write_cmd(lcd, init_cmds[i]);
+        if (e != ESP_OK)
+            return e;
     }
 
     lcd->initialized = true;
@@ -335,6 +340,10 @@ esp_err_t ssd1306_reinit(
 
     return ESP_OK;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  WRITE LINE                                                                */
+/* -------------------------------------------------------------------------- */
 
 esp_err_t ssd1306_write_line(
     ssd1306_t *lcd,
@@ -349,7 +358,6 @@ esp_err_t ssd1306_write_line(
 
     uint8_t y = line * 8;
 
-    // clear line (important pour UI propre)
     for (uint8_t x = 0; x < SSD1306_WIDTH; x++)
     {
         for (uint8_t i = 0; i < 8; i++)
@@ -358,7 +366,6 @@ esp_err_t ssd1306_write_line(
         }
     }
 
-    // draw text
     ssd1306_draw_string(lcd, 0, y, text);
 
     return ESP_OK;
@@ -366,6 +373,10 @@ esp_err_t ssd1306_write_line(
 
 #include <stdarg.h>
 #include <stdio.h>
+
+/* -------------------------------------------------------------------------- */
+/*  PRINTF                                                                    */
+/* -------------------------------------------------------------------------- */
 
 esp_err_t ssd1306_printf(
     ssd1306_t *lcd,
@@ -389,6 +400,10 @@ esp_err_t ssd1306_printf(
     return ESP_OK;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  INVERT                                                                    */
+/* -------------------------------------------------------------------------- */
+
 esp_err_t ssd1306_set_invert(
     ssd1306_t *lcd,
     bool invert)
@@ -400,6 +415,10 @@ esp_err_t ssd1306_set_invert(
         lcd,
         invert ? 0xA7 : 0xA6);
 }
+
+/* -------------------------------------------------------------------------- */
+/*  RESET DISPLAY                                                             */
+/* -------------------------------------------------------------------------- */
 
 esp_err_t ssd1306_reset_display(ssd1306_t *lcd)
 {

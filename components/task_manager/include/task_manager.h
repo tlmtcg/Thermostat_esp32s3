@@ -17,7 +17,8 @@
 #define BIT_NTP_EN       (1 << 2)
 #define BIT_LED_EN       (1 << 3)
 #define BIT_STORAGE_EN   (1 << 4)
-#define BIT_SERIAL_EN  (1 << 5)
+#define BIT_SERIAL_EN    (1 << 5)
+#define BIT_SHT31_EN     (1 << 6)
 
 /* --- Structure pour le monitoring et la configuration --- */
 typedef struct

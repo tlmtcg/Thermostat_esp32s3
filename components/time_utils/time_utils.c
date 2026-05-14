@@ -136,3 +136,10 @@ void time_utils_status_dump()
         ESP_LOGI(TAG, "Last Sync Time: Never");
     }
 }
+
+void time_utils_get_hour_str(char *dest, size_t max)
+{
+    char full[32];
+    time_utils_get_time_str(full, sizeof(full));
+    strncpy(dest, full + 11, max);
+}

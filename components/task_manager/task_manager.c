@@ -16,6 +16,7 @@
 #include "wifi_manager.h"
 #include "config_storage.h"
 #include "task_manager.h"
+#include "sht31.h"
 
 static const char *TAG = "TASK_MGR";
 static EventGroupHandle_t s_task_event_group;
@@ -28,9 +29,41 @@ task_info_t my_tasks[] = {
     {"Led", "led", 4600, 5, BIT_LED_EN, NULL, 0},
     {"Storage", "storage", 8192, 10, BIT_STORAGE_EN, NULL, 0},
     {"Serial", "serial", 4096, 5, BIT_SERIAL_EN, NULL, 0},
+    {"SHT31", "sht31", 4096, 5, BIT_SHT31_EN, NULL, 0},
 };
 
 const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);
+
+static void sht31_task(void *pvParameters)
+{
+    while (1)
+    {
+        // 1. Attend l'activation
+        xEventGroupWaitBits(s_task_event_group, BIT_SHT31_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        // 2. WiFi non requis pour une lecture locale SHT31 ?
+        // Si vous envoyez à Jeedom, vérifiez le WiFi AVANT l'envoi, pas avant la lecture.
+
+        float temperature, humidity;
+        // On utilise la fonction du driver qui gère ses propres LOCK
+        esp_err_t ret = sht31_read(&temperature, &humidity);
+
+        if (ret == ESP_OK)
+        {
+            ESP_LOGI(TAG, "SHT31: %.2f°C, %.2f%%", temperature, humidity);
+
+            // Si WiFi connecté, on pourrait envoyer à Jeedom ici ou
+            // laisser la tâche Jeedom s'en charger via le store.
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Erreur SHT31: %s", esp_err_to_name(ret));
+        }
+
+        // 4. Délai
+        vTaskDelay(pdMS_TO_TICKS(my_tasks[6].delay_ms));
+    }
+}
 
 /* --- Implémentation des tâches avec WaitBits --- */
 static void task_manager_apply_kconfig(void)
@@ -39,11 +72,16 @@ static void task_manager_apply_kconfig(void)
     xEventGroupClearBits(s_task_event_group, 0xFFFFFF);
 
     // Activation selon Kconfig
-    if (CONFIG_BIT_WEATHER_EN) xEventGroupSetBits(s_task_event_group, BIT_WEATHER_EN);
-    if (CONFIG_BIT_JEEDOM_EN)  xEventGroupSetBits(s_task_event_group, BIT_JEEDOM_EN);
-    if (CONFIG_BIT_NTP_EN)     xEventGroupSetBits(s_task_event_group, BIT_NTP_EN);
-    if (CONFIG_BIT_LED_EN)     xEventGroupSetBits(s_task_event_group, BIT_LED_EN);
-    if (CONFIG_BIT_SERIAL_EN)  xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
+    if (CONFIG_BIT_WEATHER_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_WEATHER_EN);
+    if (CONFIG_BIT_JEEDOM_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_JEEDOM_EN);
+    if (CONFIG_BIT_NTP_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_NTP_EN);
+    if (CONFIG_BIT_LED_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_LED_EN);
+    if (CONFIG_BIT_SERIAL_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
 
     // Storage TOUJOURS activée
     xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
@@ -51,19 +89,22 @@ static void task_manager_apply_kconfig(void)
 
 void task_manager_apply_json(cJSON *root)
 {
-    if (!root) return;
+    if (!root)
+        return;
 
     cJSON *tasks = cJSON_GetObjectItem(root, "tasks");
-    if (!cJSON_IsArray(tasks)) return;
+    if (!cJSON_IsArray(tasks))
+        return;
 
     cJSON *item = NULL;
     cJSON_ArrayForEach(item, tasks)
     {
         cJSON *id = cJSON_GetObjectItem(item, "id");
-        if (!cJSON_IsString(id)) continue;
+        if (!cJSON_IsString(id))
+            continue;
 
         cJSON *enabled = cJSON_GetObjectItem(item, "enabled");
-        cJSON *delay   = cJSON_GetObjectItem(item, "delay_ms");
+        cJSON *delay = cJSON_GetObjectItem(item, "delay_ms");
 
         for (int i = 0; i < TASK_COUNT; i++)
         {
@@ -89,7 +130,6 @@ void task_manager_apply_json(cJSON *root)
     xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
 }
 
-
 static void weather_update_task(void *pvParameters)
 {
     while (1)
@@ -97,12 +137,13 @@ static void weather_update_task(void *pvParameters)
         // Attendre que l'heure soit synchronisée
         time_t now;
         time(&now);
-        if (now < 1609459200) { // 1er janvier 2021 (timestamp)
+        if (now < 1609459200)
+        { // 1er janvier 2021 (timestamp)
             ESP_LOGW(TAG, "Heure non synchronisée. Attente...");
             vTaskDelay(5000 / portTICK_PERIOD_MS); // Attendre 5 secondes
             continue;
         }
-        
+
         // 1. Attend le bit d'activation (ne consomme rien si désactivé)
         xEventGroupWaitBits(s_task_event_group, BIT_WEATHER_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
@@ -143,7 +184,7 @@ static void jeedom_send_task(void *pvParameters)
         // Attend le bit d'activation
         xEventGroupWaitBits(s_task_event_group, BIT_JEEDOM_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
-                // 2. On attend que le wifi soit connecté (sécurité)
+        // 2. On attend que le wifi soit connecté (sécurité)
         if (wifi_get_state() != WIFI_STATE_STA_CONNECTED)
         {
             ESP_LOGW(TAG, "Jeedom: WiFi non connecté, attente...");
@@ -205,29 +246,6 @@ static void ntp_monitor_task(void *pvParameters)
 
 /* --- Fonctions publiques --- */
 
-void task_manager_init_old(void)
-{
-    s_task_event_group = xEventGroupCreate();
-
-    // IMPORTANT : On ne met AUCUN bit ici. On attend le WiFi.
-    xEventGroupClearBits(s_task_event_group, 0xFFFFFF);
-    // Pour voir les logs de la tâche Serial dès le début
-    xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
-
-    // Initialisation des composants
-    serial_manager_init();
-    weather_store_init();
-    alert_storage_init("/sdcard/alerts.log");
-
-    // Création des tâches et récupération des handles
-    xTaskCreate(weather_update_task, my_tasks[0].pcName, my_tasks[0].usStackDepth, NULL, my_tasks[0].uxPriority, &my_tasks[0].pxTask);
-    xTaskCreate(jeedom_send_task, my_tasks[1].pcName, my_tasks[1].usStackDepth, NULL, my_tasks[1].uxPriority, &my_tasks[1].pxTask);
-    xTaskCreate(ntp_monitor_task, my_tasks[2].pcName, my_tasks[2].usStackDepth, NULL, my_tasks[2].uxPriority, &my_tasks[2].pxTask);
-    xTaskCreate(led_task, my_tasks[3].pcName, my_tasks[3].usStackDepth, NULL, my_tasks[3].uxPriority, &my_tasks[3].pxTask);    
-    xTaskCreate(alert_storage_task, my_tasks[4].pcName, my_tasks[4].usStackDepth, NULL, my_tasks[4].uxPriority, &my_tasks[4].pxTask);
-    xTaskCreate(serial_task, my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);  
-}
-
 static void task_manager_dump_config(void)
 {
     ESP_LOGI(TAG, "===== CONFIGURATION DES TACHES =====");
@@ -251,7 +269,6 @@ static void task_manager_dump_config(void)
 
     ESP_LOGI(TAG, "====================================");
 }
-
 
 void task_manager_init(void)
 {
@@ -278,11 +295,12 @@ void task_manager_init(void)
 
     // 3) Création des tâches
     xTaskCreate(weather_update_task, my_tasks[0].pcName, my_tasks[0].usStackDepth, NULL, my_tasks[0].uxPriority, &my_tasks[0].pxTask);
-    xTaskCreate(jeedom_send_task,  my_tasks[1].pcName, my_tasks[1].usStackDepth, NULL, my_tasks[1].uxPriority, &my_tasks[1].pxTask);
-    xTaskCreate(ntp_monitor_task,  my_tasks[2].pcName, my_tasks[2].usStackDepth, NULL, my_tasks[2].uxPriority, &my_tasks[2].pxTask);
-    xTaskCreate(led_task,          my_tasks[3].pcName, my_tasks[3].usStackDepth, NULL, my_tasks[3].uxPriority, &my_tasks[3].pxTask);
-    xTaskCreate(alert_storage_task,my_tasks[4].pcName, my_tasks[4].usStackDepth, NULL, my_tasks[4].uxPriority, &my_tasks[4].pxTask);
-    xTaskCreate(serial_task,       my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);
+    xTaskCreate(jeedom_send_task, my_tasks[1].pcName, my_tasks[1].usStackDepth, NULL, my_tasks[1].uxPriority, &my_tasks[1].pxTask);
+    xTaskCreate(ntp_monitor_task, my_tasks[2].pcName, my_tasks[2].usStackDepth, NULL, my_tasks[2].uxPriority, &my_tasks[2].pxTask);
+    xTaskCreate(led_task, my_tasks[3].pcName, my_tasks[3].usStackDepth, NULL, my_tasks[3].uxPriority, &my_tasks[3].pxTask);
+    xTaskCreate(alert_storage_task, my_tasks[4].pcName, my_tasks[4].usStackDepth, NULL, my_tasks[4].uxPriority, &my_tasks[4].pxTask);
+    xTaskCreate(serial_task, my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);
+    xTaskCreate(sht31_task, my_tasks[6].pcName, my_tasks[6].usStackDepth, NULL, my_tasks[6].uxPriority, &my_tasks[6].pxTask);
 }
 
 void task_manager_set_active(uint32_t bit, bool active)
@@ -358,10 +376,13 @@ cJSON *task_manager_get_all_info_json(void)
     return root;
 }
 
-void task_manager_set_delay(const char* key, uint32_t delay_ms) {
-    
-    for (int i = 0; i < TASK_COUNT; i++) {
-        if (strcmp(my_tasks[i].key, key) == 0) {
+void task_manager_set_delay(const char *key, uint32_t delay_ms)
+{
+
+    for (int i = 0; i < TASK_COUNT; i++)
+    {
+        if (strcmp(my_tasks[i].key, key) == 0)
+        {
             my_tasks[i].delay_ms = delay_ms;
             ESP_LOGI("TASK_MGR", "Nouveau délai pour %s : %lu ms", key, delay_ms);
             break;
@@ -372,6 +393,7 @@ void task_manager_set_delay(const char* key, uint32_t delay_ms) {
 }
 
 // Envoi le handler via le get
-EventGroupHandle_t task_manager_get_event_group(void) {
+EventGroupHandle_t task_manager_get_event_group(void)
+{
     return s_task_event_group;
 }

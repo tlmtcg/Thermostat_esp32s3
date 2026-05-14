@@ -22,10 +22,18 @@ extern "C" {
 /* -------------------------------------------------------------------------- */
 
 typedef struct {
+    const uint8_t *bitmap;   // tableau brut
+    uint8_t width;           // largeur d’un caractère
+    uint8_t height;          // hauteur d’un caractère
+    uint8_t spacing;         // espace entre caractères
+} ssd1306_font_t;
+
+typedef struct {
     i2c_master_dev_handle_t dev;   // handle I2C device
     uint8_t address;               // I2C address (0x3C / 0x3D)
     bool initialized;              // state
     uint8_t buffer[SSD1306_WIDTH * SSD1306_PAGES];
+    const ssd1306_font_t *font;
 } ssd1306_t;
 
 /* -------------------------------------------------------------------------- */
