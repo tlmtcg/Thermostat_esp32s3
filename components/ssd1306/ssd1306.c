@@ -8,6 +8,8 @@
 #include "freertos/task.h"
 
 #include "font5x7.h"
+#include "font3x5.h"
+#include "font8x16.h"
 
 static const char *TAG = "SSD1306";
 

@@ -95,12 +95,13 @@ static void oled_task(void *arg)
 
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG,
-                     "update failed: %s",
-                     esp_err_to_name(err));
+        //     ESP_LOGE(TAG,
+        //              "update failed: %s",
+        //              esp_err_to_name(err));
+        // 
         }
 
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
