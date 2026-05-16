@@ -315,19 +315,21 @@ esp_err_t ssd1306_reinit(
     vTaskDelay(pdMS_TO_TICKS(500));
 
     /* INIT SSD1306 */
-    const uint8_t init_cmds[] = {
-        0xAE,
-        0x20, 0x00,
-        0x81, 0xCF,
-        0xA1,
-        0xC8,
-        0xA6,
-        0xA8, 0x3F,
-        0xD3, 0x00,
-        0xD5, 0x80,
-        0x8D, 0x14,
-        0xAF
-    };
+const uint8_t init_cmds[] = {
+    0xAE,               // Display OFF
+    0x20, 0x00,         // Horizontal Addressing Mode
+    0x21, 0x00, 0x7F,   // Column Address Range (0-127)
+    0x22, 0x00, 0x07,   // Page Address Range (0-7)
+    0x81, 0xCF,         // Contraste
+    0xA1,               // Segment remap
+    0xC8,               // COM Output Scan Direction
+    0xA6,               // Normal display
+    0xA8, 0x3F,         // Multiplex ratio = 64
+    0xD3, 0x00,         // Display offset = 0
+    0xD5, 0x80,         // Oscillator frequency
+    0x8D, 0x14,         // Charge pump
+    0xAF                // Display ON
+};
 
     for (int i = 0; i < sizeof(init_cmds); i++)
     {
