@@ -20,6 +20,7 @@ idf_component_register(
         "ws_api_i2c.c"
         "ws_api_sht31.c"
         "ws_api_ssd1306.c"
+        "ws_api_ota.c"
 
     INCLUDE_DIRS 
         "include"
@@ -50,6 +51,8 @@ idf_component_register(
         esp_netif
         esp_timer
         cjson
+        esp_app_format
+        app_update
 
     EMBED_FILES 
         "www/index.html"
@@ -68,6 +71,7 @@ idf_component_register(
         "www/i2c.html"
         "www/logs.html"
         "www/sht31.html"
+        "www/ota.html"
         "www/jeedom.html"
         "www/common.css"
         "www/index.js"

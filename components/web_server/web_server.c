@@ -19,6 +19,7 @@
 #include "ws_api_i2c.h"
 #include "ws_api_sht31.h"
 #include "ws_api_ssd1306.h"
+#include "ws_api_ota.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -101,6 +102,8 @@ httpd_handle_t start_webserver(void)
     register_module(server, "i2c", ws_register_i2c_api);
     register_module(server, "sht31", ws_register_sht31_api);
     register_module(server, "ssd1306", ws_register_ssd1306_api);
+    register_module(server, "ota", ws_register_ota_api);
+    
 
     ESP_LOGI(TAG, "Serveur Web prêt.");
 
