@@ -1,4 +1,3 @@
-Projet de thermostat connecté.
-Sans wifi, la carte gère une connexion AP avec l'adresse 192.168.4.1
-Cela permettra, avec le serveur Web de saisir le SSID et le password de la box.
-Sinon, les paramètres par défaut sont dans sdkconfig et sauvegardés en nvs.
+Connected thermostat project. Without Wi-Fi, the board manages an AP connection at address 192.168.4.1. 
+This will allow, via the web server, entering the router’s SSID and password. 
+Otherwise, the default settings are stored in sdkconfig and saved in NVS.
