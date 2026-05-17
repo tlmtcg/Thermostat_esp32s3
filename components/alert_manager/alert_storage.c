@@ -50,6 +50,8 @@ void alert_storage_task(void *arg)
             esp_err_t err = sd_write_file(log_path, msg.line);
             if (err != ESP_OK)
             {
+                char line[32];
+                alert_add("Erreur écriture SD");
                 ESP_LOGE(TAG, "Erreur écriture SD");
             }
 

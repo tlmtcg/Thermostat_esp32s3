@@ -20,6 +20,8 @@ set(my_requires
     sht31
     ssd1306
     oled_service
+    app_context
+    display_pages
 )
 
 # Enregistrement du composant principal

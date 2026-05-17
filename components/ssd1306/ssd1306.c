@@ -10,12 +10,14 @@
 #include "font5x7.h"
 #include "font3x5.h"
 #include "font8x16.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "SSD1306";
 
-#define SSD1306_CONTROL_CMD  0x00
+#define SSD1306_CONTROL_CMD 0x00
 #define SSD1306_CONTROL_DATA 0x40
 
+ssd1306_t oled;
 /* -------------------------------------------------------------------------- */
 /*  SAFE WRITE CMD                                                            */
 /* -------------------------------------------------------------------------- */
@@ -23,19 +25,28 @@ static const char *TAG = "SSD1306";
 static esp_err_t ssd1306_write_cmd(ssd1306_t *lcd, uint8_t cmd)
 {
     if (!lcd || !lcd->dev)
+    {
+        ESP_LOGE(TAG, "ssd1306_write_cmd !lcd || !lcd->dev");
         return ESP_ERR_INVALID_STATE;
+    }
 
     uint8_t data[2] = {
         SSD1306_CONTROL_CMD,
-        cmd
-    };
+        cmd};
 
     esp_err_t err = i2c_master_transmit(
         lcd->dev,
         data,
         sizeof(data),
-        pdMS_TO_TICKS(100)
-    );
+        pdMS_TO_TICKS(200));
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG,
+                 "cmd 0x%02X failed: %s",
+                 cmd,
+                 esp_err_to_name(err));
+    }
 
     return err;
 }
@@ -112,11 +123,13 @@ static void ssd1306_draw_char(
 
     const uint8_t *bitmap = font5x7[(uint8_t)c];
 
-    for (int col = 0; col < 5; col++) {
+    for (int col = 0; col < 5; col++)
+    {
 
         uint8_t line = bitmap[col];
 
-        for (int row = 0; row < 7; row++) {
+        for (int row = 0; row < 7; row++)
+        {
 
             bool pixel = line & (1 << row);
 
@@ -142,7 +155,8 @@ void ssd1306_draw_string(
     if (!lcd || !str)
         return;
 
-    while (*str) {
+    while (*str)
+    {
 
         ssd1306_draw_char(lcd, x, y, *str++);
 
@@ -173,14 +187,11 @@ static esp_err_t ssd1306_write_data(
     buf[0] = SSD1306_CONTROL_DATA;
     memcpy(&buf[1], data, len);
 
-
     esp_err_t err = i2c_master_transmit(
         lcd->dev,
         buf,
         len + 1,
-        pdMS_TO_TICKS(200)
-    );
-  
+        pdMS_TO_TICKS(500));
 
     return err;
 }
@@ -192,7 +203,10 @@ static esp_err_t ssd1306_write_data(
 esp_err_t ssd1306_update(ssd1306_t *lcd)
 {
     if (!lcd || !lcd->dev)
+    {
+        ESP_LOGE(TAG, "ESP_ERR_INVALID_STATE !lcd || !lcd->dev ");
         return ESP_ERR_INVALID_STATE;
+    }
 
     esp_err_t err;
 
@@ -200,7 +214,8 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
      * Le SSD1306 possède 8 pages de 128 bytes
      */
 
-    for (uint8_t page = 0; page < 8; page++) {
+    for (uint8_t page = 0; page < 8; page++)
+    {
 
         /* set page */
         err = ssd1306_write_cmd(
@@ -208,19 +223,28 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
             0xB0 + page);
 
         if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "ssd1306_write_cmd 0xB0");
             return err;
+        }
 
         /* lower column start address */
         err = ssd1306_write_cmd(lcd, 0x00);
 
         if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "ssd1306_write_cmd 0x00");
             return err;
+        }
 
         /* higher column start address */
         err = ssd1306_write_cmd(lcd, 0x10);
 
         if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "ssd1306_write_cmd 0x10");
             return err;
+        }
 
         /* Envoi des 128 bytes de la page */
         err = ssd1306_write_data(
@@ -228,15 +252,15 @@ esp_err_t ssd1306_update(ssd1306_t *lcd)
             &lcd->buffer[page * 128],
             128);
 
-        if (err != ESP_OK) {
+        if (err != ESP_OK)
+        {
             ESP_LOGE(TAG,
                      "update page %d failed: %s",
                      page,
                      esp_err_to_name(err));
             return err;
 
-        vTaskDelay(1);
-
+            vTaskDelay(20);
         }
     }
 
@@ -257,9 +281,7 @@ esp_err_t ssd1306_deinit(ssd1306_t *lcd)
         /* OFF display avant suppression */
         ssd1306_write_cmd(lcd, 0xAE);
 
-      
         esp_err_t err = i2c_master_bus_rm_device(lcd->dev);
-    
 
         if (err != ESP_OK)
         {
@@ -299,14 +321,14 @@ esp_err_t ssd1306_reinit(
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = address,
-        .scl_speed_hz = 100000,
+        .scl_speed_hz = CONFIG_I2C_MANAGER_FREQ,
     };
 
     esp_err_t err = i2c_master_bus_add_device(
         bus,
         &dev_cfg,
         &lcd->dev);
-   
+
     if (err != ESP_OK)
         return err;
 
@@ -315,21 +337,21 @@ esp_err_t ssd1306_reinit(
     vTaskDelay(pdMS_TO_TICKS(500));
 
     /* INIT SSD1306 */
-const uint8_t init_cmds[] = {
-    0xAE,               // Display OFF
-    0x20, 0x00,         // Horizontal Addressing Mode
-    0x21, 0x00, 0x7F,   // Column Address Range (0-127)
-    0x22, 0x00, 0x07,   // Page Address Range (0-7)
-    0x81, 0xCF,         // Contraste
-    0xA1,               // Segment remap
-    0xC8,               // COM Output Scan Direction
-    0xA6,               // Normal display
-    0xA8, 0x3F,         // Multiplex ratio = 64
-    0xD3, 0x00,         // Display offset = 0
-    0xD5, 0x80,         // Oscillator frequency
-    0x8D, 0x14,         // Charge pump
-    0xAF                // Display ON
-};
+    const uint8_t init_cmds[] = {
+        0xAE,             // Display OFF
+        0x20, 0x00,       // Horizontal Addressing Mode
+        0x21, 0x00, 0x7F, // Column Address Range (0-127)
+        0x22, 0x00, 0x07, // Page Address Range (0-7)
+        0x81, 0xCF,       // Contraste
+        0xA1,             // Segment remap
+        0xC8,             // COM Output Scan Direction
+        0xA6,             // Normal display
+        0xA8, 0x3F,       // Multiplex ratio = 64
+        0xD3, 0x00,       // Display offset = 0
+        0xD5, 0x80,       // Oscillator frequency
+        0x8D, 0x14,       // Charge pump
+        0xAF              // Display ON
+    };
 
     for (int i = 0; i < sizeof(init_cmds); i++)
     {
@@ -443,4 +465,32 @@ esp_err_t ssd1306_reset_display(ssd1306_t *lcd)
     ssd1306_update(lcd);
 
     return err;
+}
+
+void ssd1306_draw_line(ssd1306_t *dev, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color)
+{
+    // Algorithme de Bresenham pour tracer une ligne
+    int16_t dx = abs(x2 - x1);
+    int16_t dy = abs(y2 - y1);
+    int16_t sx = (x1 < x2) ? 1 : -1;
+    int16_t sy = (y1 < y2) ? 1 : -1;
+    int16_t err = dx - dy;
+
+    while (1)
+    {
+        ssd1306_draw_pixel(dev, x1, y1, color);
+        if (x1 == x2 && y1 == y2)
+            break;
+        int16_t e2 = 2 * err;
+        if (e2 > -dy)
+        {
+            err -= dy;
+            x1 += sx;
+        }
+        if (e2 < dx)
+        {
+            err += dx;
+            y1 += sy;
+        }
+    }
 }

@@ -153,3 +153,12 @@ void alert_push_history(const alert_log_t *log);
  * @brief Affiche l’historique complet dans les logs.
  */
 void alert_get_history(void);
+
+
+/**
+ * @brief Récupère la liste des alarmes actives avec leurs métadonnées.
+ * @param alerts Tableau pré-alloué pour stocker les alertes.
+ * @param max_alerts Taille maximale du tableau.
+ * @return Nombre d'alarmes actives copiées.
+ */
+int alert_get_active_alerts(alert_log_t alerts[], int max_alerts);

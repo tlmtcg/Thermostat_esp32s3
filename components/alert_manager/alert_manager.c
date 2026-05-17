@@ -109,12 +109,14 @@ bool alert_add(const char *name)
 
     ESP_LOGI(TAG, "ALERTE ADD : %s", name);
 
-    if (s_callback == NULL)
-    {
-        ESP_LOGW(TAG, "Attention: Aucun callback enregistré, la sauvegarde SD va échouer !");
-    }
     if (s_callback)
+    {
         s_callback(ALERT_EVENT_ADDED, &log);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Aucun callback enregistré, la sauvegarde SD sera ignorée.");
+    }
 
     return true;
 }
@@ -285,4 +287,44 @@ void alert_manager_init(void)
     s_active_count = 0;
     s_history_count = 0;
     // s_callback = NULL;
+}
+
+int alert_get_active_alerts(alert_log_t alerts[], int max_alerts) {
+    if (!alerts || max_alerts <= 0) {
+        return 0;
+    }
+
+    const int *active_list = alert_get_active_list();
+    int active_count = alert_get_active_count();
+    int copied = 0;
+
+    for (int i = 0; i < active_count && i < max_alerts; i++) {
+        int alarm_idx = active_list[i];
+        stored_alarm_t *alarm = led_db_get_alarm_by_idx(alarm_idx);
+        if (alarm) {
+            // Récupérer la dernière entrée dans l'historique pour cette alarme
+            // (pour avoir le timestamp et le statut activated)
+            bool found = false;
+            for (int j = s_history_count - 1; j >= 0; j--) {
+                if (strcmp(alert_history[j].name, alarm->name) == 0) {
+                    strncpy(alerts[copied].name, alarm->name, sizeof(alerts[copied].name) - 1);
+                    alerts[copied].name[sizeof(alerts[copied].name) - 1] = '\0';
+                    alerts[copied].timestamp = alert_history[j].timestamp;
+                    alerts[copied].activated = alert_history[j].activated;
+                    found = true;
+                    break;
+                }
+            }
+
+            // Si pas trouvé dans l'historique, utiliser les valeurs par défaut
+            if (!found) {
+                strncpy(alerts[copied].name, alarm->name, sizeof(alerts[copied].name) - 1);
+                alerts[copied].name[sizeof(alerts[copied].name) - 1] = '\0';
+                alerts[copied].timestamp = time(NULL);
+                alerts[copied].activated = true; // Par défaut, active
+            }
+            copied++;
+        }
+    }
+    return copied;
 }

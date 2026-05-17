@@ -255,7 +255,8 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
 
     esp_err_t err = http_get_to_buffer(url, 10000);
     if (err != ESP_OK)
-        return err;
+     {   ESP_LOGE(TAG,"Erreur Jeedom");
+        return err;}
 
     // Conversion de la réponse texte ("8.4") en float
     ESP_LOGI(TAG, "Réponse brute Jeedom : '%s'", response_data);

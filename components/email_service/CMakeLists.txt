@@ -7,6 +7,7 @@ idf_component_register(
         freertos
         esp-tls
         mbedtls
+        alert_manager
 )
 
 target_add_binary_data(${COMPONENT_TARGET}

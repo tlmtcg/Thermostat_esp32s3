@@ -5,6 +5,7 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "app_context.h"
 
 static const char *TAG = "WIFI_EVENTS";
 static const wifi_callbacks_t *s_cb = NULL;

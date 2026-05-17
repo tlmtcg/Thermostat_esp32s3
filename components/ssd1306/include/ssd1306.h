@@ -161,6 +161,8 @@ esp_err_t ssd1306_printf(
 
 extern ssd1306_t oled;
 
+void ssd1306_draw_line(ssd1306_t *dev, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color);
+
 #ifdef __cplusplus
 }
 #endif

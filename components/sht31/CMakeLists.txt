@@ -1,5 +1,12 @@
 idf_component_register(
     SRCS "sht31.c"
     INCLUDE_DIRS "include"
-    REQUIRES esp_driver_i2c freertos oled_service i2c_manager time_utils sd_card
+    REQUIRES 
+        esp_driver_i2c 
+        freertos 
+        oled_service 
+        i2c_manager 
+        time_utils 
+        sd_card
+        app_context
 )

@@ -26,6 +26,8 @@
 #include "sht31.h"
 #include "ssd1306.h"
 #include "oled_service.h"
+#include "app_context.h"
+#include "display_pages.h"
 
 #include "driver/i2c_master.h" // 🔥 IMPORTANT ESP-IDF v6
 
@@ -196,6 +198,19 @@ void app_main(void)
 
         oled_service_show_boot();
     }
+
+    static ssd1306_t lcd;
+    /* 1. Init app context */
+    app_context_init();
+
+    /* 2. Init SSD1306 */
+    ssd1306_init(&lcd, i2c_manager_get_bus(),0x3C);
+
+    /* 3. Donner le LCD au module UI */
+    display_pages_init(&lcd);
+
+    /* 4. Lancer la task d’affichage */
+    display_pages_start();
 
     /* ------------------------------------------------------- */
     /* SD CARD */

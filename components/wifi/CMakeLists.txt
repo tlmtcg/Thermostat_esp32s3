@@ -17,4 +17,5 @@ idf_component_register(
         led_ctrl
         alert_manager
         task_manager
+        app_context
 )

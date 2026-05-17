@@ -11,6 +11,8 @@
 #include "i2c_manager.h"
 #include "sd_card.h" 
 #include "time_utils.h"
+#include "app_context.h"
+#include "sdkconfig.h"
 
 /* -------------------------------------------------------------------------- */
 /*  LOG TAG                                                                    */
@@ -104,7 +106,7 @@ static esp_err_t sht31_write_cmd(uint16_t cmd)
         g_sht31.dev,
         data,
         sizeof(data),
-        pdMS_TO_TICKS(500));
+        pdMS_TO_TICKS(200));
 
     return err;
 }
@@ -144,7 +146,7 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus,
     i2c_device_config_t cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address = addr,
-        .scl_speed_hz = 100000,
+        .scl_speed_hz = CONFIG_I2C_MANAGER_FREQ,
     };
 
     /* attach device to bus */
@@ -293,6 +295,8 @@ void sht31_task(void *pvParameters)
         if (sht31_read(&t, &h) == ESP_OK)
         {
             g_sht31.state.valid = true;
+            g_ctx.temperature=t;
+            g_ctx.humidity=h;
 
             // 1. Récupération de la date et de l'heure formatée
             time_utils_get_time_str(time_str, sizeof(time_str));

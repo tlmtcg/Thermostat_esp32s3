@@ -8,6 +8,7 @@
 #include "led_ctrl.h"
 #include "alert_manager.h"
 #include "task_manager.h"
+#include "app_context.h"
 
 static const char *TAG = "WIFI_APP";
 
@@ -15,27 +16,6 @@ static const char *TAG = "WIFI_APP";
 static TimerHandle_t xReconnectTimer = NULL;
 
 // --- CALLBACKS ---
-
-// static void vTimerReconnectCallback(TimerHandle_t xTimer)
-// {
-//     int count = wifi_get_ap_client_count();
-
-//     if (count > 0)
-//     {
-//         // Il y a au moins un client connecté
-//         ESP_LOGW(TAG, "Client AP détecté (%d). On évite de perturber la radio.", count);
-//         xTimerStart(xReconnectTimer, 0);
-//     }
-//     else
-//     {
-//         // Personne n'est connecté, on peut réessayer le mode STA
-//         ESP_LOGI(TAG, "AP libre. Tentative de reconnexion STA...");
-//         esp_wifi_connect();
-//     }
-// }
-
-#include "esp_wifi.h"
-
 static void vTimerReconnectCallback(TimerHandle_t xTimer)
 {
     wifi_sta_list_t clients;
@@ -60,6 +40,13 @@ static void on_sta_connected(const esp_ip4_addr_t *ip)
     alert_remove("Panne wifi");
     ESP_LOGI(TAG, "STA connectée ! IP : " IPSTR, IP2STR(ip));
     // C'est ici qu'on autorise les tâches à travailler
+    g_ctx.wifi_connected = true;
+    /* IP */
+    snprintf(g_ctx.wifi_ip,
+             sizeof(g_ctx.wifi_ip),
+             IPSTR,
+             IP2STR(ip));
+
     // task_manager_set_active(BIT_WEATHER_EN | BIT_JEEDOM_EN | BIT_NTP_EN, true);
 
     if (xReconnectTimer)

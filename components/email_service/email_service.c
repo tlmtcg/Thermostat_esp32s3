@@ -13,6 +13,7 @@
 #include "esp_crt_bundle.h"
 #include "mbedtls/base64.h"
 #include "sdkconfig.h"
+#include "alert_manager.h"
 
 static const char *TAG = "EMAIL";
 
@@ -58,10 +59,15 @@ static bool smtp_write(struct esp_tls *tls, const char *data)
 {
     int len = strlen(data);
     int ret = esp_tls_conn_write(tls, data, len);
-
+   
     if (ret <= 0)
     {
-        ESP_LOGE(TAG, "SMTP write failed (%d)", ret);
+        char line[32];
+        snprintf(line, sizeof(line),
+        "SMTP write failed (%d)",
+        ret);
+        alert_add(line);
+        ESP_LOGE(TAG, "%s", line);
         return false;
     }
 
