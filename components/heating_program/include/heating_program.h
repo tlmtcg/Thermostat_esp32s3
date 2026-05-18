@@ -29,4 +29,6 @@ void heating_set_point(chauffage_config_t *conf, jour_t j, int index, int h, int
 float heating_get_temp(const chauffage_config_t *conf, jour_t j, uint32_t now_sec);
 void heating_reset_defaults(chauffage_config_t *conf);
 char* heating_get_json(const chauffage_config_t *conf);
+float heating_get_temp_current(const chauffage_config_t *conf);
+const chauffage_config_t *heating_get_config(void);
 #endif // HEATING_PROGRAM_H

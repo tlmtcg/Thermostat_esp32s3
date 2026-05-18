@@ -3,6 +3,9 @@
 #include "nvs.h"
 #include "esp_log.h"
 #include "cJSON.h"
+#include <stdint.h>
+#include <time.h>
+#include "time_utils.h"
 
 static const char *TAG = "HEATING_PRG";
 #define NVS_NAMESPACE "storage"
@@ -149,4 +152,56 @@ char* heating_get_json(const chauffage_config_t *conf) {
     cJSON_Delete(root);
 
     return json_string; // /!\ N'oublie pas de free() ce pointeur après usage
+}
+
+/**
+ * @brief Retourne la température cible basée sur l'heure locale actuelle de l'ESP32.
+ * 
+ * @param conf Pointeur vers la configuration du chauffage.
+ * @return float La température cible, ou -1.0f en cas d'erreur.
+ */
+float heating_get_temp_current(const chauffage_config_t *conf)
+{
+    if (conf == NULL) {
+        return -1.0f;
+    }
+
+    // 1. Récupération de l'heure locale via le composant time_utils
+    struct tm local_time = time_utils_get_local_time();
+
+    // 2. Conversion du jour (struct tm : 0 = Dimanche, 1 = Lundi, etc.)
+    // ATTENTION : Ajustez si votre énumération jour_t commence par Lundi (0) au lieu de Dimanche (0)
+    jour_t j = (jour_t)local_time.tm_wday; 
+
+    // Validation du jour
+    if (j >= NB_JOURS) {
+        return -1.0f;
+    }
+
+    // 3. Calcul des secondes écoulées depuis minuit
+    uint32_t now_sec = (uint32_t)((local_time.tm_hour * 3600) + 
+                                  (local_time.tm_min * 60) + 
+                                  local_time.tm_sec);
+
+    // 4. Algorithme de recherche de la plage horaire (identique à votre fonction initiale)
+    float temp_cible = conf->planning[j][NB_PLAGES - 1].temperature;
+    uint32_t dernier_seuil = 0;
+
+    for (int i = 0; i < NB_PLAGES; i++)
+    {
+        uint32_t seuil = conf->planning[j][i].secondes_minuit;
+        
+        // Recherche de la plage passée la plus proche de l'heure actuelle
+        if (now_sec >= seuil && seuil >= dernier_seuil)
+        {
+            dernier_seuil = seuil;
+            temp_cible = conf->planning[j][i].temperature;
+        }
+    }
+
+    return temp_cible;
+}
+
+const chauffage_config_t *heating_get_config(void){
+    return &config;
 }

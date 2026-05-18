@@ -10,90 +10,158 @@ static const char *TAG = "WS_OTA";
 #define OTA_BUFFER_SIZE 2048
 
 typedef struct {
-    esp_ota_handle_t handle;
     const esp_partition_t *partition;
+    esp_ota_handle_t handle;
     bool started;
+    bool sha_init;
 } ota_session_t;
 
 static ota_session_t ota_session = {0};
 
 static esp_err_t ota_update_handler(httpd_req_t *req)
 {
-    char buf[1024];
-    int received;
+    esp_ota_handle_t ota_handle = 0;
+    const esp_partition_t *partition = NULL;
 
     esp_err_t err;
+    char buf[4096];
+    int received;
+    bool image_header_checked = false;
 
-    ESP_LOGI(TAG, "OTA request received, content length = %d", req->content_len);
+    ESP_LOGI(TAG, "Starting OTA");
 
-    const esp_partition_t *partition = esp_ota_get_next_update_partition(NULL);
+    partition = esp_ota_get_next_update_partition(NULL);
+
     if (!partition)
     {
-        ESP_LOGE(TAG, "No OTA partition found");
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No OTA partition");
+        ESP_LOGE(TAG, "No OTA partition");
+        httpd_resp_send_err(req,
+                            HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "No OTA partition");
         return ESP_FAIL;
     }
 
-    esp_ota_handle_t handle;
+    err = esp_ota_begin(partition,
+                        OTA_SIZE_UNKNOWN,
+                        &ota_handle);
 
-    err = esp_ota_begin(partition, OTA_SIZE_UNKNOWN, &handle);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_begin failed: %s", esp_err_to_name(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA begin failed");
+        ESP_LOGE(TAG,
+                 "esp_ota_begin failed: %s",
+                 esp_err_to_name(err));
+
+        httpd_resp_send_err(req,
+                            HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "OTA begin failed");
+
         return err;
     }
 
-    size_t total = 0;
+    int total = 0;
 
-    while ((received = httpd_req_recv(req, buf, sizeof(buf))) > 0)
+    while (1)
     {
-        total += received;
+        received = httpd_req_recv(req,
+                                  buf,
+                                  sizeof(buf));
 
-        err = esp_ota_write(handle, buf, received);
+        if (received == HTTPD_SOCK_ERR_TIMEOUT)
+        {
+            continue;
+        }
+
+        if (received <= 0)
+        {
+            break;
+        }
+
+        // Vérification MAGIC BYTE
+        if (!image_header_checked)
+        {
+            image_header_checked = true;
+
+            if ((uint8_t)buf[0] != 0xE9)
+            {
+                ESP_LOGE(TAG,
+                         "Invalid firmware magic byte: 0x%02X",
+                         (uint8_t)buf[0]);
+
+                esp_ota_abort(ota_handle);
+
+                httpd_resp_send_err(req,
+                                    HTTPD_400_BAD_REQUEST,
+                                    "Invalid firmware");
+
+                return ESP_FAIL;
+            }
+        }
+
+        err = esp_ota_write(ota_handle,
+                            buf,
+                            received);
+
         if (err != ESP_OK)
         {
-            ESP_LOGE(TAG, "esp_ota_write failed: %s", esp_err_to_name(err));
-            esp_ota_abort(handle);
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA write failed");
+            ESP_LOGE(TAG,
+                     "ota_write failed: %s",
+                     esp_err_to_name(err));
+
+            esp_ota_abort(ota_handle);
+
+            httpd_resp_send_err(req,
+                                HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "write failed");
+
             return err;
         }
-    }
 
-    if (received < 0)
-    {
-        ESP_LOGE(TAG, "HTTP receive error");
-        esp_ota_abort(handle);
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Receive error");
-        return ESP_FAIL;
+        total += received;
     }
 
     ESP_LOGI(TAG, "OTA received %d bytes", total);
 
-    err = esp_ota_end(handle);
+    err = esp_ota_end(ota_handle);
+
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_end failed: %s", esp_err_to_name(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OTA end failed");
+        ESP_LOGE(TAG,
+                 "esp_ota_end failed: %s",
+                 esp_err_to_name(err));
+
+        httpd_resp_send_err(req,
+                            HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "OTA end failed");
+
         return err;
     }
 
     err = esp_ota_set_boot_partition(partition);
+
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "esp_ota_set_boot_partition failed: %s", esp_err_to_name(err));
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Boot set failed");
+        ESP_LOGE(TAG,
+                 "set_boot_partition failed: %s",
+                 esp_err_to_name(err));
+
+        httpd_resp_send_err(req,
+                            HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Boot partition failed");
+
         return err;
     }
 
+    ESP_LOGI(TAG, "OTA OK -> rebooting");
+
     httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Connection", "close");
+
     httpd_resp_send(req,
-        "{\"status\":\"ok\",\"reboot\":true}",
-        HTTPD_RESP_USE_STRLEN);
+                    "{\"status\":\"ok\"}",
+                    HTTPD_RESP_USE_STRLEN);
 
-    ESP_LOGI(TAG, "OTA success, rebooting...");
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
-    vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();
 
     return ESP_OK;

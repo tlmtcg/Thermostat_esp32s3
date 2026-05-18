@@ -28,6 +28,6 @@ set(my_requires
 idf_component_register(
     SRCS "${my_srcs}"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES esp_http_server joltwallet__littlefs
+    PRIV_REQUIRES esp_http_server joltwallet__littlefs mbedtls app_update thermostat
     REQUIRES "${my_requires}"
 )

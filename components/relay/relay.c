@@ -253,3 +253,6 @@ esp_err_t relay_apply_config(bool force_state, uint32_t new_min_delay)
     return ESP_OK;
 }
 
+bool get_relay_state(){
+    return g_relay_runtime.state;
+}

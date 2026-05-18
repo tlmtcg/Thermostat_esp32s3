@@ -1,168 +1,182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="common.css" />
     <title>Mise à jour OTA</title>
 
     <style>
-        body { background-color: #121212; color: #ffffff; }
+      body {
+        background-color: #121212;
+        color: #ffffff;
+      }
 
-        .box {
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #333;
-        }
+      .box {
+        background: #1e1e1e;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #333;
+      }
 
-        .header-flex {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+      .header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
 
-        input[type="file"] {
-            background: #2a2a2a;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            color: #ccc;
-            width: 100%;
-        }
+      input[type="file"] {
+        background: #2a2a2a;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        color: #ccc;
+        width: 100%;
+      }
 
-        .btn {
-            background: var(--orange, #ff9800);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin-top: 10px;
-            width: 100%;
-            font-weight: bold;
-        }
+      .btn {
+        background: var(--orange, #ff9800);
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 10px;
+        width: 100%;
+        font-weight: bold;
+      }
 
-        .btn:disabled {
-            background: #555;
-            cursor: not-allowed;
-        }
+      .btn:disabled {
+        background: #555;
+        cursor: not-allowed;
+      }
 
-        .progress-bar {
-            width: 100%;
-            background: #333;
-            border-radius: 10px;
-            margin-top: 15px;
-            overflow: hidden;
-            height: 10px;
-        }
+      .progress-bar {
+        width: 100%;
+        background: #333;
+        border-radius: 10px;
+        margin-top: 15px;
+        overflow: hidden;
+        height: 10px;
+      }
 
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: #ff9800;
-            transition: width 0.2s ease;
-        }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: #ff9800;
+        transition: width 0.2s ease;
+      }
 
-        .status {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #aaa;
-        }
+      .status {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #aaa;
+      }
 
-        .danger { color: #ff5252; font-weight: bold; }
-        .ok { color: #4caf50; font-weight: bold; }
+      .danger {
+        color: #ff5252;
+        font-weight: bold;
+      }
+      .ok {
+        color: #4caf50;
+        font-weight: bold;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
+    <div id="navbar"></div>
 
-<div id="navbar"></div>
+    <h1 class="page-title">Mise à jour OTA</h1>
 
-<h1 class="page-title">Mise à jour OTA</h1>
+    <div class="box">
+      <div class="header-flex">
+        <h2 style="margin: 0">Firmware ESP32</h2>
+      </div>
 
-<div class="box">
-
-    <div class="header-flex">
-        <h2 style="margin:0;">Firmware ESP32</h2>
-    </div>
-
-    <p style="color:#aaa;font-size:13px;">
+      <p style="color: #aaa; font-size: 13px">
         Sélectionnez un firmware (.bin). Ne pas couper l’alimentation.
-    </p>
+      </p>
 
-    <input type="file" id="firmware" accept=".bin" />
+      <input type="file" id="firmware" accept=".bin" />
 
-    <button class="btn" id="btn-update">
-        Lancer la mise à jour
-    </button>
+      <button class="btn" id="btn-update">Lancer la mise à jour</button>
 
-    <div class="progress-bar">
+      <div class="progress-bar">
         <div class="progress-fill" id="progress"></div>
+      </div>
+
+      <div class="status" id="status">En attente...</div>
     </div>
 
-    <div class="status" id="status">En attente...</div>
+    <script src="index.js"></script>
 
-</div>
+    <script>
+      const fileInput = document.getElementById("firmware");
+      const progress = document.getElementById("progress");
+      const status = document.getElementById("status");
+      const btn = document.getElementById("btn-update");
 
-<script src="index.js"></script>
+      btn.addEventListener("click", () => {
+        if (!fileInput.files.length) {
+          status.textContent = "Sélectionnez un fichier .bin";
+          status.className = "status danger";
+          return;
+        }
 
-<script>
-const fileInput = document.getElementById("firmware");
-const progress = document.getElementById("progress");
-const status = document.getElementById("status");
-const btn = document.getElementById("btn-update");
+        const file = fileInput.files[0];
 
-btn.addEventListener("click", () => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/ota/update", true);
 
-    if (!fileInput.files.length) {
-        status.textContent = "Sélectionnez un fichier .bin";
-        status.className = "status danger";
-        return;
-    }
+        // 🔥 IMPORTANT : envoi binaire brut
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
-    const file = fileInput.files[0];
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/ota/update", true);
-
-    // 🔥 IMPORTANT : envoi binaire brut
-    xhr.setRequestHeader("Content-Type", "application/octet-stream");
-
-    xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
             const percent = (event.loaded / event.total) * 100;
             progress.style.width = percent + "%";
-        }
-    };
+          }
+        };
 
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            status.textContent = "Mise à jour terminée. Redémarrage...";
-            status.className = "status ok";
+        xhr.onload = () => {
+          if (xhr.status === 200) {
             progress.style.width = "100%";
-        } else {
+
+            status.textContent = "Mise à jour terminée. Redémarrage ESP32...";
+            status.className = "status ok";
+
+            btn.disabled = true;
+
+            // Attendre le reboot
+            setTimeout(() => {
+              status.textContent = "Reconnexion au module...";
+
+              // tentative reload
+              window.location.reload();
+            }, 8000);
+          } else {
             status.textContent = "Erreur OTA";
             status.className = "status danger";
-        }
-        btn.disabled = false;
-    };
 
-    xhr.onerror = () => {
-        status.textContent = "Erreur réseau";
-        status.className = "status danger";
-        btn.disabled = false;
-    };
+            btn.disabled = false;
+          }
+        };
 
-    btn.disabled = true;
-    status.textContent = "Upload en cours...";
-    status.className = "status";
+        xhr.onerror = () => {
+          status.textContent = "Erreur réseau";
+          status.className = "status danger";
+          btn.disabled = false;
+        };
 
-    // 🔥 ENVOI DIRECT DU FICHIER
-    xhr.send(file);
-});
-</script>
+        btn.disabled = true;
+        status.textContent = "Upload en cours...";
+        status.className = "status";
 
-</body>
+        // 🔥 ENVOI DIRECT DU FICHIER
+        xhr.send(file);
+      });
+    </script>
+  </body>
 </html>

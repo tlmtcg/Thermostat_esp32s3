@@ -1,155 +1,253 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="common.css">
-    <title>Moniteur Système</title>
+    <link rel="stylesheet" href="common.css" />
+    <title>Thermostat</title>
+
     <style>
-        /* Adaptation au style sombre de l'index */
-        body { background-color: #121212; color: #ffffff; }
-        
-        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        
-        .btn-help { background: #333; color: #ccc; border: 1px solid #444; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-        .help-panel { display: none; background: #1a1a1a; border-left: 4px solid var(--orange); padding: 15px; margin-bottom: 20px; font-size: 13px; color: #bbb; }
+      body {
+        background: #121212;
+        color: #fff;
+      }
 
-        /* Cartes Mémoire */
-        .memory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .mem-card { background: #1e1e1e; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #333; }
-        .mem-val { display: block; font-size: 22px; font-weight: bold; color: var(--orange); }
-        .mem-label { font-size: 11px; color: #888; text-transform: uppercase; }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+      }
 
-        /* Tableau sombre */
-        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
-        th { text-align: left; padding: 12px; color: #666; font-size: 11px; text-transform: uppercase; border-bottom: 1px solid #333; }
-        td { padding: 12px; border-bottom: 1px solid #2a2a2a; font-family: 'Consolas', monospace; font-size: 13px; }
-        
-        /* Graphiques & Badges */
-        .bar-bg { width: 80px; background: #333; border-radius: 10px; height: 6px; display: inline-block; vertical-align: middle; margin-left: 8px; }
-        .bar-fill { height: 100%; border-radius: 10px; background: var(--orange); transition: width 0.5s ease; }
-        
-        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-        .bg-x { background: #d32f2f; color: white; } /* Running */
-        .bg-b { background: #444; color: #999; }    /* Blocked */
-        .bg-r { background: #1976d2; color: white; } /* Ready */
+      .mode-btn {
+        flex: 1;
+        min-width: 120px;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #444;
+        background: #252526;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+      }
 
-        .danger { color: #ff5252; font-weight: bold; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
+      .mode-btn.active {
+        background: var(--orange);
+        border-color: var(--orange);
+      }
+
+      .temp-value {
+        font-size: 64px;
+        text-align: center;
+        color: var(--orange);
+        font-weight: bold;
+      }
+
+      .temp-label {
+        text-align: center;
+        color: #888;
+      }
+
+      .line-status {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #333;
+      }
+
+      .relay-on {
+        color: #4caf50;
+        font-weight: bold;
+      }
+      .relay-off {
+        color: #ff5252;
+        font-weight: bold;
+      }
+
+      .slider-container {
+        margin-top: 20px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--orange);
+      }
+
+      .setpoint {
+        text-align: center;
+        font-size: 24px;
+        margin-top: 10px;
+        color: var(--orange);
+      }
     </style>
-</head>
-<body>
-    <!-- Le menu sera injecté ici par index.js -->
+  </head>
+
+  <body>
     <div id="navbar"></div>
 
-    <h1 class="page-title">Moniteur Système</h1>
+    <h1 class="page-title">Thermostat</h1>
 
     <div class="box">
-        <div class="header-flex">
-            <h2 style="margin:0;">Ressources S3</h2>
-            <button class="btn-help" onclick="toggleHelp()">❔ AIDE</button>
-        </div>
+      <h2>État</h2>
 
-        <div id="help-panel" class="help-panel">
-            <strong>Lexique :</strong><br>
-            • <b class="bg-x badge">X</b> : Tâche en cours (Running).<br>
-            • <b>Stack</b> : Espace mémoire restant pour la tâche. <br>
-            • <b class="danger">0 octets</b> : Danger critique, la tâche va planter !
-        </div>
+      <div class="temp-label">Température</div>
+      <div class="temp-value" id="temp">--.- °C</div>
 
-        <div class="memory-grid">
-            <div class="mem-card"><span class="mem-val" id="heap-free">-</span><span class="mem-label">RAM Libre</span></div>
-            <div class="mem-card"><span class="mem-val" id="heap-min">-</span><span class="mem-label">Min Historique</span></div>
-        </div>
+      <div class="line-status">
+        <span>Relais</span>
+        <span id="relay" class="relay-off">OFF</span>
+      </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Tâche</th>
-                    <th>État</th>
-                    <th>CPU</th>
-                    <th>Stack Libre</th>
-                </tr>
-            </thead>
-            <tbody id="task-table">
-                <!-- Rempli par le script -->
-            </tbody>
-        </table>
-
-        <div class="line" style="margin-top:20px; border:none;">
-            <span id="update-time" style="color:#555; font-size:12px;">--:--:--</span>
-            <button onclick="fetchSysData()" style="background:var(--orange); color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; margin-left:auto;">Rafraîchir</button>
-        </div>
+      <div class="line-status">
+        <span>Mode</span>
+        <span id="mode">--</span>
+      </div>
     </div>
 
-    <!-- Inclusion de ton script pour le menu et les fonctions globales -->
-    <script src="index.js"></script>
+    <div class="box">
+      <h2>Modes</h2>
+
+      <div class="controls">
+        <button class="mode-btn" id="btn-AUTO" onclick="setMode('AUTO')">
+          AUTO
+        </button>
+
+        <button class="mode-btn" id="btn-MANUAL" onclick="setMode('MANUAL')">
+          MANU
+        </button>
+
+        <button class="mode-btn" id="btn-ABSENT" onclick="setMode('ABSENT')">
+          ABSENT
+        </button>
+
+        <button
+          class="mode-btn"
+          id="btn-HORS_GEL"
+          onclick="setMode('HORS_GEL')"
+        >
+          HORS-GEL
+        </button>
+      </div>
+
+      <div class="slider-container">
+        <div class="temp-label">Consigne</div>
+
+        <input type="range" id="slider" min="5" max="30" step="0.5" />
+
+        <div class="setpoint" id="sp">--.- °C</div>
+      </div>
+    </div>
 
     <script>
-        function toggleHelp() {
-            const p = document.getElementById('help-panel');
-            p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+      const slider = document.getElementById("slider");
+
+      slider.addEventListener("input", () => {
+        document.getElementById("sp").textContent =
+          parseFloat(slider.value).toFixed(1) + " °C";
+      });
+
+      slider.addEventListener("change", async () => {
+        await fetch("/api/index/cmd", {
+          method: "POST",
+          body: "SET:" + slider.value,
+        });
+      });
+
+      async function setMode(mode) {
+        await fetch("/api/index/cmd", {
+          method: "POST",
+          body: mode,
+        });
+
+        updateButtons(mode);
+      }
+
+      function updateButtons(mode) {
+        document
+          .querySelectorAll(".mode-btn")
+          .forEach((b) => b.classList.remove("active"));
+
+        const btn = document.getElementById("btn-" + mode);
+        if (btn) btn.classList.add("active");
+      }
+
+      function normalizeMode(m) {
+        switch (m) {
+          case 0:
+          case "0":
+          case "AUTO":
+            return "AUTO";
+
+          case 1:
+          case "1":
+          case "MANUAL":
+            return "MANUAL";
+
+          case 2:
+          case "2":
+          case "ABSENT":
+            return "ABSENT";
+
+          case 3:
+          case "3":
+          case "HORS_GEL":
+            return "HORS_GEL";
+
+          default:
+            return "AUTO";
+        }
+      }
+
+      function formatMode(m) {
+        switch (normalizeMode(m)) {
+          case "AUTO":
+            return "AUTO";
+          case "MANUAL":
+            return "MANU";
+          case "ABSENT":
+            return "ABSENT";
+          case "HORS_GEL":
+            return "HORS-GEL";
+          default:
+            return m;
+        }
+      }
+
+      async function refresh() {
+        const r = await fetch("/api/index/status");
+        const d = await r.json();
+
+        document.getElementById("temp").textContent =
+          d.temperature.toFixed(1) + " °C";
+
+        const modeNorm = normalizeMode(d.mode);
+
+        document.getElementById("mode").textContent = formatMode(d.mode);
+
+        const relay = document.getElementById("relay");
+
+        if (d.relay) {
+          relay.textContent = "ON";
+          relay.className = "relay-on";
+        } else {
+          relay.textContent = "OFF";
+          relay.className = "relay-off";
         }
 
-        async function fetchSysData() {
-            try {
-                const response = await fetch('/api/sys');
-                const raw = await response.text();
-                
-                // RAM
-                const fHeap = (raw.match(/Free Heap: (\d+)/) || [0,0])[1];
-                const mHeap = (raw.match(/Min Ever Free: (\d+)/) || [0,0])[1];
-                document.getElementById('heap-free').textContent = parseInt(fHeap).toLocaleString();
-                document.getElementById('heap-min').textContent = parseInt(mHeap).toLocaleString();
-
-                const sections = raw.split('---');
-                const listSection = sections[2].trim().split('\n').slice(1);
-                const cpuSection = sections[4].trim().split('\n');
-
-                let html = '';
-                cpuSection.forEach(line => {
-                    const parts = line.trim().split(/\s+/);
-                    if (parts.length < 2) return;
-
-                    const name = parts[0];
-                    const cpuPerc = parts[parts.length - 1];
-                    const numPerc = parseFloat(cpuPerc.replace('<', '')) || 0.1;
-
-                    // Recherche des détails dans la Task List
-                    const details = listSection.find(t => t.startsWith(name))?.split(/\s+/) || [];
-                    const state = details[1] || '?';
-                    const stack = parseInt(details[3]) || 0;
-
-                    // Alerte si stack trop basse
-                    const stackClass = stack < 300 ? 'danger' : '';
-
-                    html += `<tr>
-                        <td><b>${name}</b></td>
-                        <td>${getStateBadge(state)}</td>
-                        <td>
-                            <small>${cpuPerc}</small>
-                            <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(numPerc*2, 100)}%"></div></div>
-                        </td>
-                        <td class="${stackClass}">${stack} B</td>
-                    </tr>`;
-                });
-
-                document.getElementById('task-table').innerHTML = html;
-                document.getElementById('update-time').textContent = "MàJ: " + new Date().toLocaleTimeString();
-            } catch (e) { 
-                console.error("Erreur API", e); 
-            }
+        if (d.target !== undefined) {
+          slider.value = d.target;
+          document.getElementById("sp").textContent =
+            d.target.toFixed(1) + " °C";
         }
 
-        function getStateBadge(s) {
-            if(s === 'X') return '<span class="badge bg-x">RUNNING</span>';
-            if(s === 'B') return '<span class="badge bg-b">IDLE</span>';
-            if(s === 'R') return '<span class="badge bg-r">READY</span>';
-            return `<span class="badge bg-b">${s}</span>`;
-        }
+        updateButtons(modeNorm);
+      }
 
-        setInterval(fetchSysData, 3000);
-        fetchSysData();
+      setInterval(refresh, 2000);
+      refresh();
     </script>
-</body>
+
+    <script src="index.js"></script>
+  </body>
 </html>

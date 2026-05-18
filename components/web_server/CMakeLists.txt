@@ -21,6 +21,7 @@ idf_component_register(
         "ws_api_sht31.c"
         "ws_api_ssd1306.c"
         "ws_api_ota.c"
+        "ws_api_thermostat.c"
 
     INCLUDE_DIRS 
         "include"
@@ -44,6 +45,7 @@ idf_component_register(
         i2c_manager
         sht31
         ssd1306
+        thermostat
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -53,6 +55,8 @@ idf_component_register(
         cjson
         esp_app_format
         app_update
+        esp_partition
+        
 
     EMBED_FILES 
         "www/index.html"
