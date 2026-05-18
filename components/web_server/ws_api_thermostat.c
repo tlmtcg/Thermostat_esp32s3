@@ -30,7 +30,7 @@ static esp_err_t index_status_handler(httpd_req_t *req)
     // Récupération des états internes du système
     const chauffage_config_t *cfg = heating_get_config();
     thermostat_state_t st = thermostat_get_state();
-    float current_temp = heating_get_temp_current(cfg);  // Température calculée actuelle
+    float current_temp = heating_get_temp_current();  // Température calculée actuelle
     bool relay_state = get_relay_state();                // État physique du relais (ON/OFF)
     
 

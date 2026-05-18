@@ -9,16 +9,20 @@ static const char *TAG = "WS_API_PROG";
 // [GET] /api/program/get
 static esp_err_t get_program_handler(httpd_req_t *req)
 {
-    char *json_string = heating_get_json(&config);
-    if (json_string == NULL)
+
+    char *json_string = NULL;
+    if (heating_get_program_json(&json_string) != ESP_OK || !json_string)
     {
         httpd_resp_send_500(req);
         return ESP_FAIL;
     }
+
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+
     esp_err_t res = httpd_resp_send(req, json_string, strlen(json_string));
     free(json_string);
+
     return res;
 }
 
@@ -47,8 +51,9 @@ static esp_err_t set_program_handler(httpd_req_t *req)
 
     if (day && idx && h && m && s && t)
     {
-        heating_set_point(&config, day->valueint, idx->valueint, h->valueint, m->valueint, s->valueint, (float)t->valuedouble);
-        heating_save(&config);
+        chauffage_config_t *cfg = heating_get_config_rw();
+        heating_set_point( day->valueint, idx->valueint, h->valueint, m->valueint, s->valueint, (float)t->valuedouble);
+        heating_save();
     }
 
     cJSON_Delete(root);
@@ -59,10 +64,14 @@ static esp_err_t set_program_handler(httpd_req_t *req)
 // [GET] /api/program/reset
 static esp_err_t reset_program_handler(httpd_req_t *req)
 {
-    heating_reset_defaults(&config);
-    heating_save(&config);
+    if (heating_reset_program() != ESP_OK)
+    {
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
+
     httpd_resp_set_type(req, "application/json");
-    return httpd_resp_send(req, "{\"status\":\"reset_done\"}", 23);
+    return httpd_resp_send(req, "{\"status\":\"reset_done\"}", HTTPD_RESP_USE_STRLEN);
 }
 
 // Enregistrement des routes
