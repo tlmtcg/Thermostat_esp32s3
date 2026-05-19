@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "heating_program.h"
 
 static const char *TAG = "THERMOSTAT";
 
@@ -12,6 +13,7 @@ static const char *TAG = "THERMOSTAT";
 #define NVS_KEY_STATE "state"
 
 static thermostat_state_t state;
+static thermostat_runtime_t runtime;
 
 /* =========================================================
  * NVS
@@ -147,3 +149,36 @@ void thermostat_set_enabled(bool enabled)
     ESP_LOGI(TAG, "Enabled=%d", enabled);
 }
 
+float thermostat_compute_consigne(const thermostat_state_t *st,
+                                  float temp_ext)
+{
+    float base = heating_get_temp_current();
+
+    switch (st->mode)
+    {
+        case THERMOSTAT_MODE_AUTO:
+            return base;
+
+        case THERMOSTAT_MODE_MANUAL:
+            return st->consigne;
+
+        case THERMOSTAT_MODE_ABSENT:
+            return base - 4.0f;
+
+        case THERMOSTAT_MODE_HORS_GEL:
+            return temp_ext + 4.0f;
+
+        default:
+            return base;
+    }
+}
+
+const thermostat_runtime_t *thermostat_get_runtime(void)
+{
+    return &runtime;
+}
+
+thermostat_runtime_t *thermostat_get_runtime_rw(void)
+{
+    return &runtime;
+}

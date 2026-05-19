@@ -13,11 +13,8 @@
 typedef struct {
 
     float temperature;
-
     float humidity;
-
     bool valid;
-
     time_t last_update;
 
 } sht31_state_t;

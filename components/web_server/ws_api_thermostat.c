@@ -11,6 +11,7 @@
 #include "heating_program.h"
 #include "relay.h"
 #include "sht31.h"
+#include "time.h"
 
 // Tag utilisé pour les logs ESP-IDF associés à ce module
 static const char *TAG = "WS_THERMOSTAT";
@@ -30,28 +31,40 @@ static esp_err_t index_status_handler(httpd_req_t *req)
     // Récupération des états internes du système
     const chauffage_config_t *cfg = heating_get_config();
     thermostat_state_t st = thermostat_get_state();
-    float current_temp = heating_get_temp_current();  // Température calculée actuelle
-    bool relay_state = get_relay_state();                // État physique du relais (ON/OFF)
-    
 
-    char json[256];
+    float current_setpoint = heating_get_temp_current(); // consigne calculée
+    bool relay_state = get_relay_state();
 
-    // Construction de la réponse au format JSON
+    // ⚠️ récupérer UNE seule fois le capteur
+    const sht31_state_t *env = sht31_get_state();
+
+    float temperature = env ? env->temperature : -127.0f;
+    float humidity    = env ? env->humidity : -1.0f;
+    bool valid        = env ? env->valid : false;
+    time_t last_update = env ? env->last_update : 0;
+
+    char json[384]; // ⚠️ augmenté
+
     snprintf(json, sizeof(json),
              "{"
              "\"temperature\":%.2f,"
+             "\"humidity\":%.2f,"
+             "\"valid\":%s,"
+             "\"last_update\":%ld,"
              "\"target\":%.2f,"
              "\"relay\":%s,"
              "\"mode\":%d,"
              "\"enabled\":%s"
              "}",
-             current_temp,
-             st.consigne,
+             temperature,
+             humidity,
+             valid ? "true" : "false",
+             (long)last_update,
+             current_setpoint,
              relay_state ? "true" : "false",
              st.mode,
              st.enabled ? "true" : "false");
 
-    // Envoi de la réponse HTTP avec l'en-tête Content-Type approprié
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
 

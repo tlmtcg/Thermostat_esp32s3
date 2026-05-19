@@ -109,23 +109,10 @@
       <h2>Modes</h2>
 
       <div class="controls">
-        <button class="mode-btn" id="btn-AUTO" onclick="setMode('AUTO')">
-          AUTO
-        </button>
-
-        <button class="mode-btn" id="btn-MANUAL" onclick="setMode('MANUAL')">
-          MANU
-        </button>
-
-        <button class="mode-btn" id="btn-ABSENT" onclick="setMode('ABSENT')">
-          ABSENT
-        </button>
-
-        <button
-          class="mode-btn"
-          id="btn-HORS_GEL"
-          onclick="setMode('HORS_GEL')"
-        >
+        <button class="mode-btn" id="btn-0" onclick="setMode(0)">AUTO</button>
+        <button class="mode-btn" id="btn-1" onclick="setMode(1)">MANU</button>
+        <button class="mode-btn" id="btn-2" onclick="setMode(2)">ABSENT</button>
+        <button class="mode-btn" id="btn-3" onclick="setMode(3)">
           HORS-GEL
         </button>
       </div>
@@ -134,12 +121,13 @@
         <div class="temp-label">Consigne</div>
 
         <input type="range" id="slider" min="5" max="30" step="0.5" />
-
         <div class="setpoint" id="sp">--.- °C</div>
       </div>
     </div>
 
     <script>
+      const MODE_NAME = ["AUTO", "MANU", "ABSENT", "HORS-GEL"];
+
       const slider = document.getElementById("slider");
 
       slider.addEventListener("input", () => {
@@ -157,7 +145,7 @@
       async function setMode(mode) {
         await fetch("/api/index/cmd", {
           method: "POST",
-          body: mode,
+          body: MODE_NAME[mode],
         });
 
         updateButtons(mode);
@@ -172,48 +160,6 @@
         if (btn) btn.classList.add("active");
       }
 
-      function normalizeMode(m) {
-        switch (m) {
-          case 0:
-          case "0":
-          case "AUTO":
-            return "AUTO";
-
-          case 1:
-          case "1":
-          case "MANUAL":
-            return "MANUAL";
-
-          case 2:
-          case "2":
-          case "ABSENT":
-            return "ABSENT";
-
-          case 3:
-          case "3":
-          case "HORS_GEL":
-            return "HORS_GEL";
-
-          default:
-            return "AUTO";
-        }
-      }
-
-      function formatMode(m) {
-        switch (normalizeMode(m)) {
-          case "AUTO":
-            return "AUTO";
-          case "MANUAL":
-            return "MANU";
-          case "ABSENT":
-            return "ABSENT";
-          case "HORS_GEL":
-            return "HORS-GEL";
-          default:
-            return m;
-        }
-      }
-
       async function refresh() {
         const r = await fetch("/api/index/status");
         const d = await r.json();
@@ -221,12 +167,11 @@
         document.getElementById("temp").textContent =
           d.temperature.toFixed(1) + " °C";
 
-        const modeNorm = normalizeMode(d.mode);
+        const mode = Number(d.mode);
 
-        document.getElementById("mode").textContent = formatMode(d.mode);
+        document.getElementById("mode").textContent = MODE_NAME[mode] || "--";
 
         const relay = document.getElementById("relay");
-
         if (d.relay) {
           relay.textContent = "ON";
           relay.className = "relay-on";
@@ -241,7 +186,7 @@
             d.target.toFixed(1) + " °C";
         }
 
-        updateButtons(modeNorm);
+        updateButtons(mode);
       }
 
       setInterval(refresh, 2000);

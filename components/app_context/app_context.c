@@ -13,7 +13,7 @@ void app_context_init(void)
     // valeurs par défaut capteurs
     g_ctx.temperature = 0.0f;
     g_ctx.humidity = 0.0f;
-    g_ctx.setpoint = 20.0f;
+    g_ctx.setpoint = 21.0f;
 
     // WiFi default
     g_ctx.wifi_connected = false;
