@@ -7,5 +7,6 @@
     "idf.customExtraVars": {
         "IDF_TARGET": "esp32s3"
     },
-    "idf.monitorPort": "COM4"
+    "idf.monitorPort": "COM4",
+    "idf.flashType": "JTAG"
 }

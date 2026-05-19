@@ -77,17 +77,19 @@ static esp_err_t relay_post_handler(httpd_req_t *req)
     if (cJSON_IsBool(state))
     {
         bool target = cJSON_IsTrue(state);
-        bool before = g_relay_runtime.state;
+        const relay_runtime_t *runtime = relay_get_runtime();
+        bool before = runtime->state;
 
         relay_set(target);
+        runtime = relay_get_runtime();
 
         // Si l'état n'a pas changé → erreur délai trop court
-        if (before == g_relay_runtime.state &&
-            strlen(g_relay_runtime.last_error) > 0)
+        if (before == runtime->state &&
+            strlen(runtime->last_error) > 0)
         {
             has_error = true;
             snprintf(error_msg, sizeof(error_msg),
-                     "%s", g_relay_runtime.last_error);
+                     "%s", runtime->last_error);
         }
     }
 
@@ -98,8 +100,13 @@ static esp_err_t relay_post_handler(httpd_req_t *req)
     if (cJSON_IsNumber(min_delay))
     {
         uint32_t new_delay = (uint32_t)min_delay->valuedouble;
-        g_relay_runtime.min_delay_s = new_delay;
-        ESP_LOGI(TAG, "min_delay mis à %u sec", new_delay);
+        relay_config_t config;
+        if (relay_get_config(&config) == ESP_OK)
+        {
+            config.min_delay_s = new_delay;
+            relay_set_config(&config);
+        }
+        ESP_LOGI(TAG, "min_delay mis a %u sec", (unsigned)new_delay);
     }
 
     /* ---------------------------------------------------------------------- */

@@ -8,13 +8,14 @@ menu "SD Card Configuration"
 
     config SD_CARD_MOSI_GPIO
         int "MOSI GPIO Pin"
-        default 4
+        default 5
         range 0 48
 
     config SD_CARD_MISO_GPIO
         int "MISO GPIO Pin"
         default 2
         range 0 48
+
 
     config SD_CARD_SCLK_GPIO
         int "SCLK GPIO Pin"
