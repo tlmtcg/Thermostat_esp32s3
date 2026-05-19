@@ -11,9 +11,9 @@ static const char *TAG = "THERMO_STORAGE";
 #define NVS_NAMESPACE "thermostat"
 #define NVS_KEY_STATE "state"
 
-esp_err_t thermostat_storage_load(thermostat_state_t *state)
+esp_err_t thermostat_storage_load(thermostat_config_t *config)
 {
-    if (!state)
+    if (!config)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -31,11 +31,11 @@ esp_err_t thermostat_storage_load(thermostat_state_t *state)
         return err;
     }
 
-    size_t size = sizeof(thermostat_state_t);
+    size_t size = sizeof(thermostat_config_t);
 
     err = nvs_get_blob(handle,
                        NVS_KEY_STATE,
-                       state,
+                       config,
                        &size);
 
     nvs_close(handle);
@@ -51,16 +51,16 @@ esp_err_t thermostat_storage_load(thermostat_state_t *state)
 
     ESP_LOGI(TAG,
              "Loaded state: mode=%d consigne=%.1f enabled=%d",
-             state->mode,
-             state->consigne,
-             state->enabled);
+             config->mode,
+             config->consigne,
+             config->enabled);
 
     return ESP_OK;
 }
 
-esp_err_t thermostat_storage_save(const thermostat_state_t *state)
+esp_err_t thermostat_storage_save(const thermostat_config_t *config)
 {
-    if (!state)
+    if (!config)
     {
         return ESP_ERR_INVALID_ARG;
     }
@@ -82,8 +82,8 @@ esp_err_t thermostat_storage_save(const thermostat_state_t *state)
 
     err = nvs_set_blob(handle,
                        NVS_KEY_STATE,
-                       state,
-                       sizeof(thermostat_state_t));
+                       config,
+                       sizeof(thermostat_config_t));
 
     if (err != ESP_OK)
     {
@@ -113,9 +113,9 @@ esp_err_t thermostat_storage_save(const thermostat_state_t *state)
 
     ESP_LOGI(TAG,
              "Saved state: mode=%d consigne=%.1f enabled=%d",
-             state->mode,
-             state->consigne,
-             state->enabled);
+             config->mode,
+             config->consigne,
+             config->enabled);
 
     return ESP_OK;
 }

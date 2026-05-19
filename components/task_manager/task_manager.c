@@ -4,6 +4,8 @@
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 
+#include <stdio.h>
+
 /* Includes de tes composants */
 #include "weather.h"
 #include "weather_store.h"
@@ -17,9 +19,14 @@
 #include "config_storage.h"
 #include "task_manager.h"
 #include "sht31.h"
+#include "app_context.h"
+#include "oled_service.h"
+#include "sd_card.h"
 
 static const char *TAG = "TASK_MGR";
 static EventGroupHandle_t s_task_event_group;
+
+#define SHT31_LOG_FILE_PATH MOUNT_POINT "/sht31_data.csv"
 
 /* --- Tableau centralisé des tâches --- */
 task_info_t my_tasks[] = {
@@ -36,21 +43,46 @@ const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);
 
 static void sht31_task(void *pvParameters)
 {
+    bool was_active = false;
+
     while (1)
     {
         // 1. Attend l'activation
         xEventGroupWaitBits(s_task_event_group, BIT_SHT31_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
+        if (!was_active)
+        {
+            sht31_set_running(true);
+            was_active = true;
+        }
+
         // 2. WiFi non requis pour une lecture locale SHT31 ?
         // Si vous envoyez à Jeedom, vérifiez le WiFi AVANT l'envoi, pas avant la lecture.
 
-        float temperature, humidity;
+        float temperature = 0.0f;
+        float humidity = 0.0f;
         // On utilise la fonction du driver qui gère ses propres LOCK
         esp_err_t ret = sht31_read(&temperature, &humidity);
 
         if (ret == ESP_OK)
         {
-            ESP_LOGI(TAG, "SHT31: %.2f°C, %.2f%%", temperature, humidity);
+            sht31_config_t config;
+            char time_str[24];
+            char log_buffer[128];
+
+            g_ctx.temperature = temperature;
+            g_ctx.humidity = humidity;
+
+            ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
+
+            if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
+            {
+                time_utils_get_time_str(time_str, sizeof(time_str));
+                snprintf(log_buffer, sizeof(log_buffer), "%s,%.2f,%.2f\n", time_str, temperature, humidity);
+
+                if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer) != ESP_OK)
+                    ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+            }
 
             // Si WiFi connecté, on pourrait envoyer à Jeedom ici ou
             // laisser la tâche Jeedom s'en charger via le store.
@@ -58,10 +90,26 @@ static void sht31_task(void *pvParameters)
         else
         {
             ESP_LOGE(TAG, "Erreur SHT31: %s", esp_err_to_name(ret));
+            oled_service_show_error("SHT31 ERROR");
         }
 
         // 4. Délai
-        vTaskDelay(pdMS_TO_TICKS(my_tasks[6].delay_ms));
+        sht31_config_t config;
+        uint32_t delay_ms = my_tasks[6].delay_ms;
+
+        if (sht31_get_config(&config) == ESP_OK && config.read_interval_ms > 0)
+            delay_ms = config.read_interval_ms;
+
+        if (delay_ms == 0)
+            delay_ms = 5000;
+
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
+
+        if ((xEventGroupGetBits(s_task_event_group) & BIT_SHT31_EN) == 0)
+        {
+            sht31_set_running(false);
+            was_active = false;
+        }
     }
 }
 
@@ -299,7 +347,7 @@ void task_manager_init(void)
     xTaskCreate(ntp_monitor_task, my_tasks[2].pcName, my_tasks[2].usStackDepth, NULL, my_tasks[2].uxPriority, &my_tasks[2].pxTask);
     xTaskCreate(led_task, my_tasks[3].pcName, my_tasks[3].usStackDepth, NULL, my_tasks[3].uxPriority, &my_tasks[3].pxTask);
     xTaskCreate(alert_storage_task, my_tasks[4].pcName, my_tasks[4].usStackDepth, NULL, my_tasks[4].uxPriority, &my_tasks[4].pxTask);
-    xTaskCreate(serial_task, my_tasks[5].pcName, my_tasks[5].usStackDepth, NULL, my_tasks[5].uxPriority, &my_tasks[5].pxTask);
+    xTaskCreate(serial_task, my_tasks[5].pcName, my_tasks[5].usStackDepth, s_task_event_group, my_tasks[5].uxPriority, &my_tasks[5].pxTask);
     xTaskCreate(sht31_task, my_tasks[6].pcName, my_tasks[6].usStackDepth, NULL, my_tasks[6].uxPriority, &my_tasks[6].pxTask);
 }
 

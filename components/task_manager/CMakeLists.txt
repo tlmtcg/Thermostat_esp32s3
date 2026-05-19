@@ -9,6 +9,9 @@ idf_component_register(
         jeedom 
         cjson 
         led_ctrl 
+        app_context
+        oled_service
+        sd_card
         serial_manager 
         wifi 
         config_storage
