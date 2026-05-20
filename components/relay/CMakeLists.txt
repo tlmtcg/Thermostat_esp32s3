@@ -10,4 +10,5 @@ idf_component_register(
         log         # Nécessaire pour ESP_LOGI
         cjson
         freertos
+        nvs_flash
 )

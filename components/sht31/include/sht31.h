@@ -24,6 +24,10 @@ typedef struct
     bool running;
     uint32_t read_count;
     uint32_t error_count;
+    uint32_t consecutive_error_count;
+    int last_error_code;
+    time_t last_error_at;
+    time_t last_success_at;
     char last_error[64];
 } sht31_runtime_t;
 
@@ -51,5 +55,7 @@ esp_err_t sht31_start(i2c_master_bus_handle_t bus, uint8_t addr);
 void sht31_stop(void);
 
 esp_err_t sht31_reset(void);
+
+esp_err_t sht31_recover(void);
 
 const sht31_state_t *sht31_get_state(void);

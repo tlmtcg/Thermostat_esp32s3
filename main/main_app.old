@@ -11,7 +11,7 @@
 #include "led_ctrl.h"
 #include "esp_littlefs.h"
 #include "alert_manager.h"
-#include "task_manager.h"
+#include "tasks.h"
 #include "serial_manager.h"
 #include "freebox_ftp.h"
 #include "heating_program.h"
@@ -122,7 +122,7 @@ void app_main(void)
         sht31_start(i2c_manager_get_bus(), 0x44);
     }
     
-    task_manager_init();
+    tasks_init();
 
     oled_service_show_text("THERMOSTAT", "System Ready", NULL);
     ESP_LOGI(TAG, "Boot terminé");

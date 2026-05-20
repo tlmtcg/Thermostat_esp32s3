@@ -22,13 +22,17 @@ typedef struct
  */
 typedef struct
 {
-    bool state;                // true = ON, false = OFF
-    uint32_t cycle_count;      // Nombre total de cycles ON/OFF
-    uint32_t total_heating_s;  // Temps total ON en secondes
-    char duration_str[32];     // Duree formatee (optionnel)
-    char last_error[64];       // Derniere erreur
-    uint32_t remaining_s;      // Temps restant avant autorisation ON/OFF
-    uint32_t last_change_ms;   // Timestamp en millisecondes
+    bool state;                    // true = demande chauffage ON, false = OFF
+    bool heating;                  // true = chaudiere effectivement demandee ON
+    int gpio_level;                // Niveau GPIO applique en tenant compte de inverted
+    uint32_t cycle_count;          // Nombre total de cycles ON
+    uint32_t total_heating_s;      // Temps total ON persiste, hors chauffe en cours
+    uint32_t total_heating_live_s; // Temps total ON incluant la chauffe en cours
+    uint32_t current_heating_s;    // Duree de la chauffe en cours
+    char duration_str[32];         // Duree formatee (optionnel)
+    char last_error[64];           // Derniere erreur
+    uint32_t remaining_s;          // Temps restant avant autorisation ON/OFF
+    uint32_t last_change_ms;       // Timestamp en millisecondes
 } relay_runtime_t;
 
 /* -------------------------------------------------------------------------- */

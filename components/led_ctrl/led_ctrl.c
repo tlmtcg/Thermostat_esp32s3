@@ -45,7 +45,7 @@ esp_err_t led_init(void)
     alert_manager_init();
 
     // 5. Tâche LED
-    // La tâche est créée dans le task_manager
+    // La tache est creee dans tasks
     // ret = led_task_start();
     // if (ret != ESP_OK)
     // {

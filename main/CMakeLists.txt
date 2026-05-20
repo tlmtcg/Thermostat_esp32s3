@@ -8,7 +8,7 @@ set(my_requires
     time_utils
     led_ctrl
     alert_manager
-    task_manager
+    tasks
     serial_manager
     freebox_ftp
     heating_program
@@ -21,7 +21,6 @@ set(my_requires
     ssd1306
     oled_service
     app_context
-    display_pages
 )
 
 # Enregistrement du composant principal

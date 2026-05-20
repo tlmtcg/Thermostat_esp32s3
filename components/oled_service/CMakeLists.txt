@@ -10,4 +10,10 @@ idf_component_register(
         esp_common
         log
         sht31
+        app_context
+        alert_manager
+        time_utils
+        relay
+        weather_store
+        weather
 )

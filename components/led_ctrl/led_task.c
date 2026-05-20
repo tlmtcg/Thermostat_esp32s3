@@ -7,7 +7,7 @@
 #include "led_driver.h"
 #include "led_db.h"
 #include "alert_manager.h"
-#include "task_manager.h"
+#include "tasks.h"
 #include <math.h>
 
 static const char *TAG = "LED_TASK";
@@ -28,7 +28,7 @@ void led_task(void *pvParameters)
     led_color_t last_displayed_color = {0, 0, 0};
     bool first_run = true;
     // On récupère le handle via le getter
-    EventGroupHandle_t ev_group = task_manager_get_event_group();
+    EventGroupHandle_t ev_group = tasks_get_event_group();
 
     while (1)
     {
@@ -125,7 +125,7 @@ void led_task(void *pvParameters)
 /* =========================================================
    DÉMARRAGE DE LA TÂCHE
    ========================================================= 
-   La tache est créée dans le task_manager, mais on fournit une
+   La tache est creee dans tasks, mais on fournit une
    fonction de démarrage dédiée pour faciliter l'intégration et
    la gestion des erreurs.
 */

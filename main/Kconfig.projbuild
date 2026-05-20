@@ -19,7 +19,7 @@ menu "Configuration Thermostat"
     menu "Expert"
     rsource "../components/alert_manager/Kconfig.alert"
     rsource "../components/serial_manager/Kconfig.serial"
-    rsource "../components/task_manager/Kconfig.task"
+    rsource "../components/tasks/Kconfig.task"
     endmenu
 
 endmenu

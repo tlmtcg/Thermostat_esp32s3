@@ -41,7 +41,7 @@ idf_component_register(
         jeedom
         relay
         sd_card
-        task_manager
+        tasks
         i2c_manager
         sht31
         ssd1306

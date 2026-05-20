@@ -5,7 +5,7 @@
 #include "sd_card.h"
 #include "config_storage.h"
 #include "i2c_manager.h"
-#include "task_manager.h"
+#include "tasks.h"
 
 static const char *TAG = "TEST_APP";
 
@@ -34,7 +34,7 @@ void app_main(void)
     // 4) Initialiser le bus I2C
     i2c_manager_init();
 
-    task_manager_init();    
+    tasks_init();    
 
 }
 

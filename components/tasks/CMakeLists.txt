@@ -1,0 +1,18 @@
+idf_component_register(
+    SRCS
+        manager/tasks.c
+        registry/task_registry.c
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        weather
+        weather_store
+        alert_manager
+        jeedom
+        cjson
+        led_ctrl
+        serial_manager
+        wifi
+        config_storage
+        sht31
+)

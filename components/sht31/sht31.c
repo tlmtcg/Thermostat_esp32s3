@@ -16,6 +16,9 @@ static const char *TAG = "SHT31";
 #define SHT31_CMD_SOFT_RESET 0x30A2
 #define SHT31_DEFAULT_ADDR 0x44
 #define SHT31_DEFAULT_READ_INTERVAL_MS 5000
+#define SHT31_ERROR_LOG_FIRST_COUNT 3
+#define SHT31_ERROR_LOG_EVERY_COUNT 10
+
 typedef struct
 {
     i2c_master_bus_handle_t bus;
@@ -69,6 +72,29 @@ static void sht31_set_error(const char *message)
 static void sht31_clear_error(void)
 {
     g_sht31.runtime.last_error[0] = '\0';
+    g_sht31.runtime.last_error_code = ESP_OK;
+    g_sht31.runtime.consecutive_error_count = 0;
+}
+
+static void sht31_record_error(esp_err_t err)
+{
+    g_sht31.runtime.valid = false;
+    g_sht31.runtime.error_count++;
+    g_sht31.runtime.consecutive_error_count++;
+    g_sht31.runtime.last_error_code = err;
+    g_sht31.runtime.last_error_at = time(NULL);
+    sht31_set_error(esp_err_to_name(err));
+
+    uint32_t consecutive = g_sht31.runtime.consecutive_error_count;
+    if (consecutive <= SHT31_ERROR_LOG_FIRST_COUNT ||
+        (consecutive % SHT31_ERROR_LOG_EVERY_COUNT) == 0)
+    {
+        ESP_LOGW(TAG,
+                 "Lecture SHT31 echouee: %s (consecutives=%lu, total=%lu)",
+                 esp_err_to_name(err),
+                 (unsigned long)consecutive,
+                 (unsigned long)g_sht31.runtime.error_count);
+    }
 }
 
 static esp_err_t sht31_write_cmd(uint16_t cmd)
@@ -136,10 +162,8 @@ esp_err_t sht31_set_config(const sht31_config_t *config)
         esp_err_t err = sht31_attach_device(new_config.addr);
         if (err != ESP_OK)
         {
-            g_sht31.runtime.valid = false;
             g_sht31.runtime.initialized = false;
-            g_sht31.runtime.error_count++;
-            sht31_set_error(esp_err_to_name(err));
+            sht31_record_error(err);
             return err;
         }
 
@@ -181,6 +205,10 @@ char *sht31_get_json_status(void)
     cJSON_AddBoolToObject(runtime, "running", g_sht31.runtime.running);
     cJSON_AddNumberToObject(runtime, "read_count", g_sht31.runtime.read_count);
     cJSON_AddNumberToObject(runtime, "error_count", g_sht31.runtime.error_count);
+    cJSON_AddNumberToObject(runtime, "consecutive_error_count", g_sht31.runtime.consecutive_error_count);
+    cJSON_AddNumberToObject(runtime, "last_error_code", g_sht31.runtime.last_error_code);
+    cJSON_AddNumberToObject(runtime, "last_error_at", (double)g_sht31.runtime.last_error_at);
+    cJSON_AddNumberToObject(runtime, "last_success_at", (double)g_sht31.runtime.last_success_at);
     cJSON_AddStringToObject(runtime, "last_error", g_sht31.runtime.last_error);
 
     cJSON *config = cJSON_AddObjectToObject(root, "config");
@@ -218,8 +246,7 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
     esp_err_t err = sht31_attach_device(g_sht31.config.addr);
     if (err != ESP_OK)
     {
-        g_sht31.runtime.error_count++;
-        sht31_set_error(esp_err_to_name(err));
+        sht31_record_error(err);
         ESP_LOGE(TAG, "Erreur add device: %s", esp_err_to_name(err));
         return err;
     }
@@ -253,13 +280,48 @@ esp_err_t sht31_reset(void)
     return sht31_write_cmd(SHT31_CMD_SOFT_RESET);
 }
 
+esp_err_t sht31_recover(void)
+{
+    if (!g_sht31.bus)
+        return ESP_ERR_INVALID_STATE;
+
+    ESP_LOGW(TAG,
+             "Tentative recuperation SHT31 apres %lu erreur(s) consecutive(s)",
+             (unsigned long)g_sht31.runtime.consecutive_error_count);
+
+    esp_err_t err = sht31_reset();
+    if (err == ESP_OK)
+    {
+        vTaskDelay(pdMS_TO_TICKS(20));
+        return ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "Soft reset SHT31 impossible: %s, reattache device", esp_err_to_name(err));
+
+    if (g_sht31.dev)
+    {
+        i2c_master_bus_rm_device(g_sht31.dev);
+        g_sht31.dev = NULL;
+    }
+
+    err = sht31_attach_device(g_sht31.config.addr);
+    if (err != ESP_OK)
+    {
+        g_sht31.runtime.initialized = false;
+        sht31_record_error(err);
+        return err;
+    }
+
+    g_sht31.runtime.initialized = true;
+    vTaskDelay(pdMS_TO_TICKS(20));
+    return ESP_OK;
+}
+
 esp_err_t sht31_read(float *temp, float *hum)
 {
     if (!g_sht31.dev)
     {
-        g_sht31.runtime.valid = false;
-        g_sht31.runtime.error_count++;
-        sht31_set_error(esp_err_to_name(ESP_ERR_INVALID_STATE));
+        sht31_record_error(ESP_ERR_INVALID_STATE);
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -302,16 +364,14 @@ esp_err_t sht31_read(float *temp, float *hum)
     g_sht31.runtime.humidity = *hum;
     g_sht31.runtime.valid = true;
     g_sht31.runtime.last_update = time(NULL);
+    g_sht31.runtime.last_success_at = g_sht31.runtime.last_update;
     g_sht31.runtime.read_count++;
     sht31_clear_error();
 
     return ESP_OK;
 
 fail:
-    g_sht31.runtime.valid = false;
-    g_sht31.runtime.error_count++;
-    sht31_set_error(esp_err_to_name(err));
-    ESP_LOGW(TAG, "Lecture SHT31 echouee: %s", esp_err_to_name(err));
+    sht31_record_error(err);
     return err;
 }
 

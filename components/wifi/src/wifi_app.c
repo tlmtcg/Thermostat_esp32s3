@@ -7,7 +7,6 @@
 #include "freertos/timers.h"
 #include "led_ctrl.h"
 #include "alert_manager.h"
-#include "task_manager.h"
 #include "app_context.h"
 
 static const char *TAG = "WIFI_APP";
@@ -46,8 +45,6 @@ static void on_sta_connected(const esp_ip4_addr_t *ip)
              sizeof(g_ctx.wifi_ip),
              IPSTR,
              IP2STR(ip));
-
-    // task_manager_set_active(BIT_WEATHER_EN | BIT_JEEDOM_EN | BIT_NTP_EN, true);
 
     if (xReconnectTimer)
         xTimerStop(xReconnectTimer, 0);

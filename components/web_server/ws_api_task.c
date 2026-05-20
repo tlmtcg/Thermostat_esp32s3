@@ -1,7 +1,7 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "cJSON.h"
-#include "task_manager.h"
+#include "tasks.h"
 #include <string.h>
 
 static const char *TAG = "WS_API_TASK";
@@ -15,8 +15,8 @@ esp_err_t tasks_get_handler(httpd_req_t *req)
     // On définit le type de contenu en JSON
     httpd_resp_set_type(req, "application/json");
 
-    // On récupère l'objet cJSON généré par le task_manager
-    cJSON *root = task_manager_get_all_info_json();
+    // On recupere l'objet cJSON genere par tasks
+    cJSON *root = tasks_get_all_info_json();
 
     // Conversion de l'objet JSON en chaîne de caractères
     const char *sys_info = cJSON_PrintUnformatted(root);
@@ -82,7 +82,7 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
 
                 if (bit != 0)
                 {
-                    task_manager_set_active(bit, is_active);
+                    tasks_set_active(bit, is_active);
                     ESP_LOGI(TAG, "Tâche '%s' mise à jour : %s", task_name, is_active ? "ON" : "OFF");
                 }
             }
@@ -93,7 +93,7 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
                 // Conversion des minutes reçues en millisecondes
                 uint32_t new_delay_ms = (uint32_t)(delay->valuedouble * 60 * 1000);
 
-                task_manager_set_delay(task_name, new_delay_ms);
+                tasks_set_delay(task_name, new_delay_ms);
                 ESP_LOGI(TAG, "Tâche '%s' -> Nouvel intervalle : %.0f min", task_name, delay->valuedouble);
             }
         }

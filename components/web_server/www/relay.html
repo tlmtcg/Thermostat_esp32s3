@@ -114,6 +114,9 @@
 
         <p>GPIO utilisé : <span id="relay-gpio">--</span></p>
         <p>Inversion : <span id="relay-inverted">--</span></p>
+        <p>Niveau GPIO : <span id="relay-gpio-level">--</span></p>
+        <p>Durée chauffe totale : <span id="relay-total-heating">--</span></p>
+        <p>Chauffe en cours : <span id="relay-current-heating">--</span></p>
         <p>Délai minimum : <span id="relay-delay">--</span></p>
         <p>Délai restant : <span id="relay-remaining">--</span></p>
         <p>Erreur : <span id="relay-error" class="error">--</span></p>
@@ -158,6 +161,24 @@
     </div>
 
     <script>
+      function formatDuration(seconds) {
+        seconds = Math.max(0, Number(seconds) || 0);
+
+        const days = Math.floor(seconds / 86400);
+        seconds %= 86400;
+        const hours = Math.floor(seconds / 3600);
+        seconds %= 3600;
+        const minutes = Math.floor(seconds / 60);
+        seconds %= 60;
+
+        const parts = [];
+        if (days) parts.push(days + " j");
+        if (hours || parts.length) parts.push(hours + " h");
+        if (minutes || parts.length) parts.push(minutes + " min");
+        parts.push(seconds + " s");
+        return parts.join(" ");
+      }
+
       async function fetchRelay() {
         try {
           const res = await fetch('/api/relay');
@@ -171,6 +192,12 @@
           document.getElementById('relay-gpio').textContent = data.config.gpio;
           document.getElementById('relay-inverted').textContent =
             data.config.inverted ? "Inversé" : "Normal";
+          document.getElementById('relay-gpio-level').textContent =
+            data.runtime.gpio_level;
+          document.getElementById('relay-total-heating').textContent =
+            formatDuration(data.runtime.total_live_s ?? data.runtime.total_s);
+          document.getElementById('relay-current-heating').textContent =
+            formatDuration(data.runtime.current_s);
           document.getElementById('relay-delay').textContent =
             data.config.min_delay_s + " sec";
           document.getElementById('relay-remaining').textContent =

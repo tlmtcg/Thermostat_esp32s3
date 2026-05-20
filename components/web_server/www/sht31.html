@@ -161,16 +161,17 @@
       }
 
       function updateUI(data) {
+        const runtime = data.runtime || data;
 
         document.getElementById('temperature').textContent =
-          `${data.temperature.toFixed(1)} °C`;
+          `${runtime.temperature.toFixed(1)} °C`;
 
         document.getElementById('humidity').textContent =
-          `${data.humidity.toFixed(1)} %`;
+          `${runtime.humidity.toFixed(1)} %`;
 
         const status = document.getElementById('status');
 
-        if (data.valid) {
+        if (runtime.valid) {
 
           status.textContent = "Capteur OK";
           status.className = "status-ok";
@@ -181,9 +182,9 @@
           status.className = "status-error";
         }
 
-        if (data.last_update > 0) {
+        if (runtime.last_update > 0) {
 
-          const d = new Date(data.last_update * 1000);
+          const d = new Date(runtime.last_update * 1000);
 
           document.getElementById('last-update').textContent =
             d.toLocaleString();

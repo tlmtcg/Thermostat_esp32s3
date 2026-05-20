@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include "sd_card.h"
 #include "config_storage.h"
-#include "task_manager.h"
+#include "tasks.h"
 
 static const char *TAG = "CONFIG_MGR";
 
@@ -157,7 +157,7 @@ bool save_json_to_sdcard(const char *path)
 
         cJSON_AddStringToObject(item, "id", my_tasks[i].key);
         cJSON_AddBoolToObject(item, "enabled",
-                              (xEventGroupGetBits(task_manager_get_event_group()) &
+                              (xEventGroupGetBits(tasks_get_event_group()) &
                                my_tasks[i].event_bit) != 0);
         cJSON_AddNumberToObject(item, "delay_ms", my_tasks[i].delay_ms);
 
