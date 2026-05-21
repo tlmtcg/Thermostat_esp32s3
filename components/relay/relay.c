@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "alert_manager.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -174,6 +175,7 @@ static bool is_change_allowed(void)
     if (elapsed_s < g_relay_config.min_delay_s)
     {
         g_relay_runtime.remaining_s = g_relay_config.min_delay_s - elapsed_s;
+        alert_add("Protection anti-cycle relais");
 
         snprintf(g_relay_runtime.last_error,
                  sizeof(g_relay_runtime.last_error),
@@ -186,6 +188,7 @@ static bool is_change_allowed(void)
 
     g_relay_runtime.last_error[0] = '\0';
     g_relay_runtime.remaining_s = 0;
+    alert_remove("Protection anti-cycle relais");
     return true;
 }
 

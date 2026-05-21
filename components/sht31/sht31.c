@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "cJSON.h"
+#include "alert_manager.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -74,6 +75,8 @@ static void sht31_clear_error(void)
     g_sht31.runtime.last_error[0] = '\0';
     g_sht31.runtime.last_error_code = ESP_OK;
     g_sht31.runtime.consecutive_error_count = 0;
+    alert_remove("Erreur capteur SHT31");
+    alert_remove("Capteur SHT31 absent");
 }
 
 static void sht31_record_error(esp_err_t err)
@@ -84,6 +87,14 @@ static void sht31_record_error(esp_err_t err)
     g_sht31.runtime.last_error_code = err;
     g_sht31.runtime.last_error_at = time(NULL);
     sht31_set_error(esp_err_to_name(err));
+
+    if (err == ESP_ERR_INVALID_STATE) {
+        alert_add("Capteur SHT31 absent");
+    }
+
+    if (g_sht31.runtime.consecutive_error_count >= SHT31_ERROR_LOG_FIRST_COUNT) {
+        alert_add("Erreur capteur SHT31");
+    }
 
     uint32_t consecutive = g_sht31.runtime.consecutive_error_count;
     if (consecutive <= SHT31_ERROR_LOG_FIRST_COUNT ||
@@ -246,6 +257,7 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
     esp_err_t err = sht31_attach_device(g_sht31.config.addr);
     if (err != ESP_OK)
     {
+        alert_add("Capteur SHT31 absent");
         sht31_record_error(err);
         ESP_LOGE(TAG, "Erreur add device: %s", esp_err_to_name(err));
         return err;
@@ -307,6 +319,7 @@ esp_err_t sht31_recover(void)
     err = sht31_attach_device(g_sht31.config.addr);
     if (err != ESP_OK)
     {
+        alert_add("Capteur SHT31 absent");
         g_sht31.runtime.initialized = false;
         sht31_record_error(err);
         return err;

@@ -16,6 +16,7 @@
 #define BIT_STORAGE_EN   (1 << 4)
 #define BIT_SERIAL_EN    (1 << 5)
 #define BIT_SHT31_EN     (1 << 6)
+#define BIT_THERMO_EN    (1 << 7)
 
 typedef struct
 {

@@ -11,4 +11,6 @@ idf_component_register(
         heating_program
         relay
         cjson
+        alert_manager
+        app_context
 )

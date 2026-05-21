@@ -41,6 +41,8 @@ esp_err_t jeedom_temp_update(weather_data_t *data);
 
 extern weather_data_t latest_weather;
 
+float temperature_get_outdoor();
+
 #ifdef __cplusplus
 }
 #endif

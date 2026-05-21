@@ -11,6 +11,7 @@
 #include "heating_program.h"
 #include "relay.h"
 #include "sht31.h"
+#include "thermostat.h"
 
 // Tag utilisé pour les logs ESP-IDF associés à ce module
 static const char *TAG = "WS_THERMOSTAT";
@@ -30,9 +31,10 @@ static esp_err_t index_status_handler(httpd_req_t *req)
     // Récupération des états internes du système
     const chauffage_config_t *cfg = heating_get_config();
     thermostat_state_t st = thermostat_get_state();
-    float current_temp = heating_get_temp_current();  // Température calculée actuelle
-    bool relay_state = get_relay_state();                // État physique du relais (ON/OFF)
-    
+    const thermostat_runtime_t g_thermostat_runtime = *thermostat_get_runtime();
+    float current_temp=g_thermostat_runtime.temperature;
+    bool relay_state = g_thermostat_runtime.state;
+    float target = g_thermostat_runtime.effective_consigne;
 
     char json[256];
 
@@ -46,7 +48,7 @@ static esp_err_t index_status_handler(httpd_req_t *req)
              "\"enabled\":%s"
              "}",
              current_temp,
-             st.consigne,
+             target,
              relay_state ? "true" : "false",
              st.mode,
              st.enabled ? "true" : "false");

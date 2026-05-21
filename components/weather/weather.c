@@ -71,7 +71,7 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     if (client == NULL)
     {
         ESP_LOGE(TAG, "Échec de l'initialisation du client HTTP");
-        alert_add("Absence météo");
+        alert_add("Absence METEO");
         return ESP_FAIL;
     }
 
@@ -84,7 +84,7 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     if (err != ESP_OK)
     {
         ESP_LOGE(TAG, "Erreur HTTP: %s", esp_err_to_name(err));
-        alert_add("Absence météo");
+        alert_add("Absence METEO");
         return err;
     }
 
@@ -92,12 +92,12 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     if (response_data == NULL || response_len == 0)
     {
         ESP_LOGE(TAG, "Aucune donnée reçue");
-        alert_add("Absence météo");
+        alert_add("Absence METEO");
         return ESP_FAIL;
     }
 
     // Succès : supprimer l'alerte si elle existait
-    alert_remove("Absence météo");
+    alert_remove("Absence METEO");
     return ESP_OK;
 }
 
@@ -268,4 +268,9 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
     response_len = 0;
 
     return ESP_OK;
+}
+
+float temperature_get_outdoor()
+{
+    return latest_weather.current.jee_temp;
 }

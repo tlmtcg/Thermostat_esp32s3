@@ -29,6 +29,10 @@ typedef struct
     float effective_consigne;
     uint32_t change_count;
     char last_error[64];
+    float temperature;
+    float humidity;
+    float temp_ext; // ajouter temp dans une heure, humidité extérieure actuelle, temp actuel
+    bool state;
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */
@@ -51,3 +55,5 @@ void thermostat_set_mode(thermostat_mode_t mode);
 void thermostat_set_consigne(float value);
 
 void thermostat_set_enabled(bool enabled);
+
+void thermostat_update_current_consigne(void);

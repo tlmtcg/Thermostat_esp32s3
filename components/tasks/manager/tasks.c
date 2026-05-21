@@ -14,6 +14,7 @@
 #include "serial_manager.h"
 #include "wifi_manager.h"
 #include "config_storage.h"
+#include "thermostat.h"
 
 static const char *TAG = "TASKS";
 static EventGroupHandle_t s_task_event_group;
@@ -109,6 +110,18 @@ void ntp_monitor_task(void *pvParameters)
         }
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[2].delay_ms));
+    }
+}
+
+void thermostat_task(void *pvParameters)
+{
+    while (1)
+    {
+        // xEventGroupWaitBits(s_task_event_group, BIT_THERMO_EN, pdFALSE, pdTRUE, portMAX_DELAY);
+
+        thermostat_update_current_consigne();
+
+        vTaskDelay(pdMS_TO_TICKS(my_tasks[7].delay_ms));
     }
 }
 

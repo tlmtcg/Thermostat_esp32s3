@@ -11,4 +11,5 @@ idf_component_register(
         cjson
         freertos
         nvs_flash
+        alert_manager
 )

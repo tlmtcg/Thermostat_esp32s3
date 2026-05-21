@@ -13,6 +13,9 @@ static const char *TAG = "SHT31_TASK";
 
 #define SHT31_LOG_FILE_PATH MOUNT_POINT "/sht31_data.csv"
 #define SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS 3
+#define LOG_INTERVAL_MS (5 * 60 * 1000)
+
+int64_t last_log_time = 0;
 
 void sht31_task(void *pvParameters)
 {
@@ -44,13 +47,46 @@ void sht31_task(void *pvParameters)
 
             ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
 
-            if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
-            {
-                time_utils_get_time_str(time_str, sizeof(time_str));
-                snprintf(log_buffer, sizeof(log_buffer), "%s,%.2f,%.2f\n", time_str, temperature, humidity);
+            // if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
+            // {
+            //     time_utils_get_time_str(time_str, sizeof(time_str));
+            //     snprintf(log_buffer, sizeof(log_buffer), "%s,%.2f,%.2f\n", time_str, temperature, humidity);
 
-                if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer) != ESP_OK)
-                    ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+            //     if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer) != ESP_OK)
+            //         ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+            // }
+
+            int64_t now = time_utils_get_timestamp();
+
+            if ((now - last_log_time) >= (LOG_INTERVAL_MS * 1000))
+            {
+                last_log_time = now;
+
+                ESP_LOGI(TAG,
+                         "SHT31: %.2f C, %.2f%%",
+                         temperature,
+                         humidity);
+
+                if (sht31_get_config(&config) == ESP_OK &&
+                    config.log_to_sd)
+                {
+                    time_utils_get_time_str(time_str,
+                                            sizeof(time_str));
+
+                    snprintf(log_buffer,
+                             sizeof(log_buffer),
+                             "%s,%.2f,%.2f\n",
+                             time_str,
+                             temperature,
+                             humidity);
+
+                    if (sd_write_file(SHT31_LOG_FILE_PATH,
+                                      log_buffer) != ESP_OK)
+                    {
+                        ESP_LOGE(TAG,
+                                 "Erreur ecriture log SHT31");
+                    }
+                }
             }
         }
         else

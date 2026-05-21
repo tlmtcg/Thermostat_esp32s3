@@ -15,10 +15,11 @@ time_utils_config_t cfg;
 static time_status_t s_time_status = {0};
 
 // Fonction pour que les autres composants lisent l'état
-void time_utils_get_status(time_status_t *dest) {
-    if (dest) memcpy(dest, &s_time_status, sizeof(time_status_t));
+void time_utils_get_status(time_status_t *dest)
+{
+    if (dest)
+        memcpy(dest, &s_time_status, sizeof(time_status_t));
 }
-
 
 /* -------------------------------------------------------------------------- */
 /*  CALLBACK SNTP                                                             */
@@ -36,10 +37,10 @@ static void time_sync_notification_cb(struct timeval *tv)
 
 esp_err_t time_utils_init(void)
 {
-    
-    
+
     // 1. Charger la config (Une seule fois ici, au début)
-    if (!time_utils_storage_load(&cfg)) {
+    if (!time_utils_storage_load(&cfg))
+    {
         ESP_LOGW(TAG, "Config NVS introuvable, usage des valeurs par défaut");
         strlcpy(cfg.ntp_server, CONFIG_SNTP_SERVER_NAME, sizeof(cfg.ntp_server));
         cfg.ntp_max_retry = CONFIG_SNTP_MAX_RETRY;
@@ -48,8 +49,9 @@ esp_err_t time_utils_init(void)
     // 2. Initialisation du service SNTP
     ESP_LOGI(TAG, "Démarrage SNTP : %s (max %d tentatives)", cfg.ntp_server, cfg.ntp_max_retry);
 
-    if (esp_sntp_enabled()) {
-        esp_sntp_stop(); 
+    if (esp_sntp_enabled())
+    {
+        esp_sntp_stop();
     }
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
@@ -66,10 +68,12 @@ esp_err_t time_utils_init(void)
     alert_add("Attente NTP");
     bool synced = false;
 
-    for (int retry = 0; retry < cfg.ntp_max_retry; retry++) {
+    for (int retry = 0; retry < cfg.ntp_max_retry; retry++)
+    {
         // MISE À JOUR RUNTIME
         s_time_status.current_retry = retry + 1;
-        if (s_last_sync != 0) {
+        if (s_last_sync != 0)
+        {
             s_time_status.last_sync_time = (uint32_t)time(NULL);
             s_time_status.is_syncing = false;
             synced = true;
@@ -78,20 +82,23 @@ esp_err_t time_utils_init(void)
 
         // On log l'attente uniquement toutes les 2 secondes pour ne pas saturer la console
         ESP_LOGD(TAG, "Attente synchro NTP... (%d/%d)", retry + 1, cfg.ntp_max_retry);
-        vTaskDelay(pdMS_TO_TICKS(2000)); 
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
     s_time_status.is_syncing = false;
 
     // 5. Nettoyage et résultat
     alert_remove("Attente NTP");
-    
-    if (synced) {
+
+    if (synced)
+    {
         ESP_LOGI(TAG, "Heure synchronisée avec succès.");
-        alert_remove("Panne NTP"); 
+        alert_remove("Panne NTP");
         return ESP_OK;
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "Le serveur NTP n'a pas répondu. Vérifiez la connexion WiFi.");
-        alert_add("Panne NTP"); 
+        alert_add("Panne NTP");
         return ESP_FAIL;
     }
 }
@@ -107,6 +114,11 @@ struct tm time_utils_get_local_time(void)
     time(&now);
     localtime_r(&now, &info);
     return info;
+}
+
+uint64_t time_utils_get_timestamp(void)
+{
+    return (uint64_t)time(NULL);
 }
 
 void time_utils_get_time_str(char *dest, size_t max_size)
@@ -128,11 +140,14 @@ void time_utils_status_dump()
     ESP_LOGI(TAG, "Sync Interval (sec): %d", cfg.ntp_sync_interval_sec);
     ESP_LOGI(TAG, "Current Retry: %d", s_time_status.current_retry);
     ESP_LOGI(TAG, "Is Syncing: %s", s_time_status.is_syncing ? "Yes" : "No");
-    if (s_time_status.last_sync_time != 0) {
+    if (s_time_status.last_sync_time != 0)
+    {
         char time_str[64];
         time_utils_get_time_str(time_str, sizeof(time_str));
         ESP_LOGI(TAG, "Last Sync Time: %s", time_str);
-    } else {
+    }
+    else
+    {
         ESP_LOGI(TAG, "Last Sync Time: Never");
     }
 }

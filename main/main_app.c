@@ -19,7 +19,6 @@
 #include "heating_program.h"
 #include "i2c_manager.h"
 #include "led_ctrl.h"
-#include "led_storage.h"
 #include "oled_service.h"
 #include "sd_card.h"
 #include "serial_manager.h"
@@ -97,7 +96,6 @@ void app_main(void)
         save_kconfig_to_sdcard(CONFIG_FILE);
     }
 
-    led_storage_init();
     led_init();
 
     oled_service_show_text("THERMOSTAT", "Starting WiFi...", NULL);

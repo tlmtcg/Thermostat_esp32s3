@@ -51,8 +51,8 @@ void alert_storage_task(void *arg)
             if (err != ESP_OK)
             {
                 char line[32];
-                alert_add("Erreur écriture SD");
-                ESP_LOGE(TAG, "Erreur écriture SD");
+                alert_add("Erreur ECRITURE SD");
+                ESP_LOGE(TAG, "Erreur ECRITURE SD");
             }
 
             alert_storage_purge();

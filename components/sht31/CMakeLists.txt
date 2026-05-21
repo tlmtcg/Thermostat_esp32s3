@@ -11,4 +11,5 @@ idf_component_register(
         i2c_manager 
         sd_card
         time_utils
+        alert_manager
 )

@@ -4,7 +4,6 @@ idf_component_register(
         "led_driver.c"
         "led_task.c"
         "led_db.c"
-        "led_storage.c"
 
     INCLUDE_DIRS
         "include"
@@ -14,10 +13,8 @@ idf_component_register(
         esp_system
         driver
         freertos
-        cjson
         esp_partition
         led_strip
-        joltwallet__littlefs
         alert_manager
         tasks
 )

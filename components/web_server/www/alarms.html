@@ -84,6 +84,32 @@
       .delete-btn:hover {
         background: #cc0000;
       }
+
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      .history-table th,
+      .history-table td {
+        border-bottom: 1px solid #444;
+        padding: 10px;
+        text-align: left;
+      }
+
+      .history-table th {
+        background: #1f1f1f;
+        color: #ffcc00;
+      }
+
+      .history-table tr:hover {
+        background: #333;
+      }
+
+      .history-table td {
+        vertical-align: middle;
+      }
     </style>
   </head>
 
@@ -100,7 +126,19 @@
     <!-- ================= HISTORY ================= -->
     <div class="card">
       <h2>Historique</h2>
-      <ul id="alert-history"></ul>
+
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Date / Heure</th>
+            <th>Alarme</th>
+            <th>État</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody id="alert-history"></tbody>
+      </table>
     </div>
 
     <!-- ================= CLEAR ALL ================= -->
@@ -157,49 +195,86 @@
       async function loadAlertHistory() {
         try {
           const res = await fetch("/api/alarms/history");
-          const data = await res.json();
 
-          const list = document.getElementById("alert-history");
-          list.innerHTML = "";
-
-          if (!Array.isArray(data) || data.length === 0) {
-            list.innerHTML = "<li>Aucun historique</li>";
+          if (!res.ok) {
+            console.error("HTTP error:", res.status);
             return;
           }
 
+          const data = await res.json();
+
+          const tbody = document.getElementById("alert-history");
+
+          tbody.innerHTML = "";
+
+          if (!Array.isArray(data) || data.length === 0) {
+            tbody.innerHTML = `
+        <tr>
+          <td colspan="4">Aucun historique</td>
+        </tr>
+      `;
+            return;
+          }
+
+          // Tri décroissant (plus récent en haut)
+          data.sort((a, b) => b.timestamp - a.timestamp);
+
           data.forEach((entry) => {
-            const li = document.createElement("li");
+            /* =========================
+         CRÉATION LIGNE
+      ========================= */
+            const tr = document.createElement("tr");
 
+            /* =========================
+         STYLE SELON ÉTAT
+      ========================= */
+            tr.className = entry.activated ? "row-active" : "row-resolved";
+
+            /* =========================
+         BADGE
+      ========================= */
             const badgeClass = entry.activated ? "bg-active" : "bg-resolved";
-            const statusText = entry.activated ? "ACTIVÉE" : "RÉSOLUE";
 
+            const statusText = entry.activated ? "ACTIVE" : "RÉSOLUE";
+
+            /* =========================
+         DATE FORMATÉE
+      ========================= */
             const time = entry.timestamp
-              ? new Date(entry.timestamp * 1000).toLocaleString()
+              ? new Date(entry.timestamp * 1000).toLocaleString("fr-FR")
               : "—";
 
-            /* =========================================================
-               IMPORTANT:
-               on garde le timestamp dans le DOM pour suppression
-               ========================================================= */
-            li.innerHTML = `
-              <span class="badge ${badgeClass}">${statusText}</span>
-              <strong>${entry.name ?? ""}</strong>
-              <br>
-              <span class="timestamp">${time}</span>
-              <br>
-            `;
+            /* =========================
+         HTML LIGNE
+      ========================= */
+            tr.innerHTML = `
+        <td>${time}</td>
 
-            const btn = document.createElement("button");
-            btn.className = "delete-btn";
-            btn.textContent = "Supprimer";
+        <td>
+          <strong>${entry.name ?? ""}</strong>
+        </td>
 
-            /* =========================================================
-               ON UTILISE LE TIMESTAMP (ID UNIQUE)
-               ========================================================= */
+        <td>
+          <span class="badge ${badgeClass}">
+            ${statusText}
+          </span>
+        </td>
+
+        <td>
+          <button class="delete-btn">
+            Supprimer
+          </button>
+        </td>
+      `;
+
+            /* =========================
+         BOUTON DELETE
+      ========================= */
+            const btn = tr.querySelector(".delete-btn");
+
             btn.onclick = () => deleteAlarm(entry.timestamp);
 
-            li.appendChild(btn);
-            list.appendChild(li);
+            tbody.appendChild(tr);
           });
         } catch (e) {
           console.error("History error:", e);

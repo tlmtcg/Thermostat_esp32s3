@@ -15,4 +15,5 @@ idf_component_register(
         wifi
         config_storage
         sht31
+        thermostat
 )
