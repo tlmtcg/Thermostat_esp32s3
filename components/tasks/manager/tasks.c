@@ -120,6 +120,7 @@ void thermostat_task(void *pvParameters)
         // xEventGroupWaitBits(s_task_event_group, BIT_THERMO_EN, pdFALSE, pdTRUE, portMAX_DELAY);
 
         thermostat_update_current_consigne();
+        must_heat();
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[7].delay_ms));
     }

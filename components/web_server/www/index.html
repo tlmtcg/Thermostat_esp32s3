@@ -172,7 +172,9 @@
       <!-- Ligne affichant la consigne calculée et appliquée -->
       <div class="line-status">
         <span>Consigne Appliquée</span>
-        <span id="effective-consigne" class="effective-consigne-val">--.- °C</span>
+        <span id="effective-consigne" class="effective-consigne-val"
+          >--.- °C</span
+        >
       </div>
     </div>
 
@@ -192,7 +194,8 @@
           <div class="temp-label">Prévision (dans 1h)</div>
           <!-- CORRECTION : Ajout du span 'trend' pour accueillir la flèche de tendance -->
           <div class="weather-val" style="color: #4fc3f7">
-            <span id="temp-forecast">--.- °C</span><span id="trend" class="trend-arrow"></span>
+            <span id="temp-forecast">--.- °C</span
+            ><span id="trend" class="trend-arrow"></span>
           </div>
         </div>
       </div>
@@ -227,7 +230,7 @@
       <div class="slider-container">
         <div class="temp-label">Consigne Manuelle</div>
 
-        <input type="range" id="slider" min="5" max="30" step="0.5" />
+        <input type="range" id="slider" min="5" max="30" step="0.1" />
 
         <div class="setpoint" id="sp">--.- °C</div>
       </div>
@@ -334,7 +337,10 @@
             }
 
             // Extraction et affichage de la consigne effective
-            if (run.effective_consigne !== undefined && run.effective_consigne !== null) {
+            if (
+              run.effective_consigne !== undefined &&
+              run.effective_consigne !== null
+            ) {
               document.getElementById("effective-consigne").textContent =
                 run.effective_consigne.toFixed(1) + " °C";
             }
@@ -358,20 +364,23 @@
               document.getElementById("humidity-ext").textContent =
                 run.humidity_ext.toFixed(0) + " %";
             }
-            
+
             // DOCUMENTATION : Gestion de l'affichage de la prévision et du calcul de tendance
-            if (run.temp_forecast_1h !== undefined && run.temp_forecast_1h !== null) {
+            if (
+              run.temp_forecast_1h !== undefined &&
+              run.temp_forecast_1h !== null
+            ) {
               document.getElementById("temp-forecast").textContent =
                 run.temp_forecast_1h.toFixed(1) + " °C";
-                
+
               // Calcul de la tendance si la température extérieure actuelle est disponible
               if (run.temp_ext !== undefined && run.temp_ext !== null) {
                 const trendElement = document.getElementById("trend");
                 const diff = run.temp_forecast_1h - run.temp_ext;
-                
+
                 // Seuil de stagnation (ex: moins de 0.1°C de variation = stable)
                 const threshold = 0.1;
-                
+
                 if (diff > threshold) {
                   trendElement.textContent = " ➔ ↑"; // En hausse
                   trendElement.style.color = "#ff5252"; // Rouge
