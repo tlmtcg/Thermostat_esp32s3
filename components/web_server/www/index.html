@@ -10,6 +10,16 @@
       body {
         background: #121212;
         color: #fff;
+        font-family: sans-serif; /* Ajout d'une police par défaut propre */
+      }
+
+      /* Style pour les blocs de contenu */
+      .box {
+        background: #1e1e1e;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border: 1px solid #2d2d2d;
       }
 
       .controls {
@@ -32,15 +42,26 @@
       }
 
       .mode-btn.active {
-        background: var(--orange);
-        border-color: var(--orange);
+        background: var(
+          --orange,
+          #ff6b00
+        ); /* Valeur de secours si --orange n'est pas défini */
+        border-color: var(--orange, #ff6b00);
       }
 
       .temp-value {
         font-size: 64px;
         text-align: center;
-        color: var(--orange);
+        color: var(--orange, #ff6b00);
         font-weight: bold;
+      }
+
+      /* Style secondaire pour l'humidité intérieure */
+      .humidity-value {
+        font-size: 24px;
+        text-align: center;
+        color: #a0a0a0;
+        margin-bottom: 15px;
       }
 
       .temp-label {
@@ -71,14 +92,54 @@
 
       input[type="range"] {
         width: 100%;
-        accent-color: var(--orange);
+        accent-color: var(--orange, #ff6b00);
       }
 
       .setpoint {
         text-align: center;
         font-size: 24px;
         margin-top: 10px;
-        color: var(--orange);
+        color: var(--orange, #ff6b00);
+      }
+
+      /* Style pour l'affichage de la grille météo extérieure */
+      .weather-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .weather-item {
+        background: #252526;
+        padding: 12px;
+        border-radius: 6px;
+        text-align: center;
+        border: 1px solid #333;
+      }
+
+      .weather-item.full-width {
+        grid-column: span 2;
+      }
+
+      .weather-val {
+        font-size: 20px;
+        font-weight: bold;
+        color: #fff;
+        margin-top: 5px;
+      }
+
+      /* Style spécifique pour mettre en valeur la consigne actuelle */
+      .effective-consigne-val {
+        color: var(--orange, #ff6b00);
+        font-weight: bold;
+      }
+
+      /* DOCUMENTATION : Styles pour l'indicateur de tendance météo */
+      .trend-arrow {
+        margin-left: 8px;
+        font-size: 22px;
+        vertical-align: middle;
       }
     </style>
   </head>
@@ -88,11 +149,15 @@
 
     <h1 class="page-title">Thermostat</h1>
 
+    <!-- BLOC ÉTAT INTÉRIEUR -->
     <div class="box">
-      <h2>État</h2>
+      <h2>État Intérieur</h2>
 
       <div class="temp-label">Température</div>
       <div class="temp-value" id="temp">--.- °C</div>
+
+      <!-- Affichage de l'humidité sous la température -->
+      <div class="humidity-value" id="humidity">Humidité: -- %</div>
 
       <div class="line-status">
         <span>Relais</span>
@@ -103,8 +168,37 @@
         <span>Mode</span>
         <span id="mode">--</span>
       </div>
+
+      <!-- Ligne affichant la consigne calculée et appliquée -->
+      <div class="line-status">
+        <span>Consigne Appliquée</span>
+        <span id="effective-consigne" class="effective-consigne-val">--.- °C</span>
+      </div>
     </div>
 
+    <!-- BLOC MÉTÉO EXTÉRIEURE -->
+    <div class="box">
+      <h2>Météo Extérieure</h2>
+      <div class="weather-grid">
+        <div class="weather-item">
+          <div class="temp-label">Temp. Extérieure</div>
+          <div class="weather-val" id="temp-ext">--.- °C</div>
+        </div>
+        <div class="weather-item">
+          <div class="temp-label">Humidité Ext.</div>
+          <div class="weather-val" id="humidity-ext">-- %</div>
+        </div>
+        <div class="weather-item full-width">
+          <div class="temp-label">Prévision (dans 1h)</div>
+          <!-- CORRECTION : Ajout du span 'trend' pour accueillir la flèche de tendance -->
+          <div class="weather-val" style="color: #4fc3f7">
+            <span id="temp-forecast">--.- °C</span><span id="trend" class="trend-arrow"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOC DE CONFIGURATION DES MODES -->
     <div class="box">
       <h2>Modes</h2>
 
@@ -131,7 +225,7 @@
       </div>
 
       <div class="slider-container">
-        <div class="temp-label">Consigne</div>
+        <div class="temp-label">Consigne Manuelle</div>
 
         <input type="range" id="slider" min="5" max="30" step="0.5" />
 
@@ -214,34 +308,111 @@
         }
       }
 
+      /**
+       * @brief Récupère le statut du thermostat et met à jour l'interface HTML
+       * @details S'appuie sur la structure JSON imbriquée contenant 'runtime' et 'config'
+       */
       async function refresh() {
-        const r = await fetch("/api/index/status");
-        const d = await r.json();
+        try {
+          const r = await fetch("/api/index/status");
+          const d = await r.json();
 
-        document.getElementById("temp").textContent =
-          d.temperature.toFixed(1) + " °C";
+          // 1. Extraction et sécurité de l'objet 'runtime' (Données dynamiques)
+          if (d.runtime) {
+            const run = d.runtime;
 
-        const modeNorm = normalizeMode(d.mode);
+            // Température intérieure
+            if (run.temperature !== undefined && run.temperature !== null) {
+              document.getElementById("temp").textContent =
+                run.temperature.toFixed(1) + " °C";
+            }
 
-        document.getElementById("mode").textContent = formatMode(d.mode);
+            // Humidité intérieure
+            if (run.humidity !== undefined && run.humidity !== null) {
+              document.getElementById("humidity").textContent =
+                "Humidité: " + run.humidity.toFixed(0) + " %";
+            }
 
-        const relay = document.getElementById("relay");
+            // Extraction et affichage de la consigne effective
+            if (run.effective_consigne !== undefined && run.effective_consigne !== null) {
+              document.getElementById("effective-consigne").textContent =
+                run.effective_consigne.toFixed(1) + " °C";
+            }
 
-        if (d.relay) {
-          relay.textContent = "ON";
-          relay.className = "relay-on";
-        } else {
-          relay.textContent = "OFF";
-          relay.className = "relay-off";
+            // État du relais (state)
+            const relay = document.getElementById("relay");
+            if (run.state) {
+              relay.textContent = "ON";
+              relay.className = "relay-on";
+            } else {
+              relay.textContent = "OFF";
+              relay.className = "relay-off";
+            }
+
+            // Données météo extérieures et prévisions
+            if (run.temp_ext !== undefined && run.temp_ext !== null) {
+              document.getElementById("temp-ext").textContent =
+                run.temp_ext.toFixed(1) + " °C";
+            }
+            if (run.humidity_ext !== undefined && run.humidity_ext !== null) {
+              document.getElementById("humidity-ext").textContent =
+                run.humidity_ext.toFixed(0) + " %";
+            }
+            
+            // DOCUMENTATION : Gestion de l'affichage de la prévision et du calcul de tendance
+            if (run.temp_forecast_1h !== undefined && run.temp_forecast_1h !== null) {
+              document.getElementById("temp-forecast").textContent =
+                run.temp_forecast_1h.toFixed(1) + " °C";
+                
+              // Calcul de la tendance si la température extérieure actuelle est disponible
+              if (run.temp_ext !== undefined && run.temp_ext !== null) {
+                const trendElement = document.getElementById("trend");
+                const diff = run.temp_forecast_1h - run.temp_ext;
+                
+                // Seuil de stagnation (ex: moins de 0.1°C de variation = stable)
+                const threshold = 0.1;
+                
+                if (diff > threshold) {
+                  trendElement.textContent = " ➔ ↑"; // En hausse
+                  trendElement.style.color = "#ff5252"; // Rouge
+                } else if (diff < -threshold) {
+                  trendElement.textContent = " ➔ ↓"; // En baisse
+                  trendElement.style.color = "#4fc3f7"; // Bleu clair
+                } else {
+                  trendElement.textContent = " ➔ →"; // Stagnation
+                  trendElement.style.color = "#a0a0a0"; // Gris
+                }
+              }
+            }
+          }
+
+          // 2. Extraction et sécurité de l'objet 'config' (Paramètres du système)
+          if (d.config) {
+            const cfg = d.config;
+
+            // Mode du thermostat
+            const modeNorm = normalizeMode(cfg.mode);
+            document.getElementById("mode").textContent = formatMode(cfg.mode);
+            updateButtons(modeNorm);
+
+            // Consigne du thermostat (effective_consigne dans runtime ou consigne dans config)
+            const targetValue =
+              d.runtime && d.runtime.effective_consigne !== undefined
+                ? d.runtime.effective_consigne
+                : cfg.consigne;
+
+            if (targetValue !== undefined && targetValue !== null) {
+              slider.value = targetValue;
+              document.getElementById("sp").textContent =
+                targetValue.toFixed(1) + " °C";
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Erreur lors de la récupération ou du traitement du statut JSON:",
+            error,
+          );
         }
-
-        if (d.target !== undefined) {
-          slider.value = d.target;
-          document.getElementById("sp").textContent =
-            d.target.toFixed(1) + " °C";
-        }
-
-        updateButtons(modeNorm);
       }
 
       setInterval(refresh, 2000);

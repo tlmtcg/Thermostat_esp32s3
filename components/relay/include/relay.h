@@ -62,3 +62,4 @@ char *relay_get_json_status(void);
 esp_err_t relay_apply_config(bool force_state, uint32_t new_min_delay);
 
 bool get_relay_state(void);
+

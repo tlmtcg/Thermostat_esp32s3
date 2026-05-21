@@ -12,4 +12,5 @@ idf_component_register(
         sd_card
         time_utils
         alert_manager
+        thermostat
 )

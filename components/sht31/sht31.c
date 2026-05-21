@@ -10,6 +10,7 @@
 #include "freertos/task.h"
 #include "i2c_manager.h"
 #include "sdkconfig.h"
+#include "thermostat.h"
 
 static const char *TAG = "SHT31";
 
@@ -380,6 +381,9 @@ esp_err_t sht31_read(float *temp, float *hum)
     g_sht31.runtime.last_success_at = g_sht31.runtime.last_update;
     g_sht31.runtime.read_count++;
     sht31_clear_error();
+
+    // Envoi direct et transparent des données au composant thermostat
+    thermostat_update_indoor_data(g_sht31.runtime.temperature, g_sht31.runtime.humidity);
 
     return ESP_OK;
 

@@ -19,47 +19,35 @@ static const char *TAG = "WS_THERMOSTAT";
 /* =========================================================
  * STATUS : Gestion de la récupération de l'état du système
  * ========================================================= */
-
 /**
- * @brief Handler HTTP GET pour récupérer l'état actuel du thermostat en JSON.
- * 
- * @param req Pointeur vers la requête HTTP entrante.
- * @return esp_err_t ESP_OK en cas de succès, ou code d'erreur ESP-IDF.
+ * @brief Gestionnaire HTTP pour renvoyer le statut complet du thermostat au format JSON
+ * @param req Pointeur vers la structure de requête HTTP d'ESP-IDF
+ * @return ESP_OK en cas de succès, ou un code d'erreur HTTPD
  */
 static esp_err_t index_status_handler(httpd_req_t *req)
 {
-    // Récupération des états internes du système
-    const chauffage_config_t *cfg = heating_get_config();
-    thermostat_state_t st = thermostat_get_state();
-    const thermostat_runtime_t g_thermostat_runtime = *thermostat_get_runtime();
-    float current_temp=g_thermostat_runtime.temperature;
-    bool relay_state = g_thermostat_runtime.state;
-    float target = g_thermostat_runtime.effective_consigne;
+    // 1. Récupération directe de la chaîne JSON générée par le composant thermostat.
+    // Cette chaîne contient déjà toutes les anciennes et nouvelles variables (temp_ext, humidité, prévisions).
+    char *json_response = thermostat_get_json_status();
 
-    char json[256];
+    if (json_response == NULL) {
+        ESP_LOGE(TAG, "Échec de la génération du statut JSON");
+        httpd_resp_send_500(req);
+        return ESP_FAIL;
+    }
 
-    // Construction de la réponse au format JSON
-    snprintf(json, sizeof(json),
-             "{"
-             "\"temperature\":%.2f,"
-             "\"target\":%.2f,"
-             "\"relay\":%s,"
-             "\"mode\":%d,"
-             "\"enabled\":%s"
-             "}",
-             current_temp,
-             target,
-             relay_state ? "true" : "false",
-             st.mode,
-             st.enabled ? "true" : "false");
-
-    // Envoi de la réponse HTTP avec l'en-tête Content-Type approprié
+    // 2. Configuration de l'en-tête HTTP pour indiquer au navigateur qu'il s'agit de JSON
     httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
 
-    return ESP_OK;
+    // 3. Envoi de la chaîne JSON au client
+    esp_err_t err = httpd_resp_send(req, json_response, HTTPD_RESP_USE_STRLEN);
+
+    // 4. LIBÉRATION CRUCIALE DE LA MÉMOIRE
+    // La chaîne renvoyée par cJSON doit impérativement être libérée avec free()
+    free(json_response);
+
+    return err;
 }
-
 /* =========================================================
  * COMMAND : Gestion des ordres reçus
  * ========================================================= */

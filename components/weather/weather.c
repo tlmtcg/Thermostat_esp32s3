@@ -7,6 +7,7 @@
 #include "weather.h"
 #include "esp_crt_bundle.h"
 #include "alert_manager.h"
+#include "thermostat.h"
 
 static const char *TAG = "WEATHER_SERVICE";
 static char *response_data = NULL;
@@ -198,7 +199,32 @@ esp_err_t weather_update(weather_data_t *data)
         cJSON *hum_arr = cJSON_GetObjectItem(hourly, "relative_humidity_2m");
         cJSON *code_arr = cJSON_GetObjectItem(hourly, "weather_code");
 
+        if (cJSON_IsArray(temp_arr) && cJSON_GetArraySize(temp_arr) > 0 &&
+            cJSON_IsArray(hum_arr) && cJSON_GetArraySize(hum_arr) > 0)
+        {
+            // Extraction du premier élément (index 0) de chaque tableau (Heure en cours)
+            cJSON *current_temp_item = cJSON_GetArrayItem(temp_arr, 0);
+            cJSON *current_hum_item = cJSON_GetArrayItem(hum_arr, 0);
+            cJSON *temp_1h_item = cJSON_GetArrayItem(temp_arr, 1);
+
+            if (cJSON_IsNumber(current_temp_item) && cJSON_IsNumber(current_hum_item))
+            {
+                float temp_ext = (float)current_temp_item->valuedouble;
+                float hum_ext = (float)current_hum_item->valuedouble;
+                float temp_1h = (float)temp_1h_item->valuedouble;
+                // Mise à jour du thermostat température dans une heure
+                thermostat_update_forecast_data(temp_1h);
+
+                // Mise à jour du thermostat avec des variables numériques simples et propres
+                thermostat_update_outdoor_data(temp_ext, hum_ext);
+            }
+            else
+            {
+                ESP_LOGW(TAG, "Les éléments du tableau météo ne sont pas des nombres valides");
+            }
+        }
         int size = cJSON_GetArraySize(t_arr);
+
         if (size >= 48)
         {
             // 1. On garde votre point unique à l'index 47 (pour les logs/infos simples)
@@ -255,8 +281,10 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
 
     esp_err_t err = http_get_to_buffer(url, 10000);
     if (err != ESP_OK)
-     {   ESP_LOGE(TAG,"Erreur Jeedom");
-        return err;}
+    {
+        ESP_LOGE(TAG, "Erreur Jeedom");
+        return err;
+    }
 
     // Conversion de la réponse texte ("8.4") en float
     ESP_LOGI(TAG, "Réponse brute Jeedom : '%s'", response_data);

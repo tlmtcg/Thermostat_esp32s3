@@ -29,10 +29,12 @@ typedef struct
     float effective_consigne;
     uint32_t change_count;
     char last_error[64];
-    float temperature;
-    float humidity;
-    float temp_ext; // ajouter temp dans une heure, humidité extérieure actuelle, temp actuel
-    bool state;
+    float temperature;          // Température intérieure actuelle (SHT31)
+    float humidity;             // Humidité intérieure actuelle (SHT31)
+    float temp_ext;             // Température extérieure actuelle
+    float humidity_ext;         // AJOUT : Humidité extérieure actuelle (%)
+    float temp_forecast_1h;     // AJOUT : Température prévue dans une heure (°C)
+    bool state;                 // État du relais (true = actif, false = inactif)
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */
@@ -57,3 +59,23 @@ void thermostat_set_consigne(float value);
 void thermostat_set_enabled(bool enabled);
 
 void thermostat_update_current_consigne(void);
+
+/**
+ * @brief Met à jour les mesures intérieures issues du capteur SHT31
+ * @param temp Température mesurée en °C
+ * @param hum Humidité mesurée en %
+ */
+void thermostat_update_indoor_data(float temp, float hum);
+
+/**
+ * @brief Met à jour les données météo extérieures (ex: via une API ou sonde)
+ * @param temp Température extérieure en °C
+ * @param hum Humidité extérieure en %
+ */
+void thermostat_update_outdoor_data(float temp, float hum);
+
+/**
+ * @brief Met à jour la prévision météo
+ * @param temp_1h Température attendue dans une heure en °C
+ */
+void thermostat_update_forecast_data(float temp_1h);
