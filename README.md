@@ -1,7 +1,7 @@
 Thermostat_esp32s3
 
-🇫🇷 Thermostat connecté basé sur ESP32-S3 avec interface web embarquée et intégration domotique.
-🇬🇧 Smart ESP32-S3 thermostat with embedded web interface and home automation integration.
+🇫🇷 Thermostat intelligent basé sur ESP32-S3 utilisant ESP-IDF avec architecture modulaire et intégration domotique.
+🇬🇧 Smart ESP32-S3 thermostat built with ESP-IDF featuring a modular architecture and home automation integration.
 
 ---
 
@@ -9,122 +9,160 @@ Thermostat_esp32s3
 
 ✨ Fonctionnalités
 
-- 🌡️ Mesure température / humidité
-- 📶 Connexion Wi-Fi
-- 🌐 Interface Web responsive
+- 🌡️ Gestion température / humidité
+- 📶 Wi-Fi embarqué
+- 🌐 Interface Web locale
 - 🔥 Contrôle chauffage / ventilation
-- 📡 MQTT compatible Home Assistant
+- 📡 MQTT / Home Assistant
 - ⚡ OTA Update
-- 🧠 Régulation intelligente (hystérésis)
-- 📺 Support écran OLED/TFT
+- 🧠 Régulation intelligente
+- 🧩 Architecture modulaire ESP-IDF
 - 🔒 Fonctionnement local sans cloud
 
 ---
 
-🛠️ Matériel
-
-Carte principale
-
-- ESP32-S3
-
-Capteurs compatibles
-
-- DS18B20
-- SHT31
-- BME280
-- DHT22
-
-Sorties
-
-- Relais chauffage
-- SSR
-- Ventilation
-
----
-
-📂 Structure du projet
+🏗️ Architecture du projet
 
 Thermostat_esp32s3/
-├── src/               # Code principal
-├── include/           # Headers
-├── lib/               # Librairies
-├── data/              # Interface Web / SPIFFS
-├── docs/              # Documentation
-├── test/              # Tests
-├── platformio.ini
+├── components/        # Modules ESP-IDF
+├── main/              # Point d’entrée application
+├── unity-app/         # Tests unitaires
+├── weather_test/      # Tests météo / expérimentation
+├── .vscode/
+├── CMakeLists.txt
+├── partitions.csv
+├── dependencies.lock
 └── README.md
 
 ---
 
-⚙️ Environnement
+🧩 Organisation des composants
 
-Projet développé avec :
+Le projet utilise l’architecture modulaire ESP-IDF :
 
-- PlatformIO
-- Arduino Framework
-- FreeRTOS
-- AsyncWebServer
-- MQTT
+- chaque fonctionnalité est isolée dans "components/"
+- séparation claire des responsabilités
+- meilleure maintenabilité
+- simplifie les tests et évolutions
+
+Exemples possibles :
+
+- Wi-Fi manager
+- MQTT client
+- thermostat controller
+- sensors
+- web server
+- OTA manager
+
+---
+
+⚙️ Environnement de développement
+
+Framework
+
+- ESP-IDF
+
+Cible
+
+- ESP32-S3
+
+Outils
+
+- ESP-IDF Toolchain
+- CMake
+- Ninja
+- VSCode
 
 ---
 
 🚀 Installation
 
-Cloner le dépôt
+1. Cloner le dépôt
 
 git clone https://github.com/tlmtcg/Thermostat_esp32s3.git
 
-Compiler
+---
 
-pio run
+2. Configurer ESP-IDF
 
-Flasher
-
-pio run --target upload
-
-Monitor série
-
-pio device monitor
+idf.py set-target esp32s3
 
 ---
 
-🔧 Configuration Wi-Fi
+3. Compiler
 
-const char* ssid = "Votre_SSID";
-const char* password = "Votre_MotDePasse";
-
----
-
-🏠 Home Assistant
-
-Exemple MQTT :
-
-climate:
-  - platform: mqtt
-    name: "ESP32 Thermostat"
+idf.py build
 
 ---
 
-🌐 Interface Web
+4. Flasher le firmware
 
-Fonctionnalités :
+idf.py flash
 
-- température temps réel
-- réglage consigne
-- état relais
-- OTA firmware
-- configuration réseau
+---
+
+5. Monitor série
+
+idf.py monitor
+
+---
+
+📡 Fonctionnalités réseau
+
+- Wi-Fi STA/AP
+- MQTT
+- OTA firmware update
+- Interface Web locale
+
+---
+
+🧪 Tests
+
+Le projet inclut :
+
+- "unity-app/"
+  
+  - tests unitaires
+  - validation composants
+
+- "weather_test/"
+  
+  - expérimentation API météo
+  - intégration données externes
+
+---
+
+🗂️ Partitionnement mémoire
+
+Le fichier "partitions.csv" définit :
+
+- firmware principal
+- OTA slots
+- NVS
+- SPIFFS/LittleFS
+
+---
+
+🧠 Objectifs du projet
+
+- thermostat autonome
+- architecture robuste
+- faible latence
+- modularité
+- extensibilité
+- intégration domotique moderne
 
 ---
 
 🧪 Roadmap
 
-- [ ] Scheduler hebdomadaire
-- [ ] Historique températures
+- [ ] Dashboard Web avancé
+- [ ] Historique température
 - [ ] Support Matter
+- [ ] Multi-zones
+- [ ] Scheduler hebdomadaire
 - [ ] API REST
-- [ ] Dashboard avancé
-- [ ] Gestion multi-zones
+- [ ] Statistiques énergétiques
 
 ---
 
@@ -132,9 +170,9 @@ Fonctionnalités :
 
 Les contributions sont les bienvenues.
 
-1. Fork
-2. Nouvelle branche
-3. Commit
+1. Fork du projet
+2. Création d’une branche
+3. Commit des modifications
 4. Pull Request
 
 ---
@@ -143,133 +181,142 @@ Les contributions sont les bienvenues.
 
 ✨ Features
 
-- 🌡️ Temperature / humidity monitoring
-- 📶 Wi-Fi connectivity
-- 🌐 Responsive web interface
+- 🌡️ Temperature / humidity management
+- 📶 Embedded Wi-Fi
+- 🌐 Local web interface
 - 🔥 Heating / ventilation control
-- 📡 MQTT Home Assistant integration
-- ⚡ OTA firmware updates
-- 🧠 Smart regulation (hysteresis)
-- 📺 OLED/TFT display support
-- 🔒 Local-first operation (no cloud required)
+- 📡 MQTT / Home Assistant integration
+- ⚡ OTA updates
+- 🧠 Smart regulation
+- 🧩 Modular ESP-IDF architecture
+- 🔒 Local-first operation
 
 ---
 
-🛠️ Hardware
-
-Main board
-
-- ESP32-S3
-
-Supported sensors
-
-- DS18B20
-- SHT31
-- BME280
-- DHT22
-
-Outputs
-
-- Heating relay
-- SSR
-- Ventilation
-
----
-
-📂 Project structure
+🏗️ Project architecture
 
 Thermostat_esp32s3/
-├── src/
-├── include/
-├── lib/
-├── data/
-├── docs/
-├── test/
-├── platformio.ini
+├── components/        # ESP-IDF modules
+├── main/              # Main application entry point
+├── unity-app/         # Unit tests
+├── weather_test/      # Weather experiments
+├── .vscode/
+├── CMakeLists.txt
+├── partitions.csv
+├── dependencies.lock
 └── README.md
 
 ---
 
-⚙️ Environment
+🧩 Component organization
 
-Built with :
+The project follows a modular ESP-IDF architecture :
 
-- PlatformIO
-- Arduino Framework
-- FreeRTOS
-- AsyncWebServer
-- MQTT
+- isolated feature modules
+- clean responsibility separation
+- easier maintenance
+- scalable firmware structure
+
+Possible modules :
+
+- Wi-Fi manager
+- MQTT client
+- thermostat controller
+- sensors
+- web server
+- OTA manager
+
+---
+
+⚙️ Development environment
+
+Framework
+
+- ESP-IDF
+
+Target
+
+- ESP32-S3
+
+Tools
+
+- ESP-IDF Toolchain
+- CMake
+- Ninja
+- VSCode
 
 ---
 
 🚀 Installation
 
-Clone repository
+1. Clone repository
 
 git clone https://github.com/tlmtcg/Thermostat_esp32s3.git
 
-Build firmware
+---
 
-pio run
+2. Configure ESP-IDF
 
-Upload firmware
-
-pio run --target upload
-
-Serial monitor
-
-pio device monitor
+idf.py set-target esp32s3
 
 ---
 
-🔧 Wi-Fi configuration
+3. Build firmware
 
-const char* ssid = "Your_SSID";
-const char* password = "Your_Password";
-
----
-
-🏠 Home Assistant
-
-MQTT example :
-
-climate:
-  - platform: mqtt
-    name: "ESP32 Thermostat"
+idf.py build
 
 ---
 
-🌐 Web Interface
+4. Flash firmware
 
-Available features :
-
-- real-time temperature
-- setpoint control
-- relay status
-- OTA firmware update
-- network configuration
+idf.py flash
 
 ---
 
-🧪 Roadmap
+5. Serial monitor
 
-- [ ] Weekly scheduler
-- [ ] Temperature history
-- [ ] Matter support
-- [ ] REST API
-- [ ] Advanced dashboard
-- [ ] Multi-zone support
+idf.py monitor
 
 ---
 
-🤝 Contributing
+📡 Network features
 
-Contributions are welcome.
+- Wi-Fi STA/AP
+- MQTT
+- OTA updates
+- Local web interface
 
-1. Fork the project
-2. Create a branch
-3. Commit changes
-4. Open a Pull Request
+---
+
+🧪 Testing
+
+Included :
+
+- unit testing
+- component validation
+- weather experimentation
+
+---
+
+🗂️ Memory partitioning
+
+"partitions.csv" defines :
+
+- main firmware
+- OTA slots
+- NVS
+- SPIFFS/LittleFS
+
+---
+
+🧠 Project goals
+
+- autonomous thermostat
+- robust architecture
+- low latency
+- modular firmware
+- extensibility
+- modern home automation integration
 
 ---
 
