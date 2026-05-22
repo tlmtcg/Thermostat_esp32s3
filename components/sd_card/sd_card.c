@@ -3,6 +3,7 @@
 #include "sdmmc_cmd.h"
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include <sys/unistd.h>
 #include <sys/stat.h>
@@ -12,15 +13,13 @@
 #include <stdio.h>
 
 static const char *TAG = "SD_CARD";
-static sdmmc_card_t *card = NULL;
 
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdspi_host.h"
-#include "driver/gpio.h"
+// Une seule déclaration propre de la structure de la carte
+static sdmmc_card_t *s_card = NULL;
 
-static sdmmc_card_t *card;
-
+/* =========================================================
+   INITIALISATION
+   ========================================================= */
 esp_err_t init_sd_card(const sd_card_config_t *config) {
     ESP_LOGI(TAG, "Initialisation de la carte SD...");
 
@@ -31,13 +30,15 @@ esp_err_t init_sd_card(const sd_card_config_t *config) {
         .sclk_io_num = CONFIG_SD_CARD_SCLK_GPIO,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        // Augmenter la taille pour permettre le montage FATFS (512 octets min)
         .max_transfer_sz = 4096, 
     };
 
     // Initialisation du bus avec DMA (Canal auto-alloué)
     esp_err_t ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Échec initialisation bus SPI (0x%x)", ret);
+        return ret;
+    }
 
     // 2. Configuration de l'hôte
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
@@ -51,17 +52,18 @@ esp_err_t init_sd_card(const sd_card_config_t *config) {
 
     // 4. Montage avec Formatage Automatique
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = true, // INDISPENSABLE pour ta carte neuve
+        .format_if_mount_failed = true, 
         .max_files = 5,
         .allocation_unit_size = 16 * 1024
     };
 
     ESP_LOGI(TAG, "Tentative de montage (cela peut être long si formatage requis)...");
-    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &card);
+    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT, &host, &slot_config, &mount_config, &s_card);
 
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Échec du montage (0x%x).", ret);
         spi_bus_free(SPI2_HOST);
+        s_card = NULL;
         return ret;
     }
 
@@ -69,13 +71,16 @@ esp_err_t init_sd_card(const sd_card_config_t *config) {
     return ESP_OK;
 }
 
+/* =========================================================
+   OPÉRATIONS SUR LES FICHIERS
+   ========================================================= */
 esp_err_t sd_write_file(const char *path, const char *data)
 {
     ESP_LOGI(TAG, "Ouverture de %s en écriture...", path);
     FILE *f = fopen(path, "a");
     if (f == NULL)
     {
-        ESP_LOGE(TAG, "Impossible d'ouvrir le fichier %s", path);
+        ESP_LOGE(TAG, "Impossible d'ouvrir le fichier %s (%s)", path, strerror(errno));
         return ESP_FAIL;
     }
     int bytes_written = fprintf(f, "%s", data);
@@ -113,35 +118,22 @@ esp_err_t sd_delete_file(const char *path)
     ESP_LOGI(TAG, "Tentative de suppression de %s...", path);
     if (unlink(path) != 0)
     {
-        ESP_LOGE(TAG, "Erreur lors de la suppression de %s", path);
+        ESP_LOGE(TAG, "Erreur lors de la suppression de %s (%s)", path, strerror(errno));
         return ESP_FAIL;
     }
     ESP_LOGI(TAG, "Fichier supprimé.");
     return ESP_OK;
 }
 
-void deinit_sd_card(void)
-{
-    if (card)
-    {
-        ESP_LOGI(TAG, "Démontage de la carte SD...");
-        esp_vfs_fat_sdcard_unmount(MOUNT_POINT, card);
-        spi_bus_free(SPI2_HOST);
-        card = NULL;
-        ESP_LOGI(TAG, "Carte SD démontée et bus libéré.");
-    }
-}
-
 esp_err_t sd_rename_file(const char *old_path, const char *new_path)
 {
     ESP_LOGI(TAG, "Renommage de %s vers %s", old_path, new_path);
 
-    // Vérifier si le fichier de destination existe déjà
     struct stat st;
     if (stat(new_path, &st) == 0)
     {
         ESP_LOGW(TAG, "Le fichier de destination existe déjà. Il sera écrasé.");
-        unlink(new_path); // Optionnel : supprimer explicitement avant
+        unlink(new_path); 
     }
 
     if (rename(old_path, new_path) != 0)
@@ -154,12 +146,15 @@ esp_err_t sd_rename_file(const char *old_path, const char *new_path)
     return ESP_OK;
 }
 
+/* =========================================================
+   RÉPERTOIRES
+   ========================================================= */
 void sd_list_files(const char *dir_path) {
-    ESP_LOGI("SD_CARD", "Liste des fichiers dans %s :", dir_path);
+    ESP_LOGI(TAG, "Liste des fichiers dans %s :", dir_path);
 
     DIR *dir = opendir(dir_path);
     if (!dir) {
-        ESP_LOGE("SD_CARD", "Impossible d'ouvrir le répertoire : %s", dir_path);
+        ESP_LOGE(TAG, "Impossible d'ouvrir le répertoire : %s", dir_path);
         return;
     }
 
@@ -167,36 +162,61 @@ void sd_list_files(const char *dir_path) {
     int file_count = 0;
 
     while ((entry = readdir(dir)) != NULL) {
-        char full_path[300];
+        char full_path[320];
         struct stat st;
         
-        // Construction du chemin complet pour obtenir les infos du fichier
-        snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+        // Gestion propre de la construction du chemin
+        if (strcmp(dir_path, "/") == 0 || dir_path[strlen(dir_path) - 1] == '/') {
+            snprintf(full_path, sizeof(full_path), "%s%s", dir_path, entry->d_name);
+        } else {
+            snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+        }
         
         if (stat(full_path, &st) == 0) {
             if (S_ISDIR(st.st_mode)) {
-                ESP_LOGI("SD_CARD", "  [DIR]  %s", entry->d_name);
+                ESP_LOGI(TAG, "  [DIR]  %s", entry->d_name);
             } else {
-                ESP_LOGI("SD_CARD", "  [FILE] %s (Taille: %ld octets)", entry->d_name, (long)st.st_size);
+                ESP_LOGI(TAG, "  [FILE] %s (Taille: %ld octets)", entry->d_name, (long)st.st_size);
             }
             file_count++;
         }
     }
 
     closedir(dir);
-    ESP_LOGI("SD_CARD", "Total : %d éléments trouvés.", file_count);
+    ESP_LOGI(TAG, "Total : %d éléments trouvés.", file_count);
 }
 
 esp_err_t sd_create_dir(const char *path) {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", MOUNT_POINT, path);
-    if (mkdir(full_path, 0777) != 0) return ESP_FAIL;
+    if (mkdir(full_path, 0777) != 0) {
+        ESP_LOGE(TAG, "Erreur création dossier %s (%s)", full_path, strerror(errno));
+        return ESP_FAIL;
+    }
     return ESP_OK;
 }
 
 esp_err_t sd_remove_dir(const char *path) {
     char full_path[128];
     snprintf(full_path, sizeof(full_path), "%s/%s", MOUNT_POINT, path);
-    if (rmdir(full_path) != 0) return ESP_FAIL;
+    if (rmdir(full_path) != 0) {
+        ESP_LOGE(TAG, "Erreur suppression dossier %s (%s)", full_path, strerror(errno));
+        return ESP_FAIL;
+    }
     return ESP_OK;          
+}
+
+/* =========================================================
+   DÉINITIALISATION
+   ========================================================= */
+void deinit_sd_card(void)
+{
+    if (s_card)
+    {
+        ESP_LOGI(TAG, "Démontage de la carte SD...");
+        esp_vfs_fat_sdcard_unmount(MOUNT_POINT, s_card);
+        spi_bus_free(SPI2_HOST);
+        s_card = NULL;
+        ESP_LOGI(TAG, "Carte SD démontée et bus libéré.");
+    }
 }

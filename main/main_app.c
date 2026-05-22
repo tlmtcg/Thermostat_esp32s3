@@ -82,7 +82,7 @@ void app_main(void)
     if (init_sd_card(NULL) != ESP_OK) {
         ESP_LOGW(TAG, "SD non disponible");
         oled_service_show_error("SD FAIL");
-        return;
+        // return;
     }
 
     oled_service_show_text("THERMOSTAT", "Load config...", NULL);

@@ -5,6 +5,9 @@
 #include "wifi_manager.h"
 #include "weather_store.h"
 #include "weather_task.h"
+#include "dht_task.h"
+#include "driver/gpio.h"
+#include "dht.h"
 
 task_info_t my_tasks[] = {
     {"Meteo", "weather", 8192, 5, BIT_WEATHER_EN, NULL, 15 * 60 * 1000},
@@ -14,10 +17,18 @@ task_info_t my_tasks[] = {
     {"Storage", "storage", 8192, 10, BIT_STORAGE_EN, NULL, 0},
     {"Serial", "serial", 4096, 5, BIT_SERIAL_EN, NULL, 0},
     {"SHT31", "sht31", 4096, 5, BIT_SHT31_EN, NULL, 0},
-    {"Thermostat","thermostat",4096, 5, BIT_THERMO_EN, NULL, 1000}
+    {"Thermostat","thermostat",4096, 5, BIT_THERMO_EN, NULL, 1000},
+    {"DHT",        "dht",        4096, 5,  BIT_DHT_EN,     NULL, 2000}
 };
 
 const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);
+
+// Instanciation réelle et globale de la configuration du DHT pour toute l'application
+dht_task_config_t dht_task_config = {
+    .event_group = NULL,                // Injecté dynamiquement par tasks.c
+    .event_bit = BIT_DHT_EN,            // Bit de contrôle de la tâche
+    .delay_ms = &my_tasks[8].delay_ms   // Pointeur vers le délai dynamique (2000 ms)
+};
 
 static bool task_registry_is_wifi_connected(void)
 {
@@ -54,6 +65,7 @@ task_registry_entry_t task_registry[] = {
     {&my_tasks[5], serial_task, NULL},
     {&my_tasks[6], sht31_task, &sht31_task_config},
     {&my_tasks[7], thermostat_task, NULL},
+    {&my_tasks[8], dht_task, (void *)&dht_task_config}
 };
 
 const int TASK_REGISTRY_COUNT = sizeof(task_registry) / sizeof(task_registry_entry_t);

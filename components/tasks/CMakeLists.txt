@@ -16,4 +16,5 @@ idf_component_register(
         config_storage
         sht31
         thermostat
+        dht
 )

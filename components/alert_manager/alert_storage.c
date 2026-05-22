@@ -1,11 +1,9 @@
 #include "alert_storage.h"
 #include "alert_manager.h"
-#include "sd_card.h"
 #include "esp_log.h"
 
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,34 +11,45 @@
 
 #include "time_utils.h"
 
-static const char *TAG = "ALERT_STORAGE";
-static const char *log_path = MOUNT_POINT "/alerts.log";
+// =========================================================
+// CONFIGURATION : ACTIVER (1) OU DÉSACTIVER (0) LA CARTE SD
+// =========================================================
+#define USE_SD_CARD_STORAGE    1 
 
+static const char *TAG = "ALERT_STORAGE";
+
+#if USE_SD_CARD_STORAGE
+#include "sd_card.h"
+#include <sys/stat.h>
+
+static const char *log_path = MOUNT_POINT "/alerts.log";
 #define MAX_LOG_SIZE_BYTES (200 * 1024) // 200 KB
 #define MAX_LOG_LINES 2000
 
-/* =========================================================
-   QUEUE + TASK
-   ========================================================= */
+static TaskHandle_t s_alert_task = NULL;
+#endif
 
+/* =========================================================
+   QUEUE UNIQUEMENT
+   ========================================================= */
 typedef struct
 {
     char line[256]; // ligne JSON déjà formatée
-} alert_sd_msg_t;
+} alert_msg_t;
 
 static QueueHandle_t s_alert_queue = NULL;
-static TaskHandle_t s_alert_task = NULL;
 
 /* =========================================================
-   TÂCHE D'ÉCRITURE SD
+   TÂCHE D'ÉCRITURE SD (Compilée uniquement si le flag est à 1)
    ========================================================= */
+
 void alert_storage_task(void *arg)
 {
-    ESP_LOGI(TAG, "Tâche alert_storage_task démarrée, log_path=%s", log_path);
-
+    #if USE_SD_CARD_STORAGE
+        ESP_LOGI(TAG, "Tâche alert_storage_task démarrée, log_path=%s", log_path);
     for (;;)
     {
-        alert_sd_msg_t msg;
+        alert_msg_t msg;
 
         if (xQueueReceive(s_alert_queue, &msg, portMAX_DELAY) == pdTRUE)
         {
@@ -50,7 +59,6 @@ void alert_storage_task(void *arg)
             esp_err_t err = sd_write_file(log_path, msg.line);
             if (err != ESP_OK)
             {
-                char line[32];
                 alert_add("Erreur ECRITURE SD");
                 ESP_LOGE(TAG, "Erreur ECRITURE SD");
             }
@@ -58,33 +66,41 @@ void alert_storage_task(void *arg)
             alert_storage_purge();
         }
     }
+    #else
+    // Sécurité : Si la tâche est créée par erreur en mode sans SD, 
+    // on la détruit proprement pour éviter le crash.
+    ESP_LOGW(TAG, "Tâche 'Storage' appelée mais inactive (sans SD) -> Destruction de la tâche.");
+    vTaskDelete(NULL);
+    #endif
 }
 
+
 /* =========================================================
-   CALLBACK ALERTES → PUSH DANS QUEUE
+   CALLBACK DE RÉCEPTION DES ALERTES
    ========================================================= */
-static void sd_on_alert_event(alert_event_t evt, const alert_log_t *log)
+static void on_alert_event(alert_event_t evt, const alert_log_t *log)
 {
-    ESP_LOGI(TAG, "Callback alerte : event=%d, name=%s, activated=%d",
-             evt, log ? log->name : "NULL", log ? log->activated : -1);
     if (!s_alert_queue || !log)
         return;
 
-    alert_sd_msg_t msg = {0};
-
-    // 1. Déclarer un buffer pour recevoir la chaîne de caractères du temps
+    alert_msg_t msg = {0};
     char time_str[32];
 
-    // 2. Récupérer la chaîne de caractères formatée
     time_utils_get_time_str(time_str, sizeof(time_str));
 
-    // Format JSON identique à ton code original
+    // Formatage du JSON identique pour les deux modes
     snprintf(msg.line, sizeof(msg.line),
              "{ \"timestamp\": \"%s\", \"name\": \"%s\", \"activated\": %d }\n",
              time_str,
              log->name,
              log->activated ? 1 : 0);
 
+#if !USE_SD_CARD_STORAGE
+    // Si pas de carte SD, on affiche directement l'alerte formatée dans la console
+    ESP_LOGI(TAG, "[RAM LOG] %s", msg.line);
+#endif
+
+    // Envoi dans la queue (utile pour la tâche SD ou d'autres notifications)
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
     if (xPortInIsrContext())
@@ -107,6 +123,7 @@ static void sd_on_alert_event(alert_event_t evt, const alert_log_t *log)
    ========================================================= */
 void alert_storage_rotate(void)
 {
+#if USE_SD_CARD_STORAGE
     char rotated[128];
     snprintf(rotated, sizeof(rotated), "%s.1", log_path);
 
@@ -114,6 +131,7 @@ void alert_storage_rotate(void)
     sd_rename_file(log_path, rotated);
 
     ESP_LOGW(TAG, "Rotation effectuée : %s → %s", log_path, rotated);
+#endif
 }
 
 /* =========================================================
@@ -121,6 +139,7 @@ void alert_storage_rotate(void)
    ========================================================= */
 void alert_storage_purge(void)
 {
+#if USE_SD_CARD_STORAGE
     struct stat st;
     if (stat(log_path, &st) != 0)
         return;
@@ -130,6 +149,7 @@ void alert_storage_purge(void)
 
     ESP_LOGW(TAG, "Fichier trop gros (%ld bytes) → rotation", st.st_size);
     alert_storage_rotate();
+#endif
 }
 
 /* =========================================================
@@ -137,29 +157,36 @@ void alert_storage_purge(void)
    ========================================================= */
 void alert_storage_init(const char *path)
 {
-    if (path)
-        log_path = path;
-
-    ESP_LOGI(TAG, "Initialisation du stockage SD : %s", log_path);
-
-    // Création de la queue (Obligatoire avant de lancer la tâche)
-    s_alert_queue = xQueueCreate(32, sizeof(alert_sd_msg_t));
+    // Création de la queue (commune aux deux modes)
+    s_alert_queue = xQueueCreate(32, sizeof(alert_msg_t));
     if (!s_alert_queue)
     {
-        ESP_LOGE(TAG, "Impossible de créer la queue SD");
+        ESP_LOGE(TAG, "Impossible de créer la queue");
         return;
     }
 
-    // Enregistrement du callback
-    alert_register_callback(sd_on_alert_event);
-    ESP_LOGI(TAG, "Callback SD enregistré");
+    // Enregistrement du callback unique
+    alert_register_callback(on_alert_event);
+
+#if USE_SD_CARD_STORAGE
+    if (path)
+        log_path = path;
+
+    ESP_LOGI(TAG, "Initialisation du stockage AVEC Carte SD : %s", log_path);
+    
+    // On ne crée la tâche FreeRTOS que si la carte SD est activée
+    xTaskCreate(alert_storage_task, "alert_storage_task", 4096, NULL, 5, &s_alert_task);
+#else
+    ESP_LOGI(TAG, "Initialisation du stockage SANS Carte SD (Log console uniquement)");
+#endif
 }
 
 /* =========================================================
-   LOAD : recharge l’historique depuis SD
+   LOAD
    ========================================================= */
 void alert_storage_load(void)
 {
+#if USE_SD_CARD_STORAGE
     FILE *f = fopen(log_path, "r");
     if (!f)
         return;
@@ -174,8 +201,6 @@ void alert_storage_load(void)
         char name[64] = {0};
         int activated = 0;
 
-        // Correction du sscanf pour lire le timestamp entre guillemets
-        // On utilise %31[^"] pour lire la chaîne jusqu'au prochain guillemet
         int found = sscanf(line,
                            "{ \"timestamp\": \"%31[^\"]\", \"name\": \"%63[^\"]\", \"activated\": %d }",
                            time_str, name, &activated);
@@ -184,9 +209,7 @@ void alert_storage_load(void)
             continue;
 
         alert_log_t log;
-        // Si votre structure attend un long, il faudra convertir time_str en epoch
-        // Sinon, si log.timestamp est devenu une chaîne, faites un strncpy
-        log.timestamp = 0; // À adapter selon votre structure
+        log.timestamp = 0; 
         strncpy(log.name, name, sizeof(log.name));
         log.activated = (bool)activated;
 
@@ -201,4 +224,7 @@ void alert_storage_load(void)
     }
     fclose(f);
     ESP_LOGI(TAG, "Historique SD chargé (%d lignes)", line_count);
+#else
+    ESP_LOGD(TAG, "Pas de carte SD active, aucun historique à charger");
+#endif
 }
