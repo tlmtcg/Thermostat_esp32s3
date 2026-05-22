@@ -29,12 +29,12 @@ typedef struct
     float effective_consigne;
     uint32_t change_count;
     char last_error[64];
-    float temperature;          // Température intérieure actuelle (SHT31)
-    float humidity;             // Humidité intérieure actuelle (SHT31)
-    float temp_ext;             // Température extérieure actuelle
-    float humidity_ext;         // AJOUT : Humidité extérieure actuelle (%)
-    float temp_forecast_1h;     // AJOUT : Température prévue dans une heure (°C)
-    bool state;                 // État du relais (true = actif, false = inactif)
+    float temperature;      // Température intérieure actuelle (SHT31)
+    float humidity;         // Humidité intérieure actuelle (SHT31)
+    float temp_ext;         // Température extérieure actuelle
+    float humidity_ext;     // AJOUT : Humidité extérieure actuelle (%)
+    float temp_forecast_1h; // AJOUT : Température prévue dans une heure (°C)
+    bool state;             // État du relais (true = actif, false = inactif)
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */
@@ -79,3 +79,5 @@ void thermostat_update_outdoor_data(float temp, float hum);
  * @param temp_1h Température attendue dans une heure en °C
  */
 void thermostat_update_forecast_data(float temp_1h);
+
+void must_heat();

@@ -157,6 +157,8 @@ void thermostat_task(void *pvParameters)
     {
         // Remarque : Le bit THERMO_EN n'est volontairement pas bloquant ici
         thermostat_update_current_consigne();
+        must_heat();
+
         vTaskDelay(pdMS_TO_TICKS(my_tasks[7].delay_ms));
     }
 }

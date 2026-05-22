@@ -45,7 +45,6 @@ static float thermostat_clamp_consigne(float value)
 
     return value;
 }
-
 /**
  * Arrondit un float à N décimales
  */
@@ -60,7 +59,6 @@ static float round_float(float value, uint8_t decimals)
 
     return roundf(value * factor) / factor;
 }
-
 /**
  * Calcule la consigne réellement utilisée selon le mode actif
  */
