@@ -21,12 +21,15 @@ set(my_requires
     ssd1306
     oled_service
     app_context
+    prediction_engine
+    thermostat
+    rc_estimator
 )
 
 # Enregistrement du composant principal
 idf_component_register(
     SRCS "${my_srcs}"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES esp_http_server joltwallet__littlefs mbedtls app_update thermostat
+    PRIV_REQUIRES esp_http_server joltwallet__littlefs mbedtls app_update
     REQUIRES "${my_requires}"
 )

@@ -5,6 +5,8 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "thermostat_learning.h"
+
 
 static const char *TAG = "THERMO_STORAGE";
 

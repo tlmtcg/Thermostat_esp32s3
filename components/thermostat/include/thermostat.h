@@ -10,7 +10,8 @@ typedef enum
     THERMOSTAT_MODE_AUTO = 0,
     THERMOSTAT_MODE_MANUAL,
     THERMOSTAT_MODE_ABSENT,
-    THERMOSTAT_MODE_HORS_GEL
+    THERMOSTAT_MODE_HORS_GEL,
+    THERMOSTAT_MODE_LEARNING 
 } thermostat_mode_t;
 
 typedef struct
@@ -79,5 +80,9 @@ void thermostat_update_outdoor_data(float temp, float hum);
  * @param temp_1h Température attendue dans une heure en °C
  */
 void thermostat_update_forecast_data(float temp_1h);
+
+extern thermostat_runtime_t g_thermostat_runtime;
+
+void app_init_thermal_model(void);
 
 void must_heat();

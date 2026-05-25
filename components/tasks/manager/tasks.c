@@ -16,6 +16,7 @@
 #include "wifi_manager.h"
 #include "config_storage.h"
 #include "thermostat.h"
+#include "prediction_engine.h"
 
 // Inclusion obligatoire pour accéder à la variable d'instance "dht_task_config"
 #include "dht_task.h" 
@@ -157,6 +158,7 @@ void thermostat_task(void *pvParameters)
     {
         // Remarque : Le bit THERMO_EN n'est volontairement pas bloquant ici
         thermostat_update_current_consigne();
+        prediction_engine_tick();
         must_heat();
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[7].delay_ms));

@@ -3,6 +3,7 @@ idf_component_register(
         "thermostat.c"
         "thermostat_storage.c"
         "thermostat_manager.c"
+        "thermostat_learning.c" 
 
     INCLUDE_DIRS
         "include"
@@ -14,4 +15,7 @@ idf_component_register(
         cjson
         alert_manager
         app_context
+        thermal_model
+        predict_adjustment
+        rc_estimator
 )

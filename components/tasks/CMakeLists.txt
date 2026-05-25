@@ -17,4 +17,5 @@ idf_component_register(
         sht31
         thermostat
         dht
+        prediction_engine
 )

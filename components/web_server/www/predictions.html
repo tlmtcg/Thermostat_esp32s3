@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Prédictions Thermiques</title>
+
+    <style>
+      .value-big {
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: var(--orange);
+      }
+      .score-box {
+        font-size: 2rem;
+        font-weight: bold;
+        text-align: center;
+        padding: 12px;
+        border-radius: 6px;
+        margin-top: 10px;
+      }
+      .score-hot {
+        background: #ffcccc;
+        color: #a00000;
+      }
+      .score-cold {
+        background: #cceaff;
+        color: #004466;
+      }
+      .score-neutral {
+        background: #e6e6e6;
+        color: #333;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Prédictions Thermiques</h1>
+
+    <!-- Zone de contrôle -->
+    <div class="box">
+      <h2>Contrôles</h2>
+      <div class="controls">
+        <button onclick="fetchPrediction()">Rafraîchir</button>
+        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">Auto: ON</button>
+      </div>
+    </div>
+
+    <!-- Résultats -->
+    <div class="box">
+      <div class="line">
+        <span class="label">Dernière mise à jour</span>
+        <span id="status" class="value">--</span>
+      </div>
+
+      <h2>Température intérieure prévue</h2>
+      <div class="line">
+        <span class="label">Dans 1h</span>
+        <span id="t1h" class="value-big">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Dans 3h</span>
+        <span id="t3h" class="value-big">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Dans 6h</span>
+        <span id="t6h" class="value-big">--</span>
+      </div>
+
+      <h2>Effets météo</h2>
+      <div class="line">
+        <span class="label">Soleil / météo</span>
+        <span id="w_effect" class="value">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Humidité</span>
+        <span id="h_effect" class="value">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Tendance</span>
+        <span id="trend" class="value">--</span>
+      </div>
+
+      <h2>Besoin de chauffe</h2>
+      <div id="score" class="score-box score-neutral">--</div>
+    </div>
+
+    <script>
+      let autoRefreshInterval = null;
+
+      async function fetchPrediction() {
+        try {
+          const response = await fetch('/api/predict/status');
+          const data = await response.json();
+
+          document.getElementById('status').textContent =
+            new Date().toLocaleTimeString();
+
+          if (data.status !== "ok") {
+            document.getElementById("score").textContent = "Aucune donnée";
+            return;
+          }
+
+          document.getElementById("t1h").textContent = data.Tint_1h.toFixed(2);
+          document.getElementById("t3h").textContent = data.Tint_3h.toFixed(2);
+          document.getElementById("t6h").textContent = data.Tint_6h.toFixed(2);
+
+          document.getElementById("w_effect").textContent = data.weather_effect.toFixed(2);
+          document.getElementById("h_effect").textContent = data.humidity_effect.toFixed(2);
+          document.getElementById("trend").textContent = data.trend_effect.toFixed(2);
+
+          let score = data.heating_need_score;
+          let box = document.getElementById("score");
+
+          box.textContent = score.toFixed(2);
+
+          box.classList.remove("score-hot", "score-cold", "score-neutral");
+
+          if (score > 0.3) box.classList.add("score-hot");
+          else if (score < -0.3) box.classList.add("score-cold");
+          else box.classList.add("score-neutral");
+
+        } catch (err) {
+          console.error("Erreur API:", err);
+        }
+      }
+
+      function toggleAutoRefresh() {
+        const btn = document.getElementById('btn-auto');
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          btn.textContent = "Auto: OFF";
+        } else {
+          autoRefreshInterval = setInterval(fetchPrediction, 3000);
+          btn.textContent = "Auto: ON";
+        }
+      }
+
+      // Initialisation
+      fetchPrediction();
+      autoRefreshInterval = setInterval(fetchPrediction, 3000);
+    </script>
+
+    <script src="index.js"></script>
+  </body>
+</html>

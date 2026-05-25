@@ -22,6 +22,7 @@ idf_component_register(
         "ws_api_ssd1306.c"
         "ws_api_ota.c"
         "ws_api_thermostat.c"
+        "ws_api_prediction.c"
 
     INCLUDE_DIRS 
         "include"
@@ -46,6 +47,7 @@ idf_component_register(
         sht31
         ssd1306
         thermostat
+        prediction_engine
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -57,7 +59,6 @@ idf_component_register(
         app_update
         esp_partition
         
-
     EMBED_FILES 
         "www/index.html"
         "www/time.html"
@@ -71,6 +72,7 @@ idf_component_register(
         "www/relay.html"
         "www/sd.html"
         "www/nav.html"
+        "www/predictions.html"
         "www/tasks.html"
         "www/i2c.html"
         "www/logs.html"

@@ -29,6 +29,9 @@
 #include "time_utils.h"
 #include "web_server.h"
 #include "wifi_app.h"
+#include "prediction_engine.h"
+#include "thermal_model.h"
+#include "rc_estimator.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -55,7 +58,8 @@ void app_main(void)
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
-        ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
@@ -71,7 +75,8 @@ void app_main(void)
 
     app_context_init();
 
-    if (i2c_device_exists(i2c_manager_get_bus(), 0x3C)) {
+    if (i2c_device_exists(i2c_manager_get_bus(), 0x3C))
+    {
         ESP_LOGI(TAG, "OLED SSD1306 detecte");
         ESP_ERROR_CHECK(oled_service_init(i2c_manager_get_bus()));
         oled_service_show_boot();
@@ -79,7 +84,8 @@ void app_main(void)
 
     oled_service_show_text("THERMOSTAT", "Mount SD...", NULL);
 
-    if (init_sd_card(NULL) != ESP_OK) {
+    if (init_sd_card(NULL) != ESP_OK)
+    {
         ESP_LOGW(TAG, "SD non disponible");
         oled_service_show_error("SD FAIL");
         // return;
@@ -88,10 +94,13 @@ void app_main(void)
     oled_service_show_text("THERMOSTAT", "Load config...", NULL);
 
     cJSON *config_json = load_json_from_sdcard(CONFIG_FILE);
-    if (config_json) {
+    if (config_json)
+    {
         ESP_LOGI(TAG, "Config chargee");
         cJSON_Delete(config_json);
-    } else {
+    }
+    else
+    {
         ESP_LOGW(TAG, "Generation config");
         save_kconfig_to_sdcard(CONFIG_FILE);
     }
@@ -104,7 +113,8 @@ void app_main(void)
     oled_service_show_text("THERMOSTAT", "Starting Web...", NULL);
 
     httpd_handle_t server = start_webserver();
-    if (!server) {
+    if (!server)
+    {
         ESP_LOGE(TAG, "Serveur Web FAIL");
         oled_service_show_error("WEB FAIL");
         return;
@@ -114,7 +124,8 @@ void app_main(void)
     heating_init();
     i2c_manager_scan();
 
-    if (i2c_device_exists(i2c_manager_get_bus(), 0x44)) {
+    if (i2c_device_exists(i2c_manager_get_bus(), 0x44))
+    {
         sht31_start(i2c_manager_get_bus(), 0x44);
     }
 
@@ -122,6 +133,9 @@ void app_main(void)
 
     oled_service_show_text("THERMOSTAT", "System Ready", NULL);
     oled_service_start();
+
+    app_init_thermal_model();
+    prediction_engine_init();
 
     ESP_LOGI(TAG, "Boot termine");
 }

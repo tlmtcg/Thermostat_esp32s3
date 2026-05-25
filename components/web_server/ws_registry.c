@@ -22,6 +22,7 @@
 #include "ws_api_ssd1306.h"
 #include "ws_api_ota.h"
 #include "ws_api_thermostat.h"
+#include "ws_api_prediction.h"
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -48,6 +49,7 @@ static ws_register_fn_t registry[] = {
     ws_register_ssd1306_api,
     ws_register_ota_api,
     ws_register_thermostat_api,
+    ws_register_prediction_api,
     ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
 };
 

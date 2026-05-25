@@ -21,6 +21,7 @@ typedef struct {
 
     float forecast_48h_temp[48];
     float forecast_48h_hum[48];
+    int   forecast_48h_code[48];
 } weather_data_t;
 
 
@@ -42,6 +43,16 @@ esp_err_t jeedom_temp_update(weather_data_t *data);
 extern weather_data_t latest_weather;
 
 float temperature_get_outdoor();
+
+float weather_get_forecast_temp(int hours);
+
+float weather_get_forecast_humidity(int hours);
+
+int weather_get_forecast_code(int hours);
+
+int weather_get_current_code(void);
+
+extern weather_data_t g_weather_data;
 
 #ifdef __cplusplus
 }

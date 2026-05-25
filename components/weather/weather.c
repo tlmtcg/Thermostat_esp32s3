@@ -238,10 +238,19 @@ esp_err_t weather_update(weather_data_t *data)
             {
                 data->forecast_48h_temp[i] = cJSON_GetArrayItem(temp_arr, i)->valuedouble;
                 data->forecast_48h_hum[i] = cJSON_GetArrayItem(hum_arr, i)->valuedouble;
+                data->forecast_48h_code[i] = cJSON_GetArrayItem(code_arr, i)->valueint;
             }
 
             ESP_LOGI(TAG, "Parsing complet des 48 points réussi");
         }
+    }
+
+    // Copier les tableaux dans la structure globale utilisée par le moteur prédictif
+    for (int i = 0; i < 48; i++)
+    {
+        g_weather_data.forecast_48h_temp[i] = data->forecast_48h_temp[i];
+        g_weather_data.forecast_48h_hum[i] = data->forecast_48h_hum[i];
+        g_weather_data.forecast_48h_code[i] = data->forecast_48h_code[i];
     }
 
     // 3. Parsing du bloc DAILY (7 jours)
@@ -301,4 +310,48 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
 float temperature_get_outdoor()
 {
     return latest_weather.current.jee_temp;
+}
+
+weather_data_t g_weather_data = {0};
+
+float weather_get_forecast_temp(int hours)
+{
+    if (hours < 0 || hours >= 48)
+    {
+        ESP_LOGW(TAG, "Temp forecast: index %d hors limites, retour 0", hours);
+        return 0.0f;
+    }
+
+    float v = g_weather_data.forecast_48h_temp[hours];
+    ESP_LOGD(TAG, "Temp forecast +%dh = %.2f°C", hours, v);
+    return v;
+}
+
+float weather_get_forecast_humidity(int hours)
+{
+    if (hours < 0 || hours >= 48)
+    {
+        ESP_LOGW(TAG, "Hum forecast: index %d hors limites, retour 0", hours);
+        return 0.0f;
+    }
+
+    float v = g_weather_data.forecast_48h_hum[hours];
+    ESP_LOGD(TAG, "Hum forecast +%dh = %.1f%%", hours, v);
+    return v;
+}
+
+int weather_get_current_code(void)
+{
+    return g_weather_data.current.weather_code;
+}
+
+int weather_get_forecast_code(int hours)
+{
+    if (hours < 0 || hours >= 48)
+    {
+        ESP_LOGW("WEATHER", "forecast_code: index %d hors limites", hours);
+        return g_weather_data.current.weather_code; // fallback
+    }
+
+    return g_weather_data.forecast_48h_code[hours];
 }

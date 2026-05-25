@@ -92,6 +92,10 @@ static esp_err_t index_command_handler(httpd_req_t *req)
     {
         thermostat_set_mode(THERMOSTAT_MODE_HORS_GEL);
     }
+    else if (strcmp(buf, "LEARNING") == 0)
+    {
+        thermostat_set_mode(THERMOSTAT_MODE_LEARNING);
+    }
 
     /* -------- ENABLE : Activation / Désactivation globale -------- */
     else if (strcmp(buf, "ON") == 0)

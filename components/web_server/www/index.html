@@ -218,6 +218,11 @@
           ABSENT
         </button>
 
+         <button class="mode-btn" id="btn-LEARNING" onclick="setMode('LEARNING')">
+          LEARNING
+        </button>
+
+
         <button
           class="mode-btn"
           id="btn-HORS_GEL"
@@ -291,6 +296,11 @@
           case "HORS_GEL":
             return "HORS_GEL";
 
+          case 4:
+          case "4":
+          case "LEARNING":
+            return "LEARNING";
+
           default:
             return "AUTO";
         }
@@ -306,6 +316,8 @@
             return "ABSENT";
           case "HORS_GEL":
             return "HORS-GEL";
+          case "LEARNING":
+            return "LEARNIG";
           default:
             return m;
         }

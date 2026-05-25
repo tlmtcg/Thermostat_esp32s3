@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS
+        "thermal_model.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        nvs_flash
+        esp_timer
+        esp_system
+)

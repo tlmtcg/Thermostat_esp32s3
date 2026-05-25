@@ -52,6 +52,8 @@ extern const uint8_t ssd1306_html_start[] asm("_binary_ssd1306_html_start");
 extern const uint8_t ssd1306_html_end[]   asm("_binary_ssd1306_html_end");
 extern const uint8_t ota_html_start[] asm("_binary_ota_html_start");
 extern const uint8_t ota_html_end[]   asm("_binary_ota_html_end");
+extern const uint8_t predictions_html_start[] asm("_binary_predictions_html_start");
+extern const uint8_t predictions_html_end[]   asm("_binary_predictions_html_end");
 
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
@@ -189,6 +191,11 @@ static esp_err_t get_ota(httpd_req_t *req)
     return send_embedded_file(req, ota_html_start, ota_html_end, "text/html");
 }
 
+static esp_err_t get_predictions(httpd_req_t *req)
+{
+    return send_embedded_file(req, predictions_html_start, predictions_html_end, "text/html");
+}
+
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -218,6 +225,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_sht31 = {.uri = "/sht31", .method = HTTP_GET, .handler = get_sht31};
     httpd_uri_t uri_ssd1306 = {.uri = "/ssd1306", .method = HTTP_GET, .handler = get_ssd1306};
     httpd_uri_t uri_ota = {.uri = "/ota", .method = HTTP_GET, .handler = get_ota};
+    httpd_uri_t uri_predictions = {.uri = "/predictions", .method = HTTP_GET, .handler = get_predictions};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -241,6 +249,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_sht31);
     httpd_register_uri_handler(server, &uri_ssd1306);
     httpd_register_uri_handler(server, &uri_ota);
+        httpd_register_uri_handler(server, &uri_predictions);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;
