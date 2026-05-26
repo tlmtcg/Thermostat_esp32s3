@@ -30,7 +30,6 @@
 #include "web_server.h"
 #include "wifi_app.h"
 #include "prediction_engine.h"
-#include "thermal_model.h"
 #include "rc_estimator.h"
 
 static const char *TAG = "MAIN_APP";
@@ -131,12 +130,9 @@ void app_main(void)
 
     tasks_init();
     thermostat_init();
-    
+
     oled_service_show_text("THERMOSTAT", "System Ready", NULL);
     oled_service_start();
-
-    app_init_thermal_model();
-    prediction_engine_init();
 
     ESP_LOGI(TAG, "Boot termine");
 }

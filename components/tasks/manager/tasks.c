@@ -155,14 +155,33 @@ void ntp_monitor_task(void *pvParameters)
  */
 void thermostat_task(void *pvParameters)
 {
-    // Initialisation du modèle thermique
-    ESP_LOGI("INIT", "Init 2R2C with Ta0=%.2f", g_thermostat_runtime.temperature);
+    bool model_initialized = false;
 
-    thermal_2r2c_init(1.0f, g_thermostat_runtime.temperature);
     while (1)
     {
-        // Remarque : Le bit THERMO_EN n'est volontairement pas bloquant ici
         thermostat_update_current_consigne();
+
+        float Tint = g_thermostat_runtime.temperature;
+
+        // 1) Initialisation du modèle thermique quand la température est valide
+        if (!model_initialized)
+        {
+            // On refuse Tint = 0 car c'est la valeur par défaut
+            if (g_thermostat_runtime.temperature_valid)
+            {
+                ESP_LOGI("INIT", "Init 2R2C with Ta0=%.2f", Tint);
+                thermal_2r2c_init(1.0f, Tint);
+                model_initialized = true;
+            }
+            else
+            {
+                // On attend la première vraie mesure SHT31
+                vTaskDelay(pdMS_TO_TICKS(200));
+                continue;
+            }
+        }
+
+        // 2) Maintenant le modèle est initialisé → on peut prédire
         prediction_engine_tick();
         must_heat();
 

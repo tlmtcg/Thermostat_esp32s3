@@ -15,7 +15,6 @@ idf_component_register(
         cjson
         alert_manager
         app_context
-        thermal_model
         predict_adjustment
         rc_estimator
         prediction_engine

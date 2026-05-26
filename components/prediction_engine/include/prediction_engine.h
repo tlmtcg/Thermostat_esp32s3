@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "thermal_model.h"
 
 typedef struct
 {
@@ -47,18 +46,9 @@ extern thermal_runtime_t g_thermal_runtime;
 
 void prediction_engine_init(void);
 
-void prediction_engine_compute(
-    const thermal_model_t *model,
-    float Tint_now,
-    const prediction_inputs_t *inputs,
-    prediction_outputs_t *out);
-
 char *prediction_engine_get_json_status(void);
-void prediction_engine_reset(void);
-void prediction_engine_force_recompute(void);
-void prediction_engine_parse_command(const char *cmd);
+
 void prediction_engine_tick(void);
-prediction_outputs_t prediction_engine_get_last(void);
 
 #endif
 

@@ -43,7 +43,6 @@
 
     <!-- Résultats -->
     <div class="box">
-
       <div class="line">
         <span class="label">Dernière mise à jour</span>
         <span id="status" class="value">--</span>
@@ -59,11 +58,36 @@
         <span id="tm" class="value-big">--</span>
       </div>
 
+      <h2 class="section-title">Consignes</h2>
+
+      <div class="line">
+        <span class="label">Consigne actuelle</span>
+        <span id="consigne_now" class="value-big">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">Prochaine consigne</span>
+        <span id="consigne_next" class="value-big">--</span>
+      </div>
+
+      <div class="line">
+        <span class="label">À</span>
+        <span id="consigne_next_time" class="value-big">--</span>
+      </div>
+
       <h2 class="section-title">Paramètres du modèle</h2>
-      <div class="line"><span class="label">Ra</span><span id="ra">--</span></div>
-      <div class="line"><span class="label">Rm</span><span id="rm">--</span></div>
-      <div class="line"><span class="label">Ca</span><span id="ca">--</span></div>
-      <div class="line"><span class="label">Cm</span><span id="cm">--</span></div>
+      <div class="line">
+        <span class="label">Ra</span><span id="ra">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Rm</span><span id="rm">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Ca</span><span id="ca">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Cm</span><span id="cm">--</span>
+      </div>
       <div class="line"><span class="label">P</span><span id="p">--</span></div>
 
       <h2 class="section-title">Chauffe prédictive</h2>
@@ -94,19 +118,39 @@
           document.getElementById("ta").textContent = data.Ta.toFixed(2);
           document.getElementById("tm").textContent = data.Tm.toFixed(2);
 
+          // Consigne actuelle
+          if (data.effective_consigne !== undefined)
+            document.getElementById("consigne_now").textContent =
+              data.effective_consigne.toFixed(1) + " °C";
+          else document.getElementById("consigne_now").textContent = "--";
+
+          // Prochaine consigne
+          if (data.next_consigne !== undefined && data.next_consigne >= 0)
+            document.getElementById("consigne_next").textContent =
+              data.next_consigne.toFixed(1) + " °C";
+          else document.getElementById("consigne_next").textContent = "--";
+
+          // Heure de la prochaine consigne
+          if (data.next_consigne_ts > 0) {
+            const d2 = new Date(data.next_consigne_ts * 1000);
+            document.getElementById("consigne_next_time").textContent =
+              d2.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          } else {
+            document.getElementById("consigne_next_time").textContent = "--";
+          }
+
           // Paramètres
           document.getElementById("ra").textContent = data.Ra.toFixed(3);
           document.getElementById("rm").textContent = data.Rm.toFixed(3);
           document.getElementById("ca").textContent = data.Ca.toFixed(0);
           document.getElementById("cm").textContent = data.Cm.toFixed(0);
-          document.getElementById("p").textContent  = data.P.toFixed(0);
+          document.getElementById("p").textContent = data.P.toFixed(0);
 
           // Temps pour atteindre la consigne
           if (data.time_to_reach >= 0)
             document.getElementById("time_to_reach").textContent =
               (data.time_to_reach / 60).toFixed(1) + " min";
-          else
-            document.getElementById("time_to_reach").textContent = "--";
+          else document.getElementById("time_to_reach").textContent = "--";
 
           // Allumage anticipé
           if (data.start_heating_at > 0) {
@@ -116,7 +160,6 @@
           } else {
             document.getElementById("start_heating_at").textContent = "--";
           }
-
         } catch (err) {
           console.error("Erreur API:", err);
         }

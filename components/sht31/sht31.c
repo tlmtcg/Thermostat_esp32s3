@@ -383,7 +383,7 @@ esp_err_t sht31_read(float *temp, float *hum)
     sht31_clear_error();
 
     // Envoi direct et transparent des données au composant thermostat
-    thermostat_update_indoor_data(g_sht31.runtime.temperature, g_sht31.runtime.humidity);
+    thermostat_update_indoor_data(g_sht31.runtime.temperature, g_sht31.runtime.humidity, g_sht31.runtime.valid);
 
     return ESP_OK;
 

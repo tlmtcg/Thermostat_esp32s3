@@ -48,22 +48,6 @@ static esp_err_t predict_command_handler(httpd_req_t *req)
     buf[len] = '\0';
     ESP_LOGI(TAG, "CMD: %s", buf);
 
-    /* Exemple de commandes :
-       - "RESET"
-       - "RECALC"
-       - "SET:window=48"
-    */
-
-    if (strcmp(buf, "RESET") == 0) {
-        prediction_engine_reset();
-    }
-    else if (strcmp(buf, "RECALC") == 0) {
-        prediction_engine_force_recompute();
-    }
-    else if (strncmp(buf, "SET:", 4) == 0) {
-        prediction_engine_parse_command(buf + 4);
-    }
-
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, "{\"status\":\"ok\"}", HTTPD_RESP_USE_STRLEN);
 

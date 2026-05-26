@@ -158,3 +158,11 @@ void time_utils_get_hour_str(char *dest, size_t max)
     time_utils_get_time_str(full, sizeof(full));
     strncpy(dest, full + 11, max);
 }
+
+struct tm time_utils_localtime_from_ts(int64_t ts)
+{
+    struct tm info;
+    time_t t = (time_t)ts;
+    localtime_r(&t, &info);
+    return info;
+}

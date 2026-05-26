@@ -11,7 +11,7 @@ typedef enum
     THERMOSTAT_MODE_MANUAL,
     THERMOSTAT_MODE_ABSENT,
     THERMOSTAT_MODE_HORS_GEL,
-    THERMOSTAT_MODE_LEARNING 
+    THERMOSTAT_MODE_LEARNING
 } thermostat_mode_t;
 
 typedef struct
@@ -30,12 +30,15 @@ typedef struct
     float effective_consigne;
     uint32_t change_count;
     char last_error[64];
-    float temperature;      // Température intérieure actuelle (SHT31)
-    float humidity;         // Humidité intérieure actuelle (SHT31)
-    float temp_ext;         // Température extérieure actuelle
-    float humidity_ext;     // AJOUT : Humidité extérieure actuelle (%)
-    float temp_forecast_1h; // AJOUT : Température prévue dans une heure (°C)
-    bool state;             // État du relais (true = actif, false = inactif)
+    float temperature;        // Température intérieure actuelle (SHT31)
+    float humidity;           // Humidité intérieure actuelle (SHT31)
+    float temp_ext;           // Température extérieure actuelle
+    float humidity_ext;       // AJOUT : Humidité extérieure actuelle (%)
+    float temp_forecast_1h;   // AJOUT : Température prévue dans une heure (°C)
+    bool state;               // État du relais (true = actif, false = inactif)
+    bool temperature_valid;   // Etat du capteur (true = valid, false = invalid)
+    float next_consigne;      // Prochaine consigne programmée (°C)
+    int64_t next_consigne_ts; // Timestamp du prochain changement de consigne
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */
@@ -66,7 +69,7 @@ void thermostat_update_current_consigne(void);
  * @param temp Température mesurée en °C
  * @param hum Humidité mesurée en %
  */
-void thermostat_update_indoor_data(float temp, float hum);
+void thermostat_update_indoor_data(float temp, float hum, bool valid_temp);
 
 /**
  * @brief Met à jour les données météo extérieures (ex: via une API ou sonde)
@@ -83,6 +86,6 @@ void thermostat_update_forecast_data(float temp_1h);
 
 extern thermostat_runtime_t g_thermostat_runtime;
 
-void app_init_thermal_model(void);
+float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating);
 
 void must_heat();

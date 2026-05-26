@@ -13,9 +13,7 @@
 #include "relay.h"
 #include <math.h>
 #include "thermostat_learning.h"
-#include "thermal_model.h"
 #include "time_utils.h"
-#include "predict_adjustment.h"
 #include "rc_estimator.h"
 #include "prediction_engine.h"
 
@@ -92,25 +90,46 @@ void thermostat_update_current_consigne(void)
         last_mode = THERMOSTAT_MODE_MANUAL;
         break;
 
-    // -------------------------
-    // MODE AUTO (corrigé)
-    // -------------------------
+        // -------------------------
+        // MODE AUTO (corrigé)
+        // -------------------------
     case THERMOSTAT_MODE_AUTO:
     {
-        // 1. Récupérer la dernière prédiction calculée par prediction_engine_tick()
-        prediction_outputs_t pred_out = prediction_engine_get_last();
+        float consigne_auto = heating_get_temp_current();
+        float Tint = g_thermostat_runtime.temperature;
+        float Text = g_thermostat_runtime.temp_ext;
 
-        // 2. Ajustement intelligent basé sur la prédiction
-        predict_adjustment_inputs_t adj_in = {
-            .consigne_auto = consigne_auto,
-            .Tint_now = g_thermostat_runtime.temperature,
-            .Text_now = g_thermostat_runtime.temp_ext,
-        };
+        float tsec = g_thermal_runtime.time_to_reach; // secondes
+        int64_t start_ts = g_thermal_runtime.start_heating_at;
+        int64_t now = time(NULL);
 
-        float adj = predict_adjustment_compute(&g_thermal_model, &pred_out, &adj_in);
+        // --- 1. Déjà au-dessus de la consigne ? ---
+        if (Tint >= consigne_auto)
+        {
+            // Pas besoin de chauffer
+            g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
+            break;
+        }
 
-        // 3. Consigne finale
-        g_thermostat_runtime.effective_consigne = consigne_auto + adj;
+        // --- 2. Impossible d’atteindre la consigne (chauffage trop faible) ---
+        if (tsec < 0)
+        {
+            // On chauffe quand même, mais sans early-start
+            g_thermostat_runtime.effective_consigne = consigne_auto;
+            break;
+        }
+
+        // --- 3. Early-start : doit-on chauffer maintenant ? ---
+        if (start_ts > 0 && now >= start_ts)
+        {
+            // C’est le moment d’allumer pour atteindre la consigne à l’heure
+            g_thermostat_runtime.effective_consigne = consigne_auto;
+        }
+        else
+        {
+            // Pas encore l’heure → on laisse descendre légèrement
+            g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
+        }
 
         last_mode = THERMOSTAT_MODE_AUTO;
         break;
@@ -329,10 +348,11 @@ void thermostat_set_enabled(bool enabled)
     ESP_LOGI(TAG, "Enabled=%d", enabled);
 }
 
-void thermostat_update_indoor_data(float temp, float hum)
+void thermostat_update_indoor_data(float temp, float hum, bool valid_temp)
 {
     g_thermostat_runtime.temperature = round_float(temp, 2);
     g_thermostat_runtime.humidity = round_float(hum, 2);
+    g_thermostat_runtime.temperature_valid = valid_temp;
 
     // Met également à jour le contexte global si ton application l'utilise ailleurs
     g_ctx.temperature = g_thermostat_runtime.temperature;
@@ -369,6 +389,20 @@ char *thermostat_get_json_status(void)
     cJSON_AddNumberToObject(runtime, "humidity_ext", g_thermostat_runtime.humidity_ext);
     cJSON_AddNumberToObject(runtime, "temp_forecast_1h", g_thermostat_runtime.temp_forecast_1h);
     cJSON_AddBoolToObject(runtime, "state", g_thermostat_runtime.state);
+    cJSON_AddNumberToObject(root, "Ta", g_thermal_runtime.Ta);
+    cJSON_AddNumberToObject(root, "Tm", g_thermal_runtime.Tm);
+
+    cJSON_AddNumberToObject(root, "time_to_reach", g_thermal_runtime.time_to_reach);
+    cJSON_AddNumberToObject(root, "start_heating_at", g_thermal_runtime.start_heating_at);
+
+    cJSON_AddNumberToObject(root, "Ra", g_thermal_runtime.Ra);
+    cJSON_AddNumberToObject(root, "Rm", g_thermal_runtime.Rm);
+    cJSON_AddNumberToObject(root, "Ca", g_thermal_runtime.Ca);
+    cJSON_AddNumberToObject(root, "Cm", g_thermal_runtime.Cm);
+    cJSON_AddNumberToObject(root, "P", g_thermal_runtime.P);
+
+    cJSON_AddNumberToObject(root, "next_consigne", g_thermostat_runtime.next_consigne);    
+    cJSON_AddNumberToObject(root, "next_consigne_ts", g_thermostat_runtime.next_consigne_ts);    
 
     cJSON *config = cJSON_AddObjectToObject(root, "config");
     cJSON_AddBoolToObject(config, "enabled", g_thermostat_config.enabled);
@@ -378,27 +412,9 @@ char *thermostat_get_json_status(void)
     cJSON_AddNumberToObject(config, "calibration", g_thermostat_config.calibration);
     cJSON_AddBoolToObject(config, "frost_mode", g_thermostat_config.frost_mode);
 
-    cJSON_AddNumberToObject(root, "Ta",  g_thermal_runtime.Ta);
-    cJSON_AddNumberToObject(root, "Tm",  g_thermal_runtime.Tm);
-
-    cJSON_AddNumberToObject(root, "time_to_reach", g_thermal_runtime.time_to_reach);
-    cJSON_AddNumberToObject(root, "start_heating_at",  g_thermal_runtime.start_heating_at);
-
-    cJSON_AddNumberToObject(root, "Ra",  g_thermal_runtime.Ra);
-    cJSON_AddNumberToObject(root, "Rm",  g_thermal_runtime.Rm);
-    cJSON_AddNumberToObject(root, "Ca",  g_thermal_runtime.Ca);
-    cJSON_AddNumberToObject(root, "Cm",  g_thermal_runtime.Cm);
-    cJSON_AddNumberToObject(root, "P",   g_thermal_runtime.P);
-
     char *json_string = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return json_string;
-}
-
-void app_init_thermal_model(void)
-{
-    thermal_model_init(&g_thermal_model);
-    thermal_model_load(&g_thermal_model);
 }
 
 void app_periodic_update(void)
@@ -408,9 +424,56 @@ void app_periodic_update(void)
     bool heating_on = get_relay_state();
     int64_t now = time_utils_get_timestamp();
 
-    thermal_model_update(&g_thermal_model, Tint, Text, heating_on, now);
+    // Le modèle thermique est déjà mis à jour dans prediction_engine_tick()
+    // Ici on ne fait que du monitoring / logging
 
-    // Exemple de prédiction à 1h
-    float Tint_1h = thermal_model_predict(&g_thermal_model, Tint, Text, heating_on, 3600.0f);
+    thermal_state_t st;
+    thermal_2r2c_get_state(&st);
+
+    thermal_params_t prm;
+    thermal_2r2c_get_params(&prm);
+
+    ESP_LOGI("THERMO", "2R2C: Ta=%.2f Tm=%.2f", st.Ta, st.Tm);
+    ESP_LOGI("THERMO", "Params: Ra=%.3f Rm=%.3f Ca=%.0f Cm=%.0f P=%.0f",
+             prm.Ra, prm.Rm, prm.Ca, prm.Cm, prm.P);
+
+    // Exemple : prédiction à 1h via simulation active
+    float Tint_1h = thermal_2r2c_simulate_future(3600.0f, Text, heating_on);
     ESP_LOGI("THERMO", "Pred Tint +1h = %.2f°C", Tint_1h);
+}
+
+float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
+{
+    thermal_state_t st;
+    thermal_params_t prm;
+
+    thermal_2r2c_get_state(&st);
+    thermal_2r2c_get_params(&prm);
+
+    float Ta = st.Ta;
+    float Tm = st.Tm;
+
+    float Ra = prm.Ra;
+    float Rm = prm.Rm;
+    float Ca = prm.Ca;
+    float Cm = prm.Cm;
+    float P = prm.P;
+
+    float u = heating ? 1.0f : 0.0f;
+
+    // 🔥 On récupère le dt réel du modèle
+    float dt = thermal_2r2c_get_dt();
+    int steps = (int)(horizon_sec / dt);
+
+    for (int i = 0; i < steps; i++)
+    {
+        float dTa = ((Text - Ta) / (Ra * Ca)) + ((Tm - Ta) / (Rm * Ca)) + (u * P / Ca);
+
+        float dTm = ((Ta - Tm) / (Rm * Cm));
+
+        Ta += dTa * dt;
+        Tm += dTm * dt;
+    }
+
+    return Ta;
 }

@@ -19,6 +19,13 @@ typedef struct {
 } ekf_state_t;
 
 static float      s_dt = 1.0f;
+
+float thermal_2r2c_get_dt(void)
+{
+    return s_dt;
+}
+
+
 static ekf_state_t s_x;
 
 // Covariance 7x7
@@ -274,29 +281,36 @@ float thermal_2r2c_time_to_reach(float Ta_target, float Text)
     if (Ra <= 0 || Rm <= 0 || Ca <= 0 || Cm <= 0 || P <= 0)
         return -1.0f;
 
+    // Déjà au-dessus de la consigne → pas besoin de chauffer
+    if (Ta >= Ta_target)
+        return -1.0f;
+
+    const float dt = s_dt;          // même pas de temps que le modèle réel
+    const float TMAX = 6 * 3600.0f; // limite 6h
+    const float u = 1.0f;           // chauffage ON
+
     float t = 0.0f;
-    const float dt_local = s_dt;
-    const float TMAX = 6 * 3600.0f;   // limite 6h
-    const float u = 1.0f;             // chauffage ON
 
     while (t < TMAX)
     {
         // Modèle 2R2C
-        float dTa = (Tm - Ta) / (Rm * Ca)
-                  + (Text - Ta) / (Ra * Ca)
-                  + (P * u) / Ca;
+        float dTa = ((Text - Ta) / (Ra * Ca))
+                  + ((Tm - Ta) / (Rm * Ca))
+                  + (P * u / Ca);
 
-        float dTm = (Ta - Tm) / (Rm * Cm);
+        float dTm = ((Ta - Tm) / (Rm * Cm));
 
-        Ta += dt_local * dTa;
-        Tm += dt_local * dTm;
+        Ta += dTa * dt;
+        Tm += dTm * dt;
 
-        t += dt_local;
+        t += dt;
 
+        // Condition d’atteinte
         if (Ta >= Ta_target)
-            return t; // secondes
+            return t;
     }
 
-    return -1.0f; // impossible dans les 6h
+    // Impossible dans les 6h
+    return -1.0f;
 }
 

@@ -44,6 +44,8 @@ extern "C"
 
     uint64_t time_utils_get_timestamp(void);
 
+    struct tm time_utils_localtime_from_ts(int64_t ts);
+
 #ifdef __cplusplus
 }
 #endif

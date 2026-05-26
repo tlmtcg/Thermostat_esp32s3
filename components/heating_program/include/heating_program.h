@@ -121,6 +121,8 @@ chauffage_config_t *heating_get_config_rw(void);
 esp_err_t heating_get_program_json(char **out_json);
 esp_err_t heating_reset_program(void);
 
+int64_t heating_program_get_next_target_timestamp(void);
+
 #ifdef __cplusplus
 }
 #endif

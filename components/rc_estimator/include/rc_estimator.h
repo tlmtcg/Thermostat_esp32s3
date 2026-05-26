@@ -47,6 +47,7 @@ void thermal_2r2c_set_params(const thermal_params_t *p);
 
 float thermal_2r2c_time_to_reach(float Ta_target, float Text);
 
+float thermal_2r2c_get_dt(void);
 
 #ifdef __cplusplus
 }
