@@ -33,6 +33,18 @@ typedef struct
     float heating_need_score; // -1 = refroidissement, +1 = besoin de chauffe
 } prediction_outputs_t;
 
+typedef struct {
+    float Ta;
+    float Tm;
+
+    float time_to_reach;        // secondes
+    int64_t start_heating_at;   // timestamp UNIX
+
+    float Ra, Rm, Ca, Cm, P;    // paramètres thermiques
+} thermal_runtime_t;
+
+extern thermal_runtime_t g_thermal_runtime;
+
 void prediction_engine_init(void);
 
 void prediction_engine_compute(

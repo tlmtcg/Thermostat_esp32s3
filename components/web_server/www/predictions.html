@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="common.css" />
-    <title>Prédictions Thermiques</title>
+    <title>Modèle Thermique 2R2C</title>
 
     <style>
       .value-big {
@@ -12,25 +12,15 @@
         font-weight: bold;
         color: var(--orange);
       }
-      .score-box {
-        font-size: 2rem;
-        font-weight: bold;
-        text-align: center;
-        padding: 12px;
-        border-radius: 6px;
-        margin-top: 10px;
+      .section-title {
+        margin-top: 20px;
+        font-size: 1.4rem;
+        color: var(--blue);
       }
-      .score-hot {
-        background: #ffcccc;
-        color: #a00000;
-      }
-      .score-cold {
-        background: #cceaff;
-        color: #004466;
-      }
-      .score-neutral {
-        background: #e6e6e6;
-        color: #333;
+      .line {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
       }
     </style>
   </head>
@@ -38,54 +28,53 @@
   <body>
     <div id="navbar"></div>
 
-    <h1 class="page-title">Prédictions Thermiques</h1>
+    <h1 class="page-title">Modèle Thermique (2R2C)</h1>
 
     <!-- Zone de contrôle -->
     <div class="box">
       <h2>Contrôles</h2>
       <div class="controls">
         <button onclick="fetchPrediction()">Rafraîchir</button>
-        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">Auto: ON</button>
+        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">
+          Auto: ON
+        </button>
       </div>
     </div>
 
     <!-- Résultats -->
     <div class="box">
+
       <div class="line">
         <span class="label">Dernière mise à jour</span>
         <span id="status" class="value">--</span>
       </div>
 
-      <h2>Température intérieure prévue</h2>
+      <h2 class="section-title">Températures</h2>
       <div class="line">
-        <span class="label">Dans 1h</span>
-        <span id="t1h" class="value-big">--</span>
+        <span class="label">Ta (air)</span>
+        <span id="ta" class="value-big">--</span>
       </div>
       <div class="line">
-        <span class="label">Dans 3h</span>
-        <span id="t3h" class="value-big">--</span>
-      </div>
-      <div class="line">
-        <span class="label">Dans 6h</span>
-        <span id="t6h" class="value-big">--</span>
+        <span class="label">Tm (murs)</span>
+        <span id="tm" class="value-big">--</span>
       </div>
 
-      <h2>Effets météo</h2>
-      <div class="line">
-        <span class="label">Soleil / météo</span>
-        <span id="w_effect" class="value">--</span>
-      </div>
-      <div class="line">
-        <span class="label">Humidité</span>
-        <span id="h_effect" class="value">--</span>
-      </div>
-      <div class="line">
-        <span class="label">Tendance</span>
-        <span id="trend" class="value">--</span>
-      </div>
+      <h2 class="section-title">Paramètres du modèle</h2>
+      <div class="line"><span class="label">Ra</span><span id="ra">--</span></div>
+      <div class="line"><span class="label">Rm</span><span id="rm">--</span></div>
+      <div class="line"><span class="label">Ca</span><span id="ca">--</span></div>
+      <div class="line"><span class="label">Cm</span><span id="cm">--</span></div>
+      <div class="line"><span class="label">P</span><span id="p">--</span></div>
 
-      <h2>Besoin de chauffe</h2>
-      <div id="score" class="score-box score-neutral">--</div>
+      <h2 class="section-title">Chauffe prédictive</h2>
+      <div class="line">
+        <span class="label">Temps pour atteindre la consigne</span>
+        <span id="time_to_reach" class="value-big">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Allumage anticipé</span>
+        <span id="start_heating_at" class="value-big">--</span>
+      </div>
     </div>
 
     <script>
@@ -93,35 +82,40 @@
 
       async function fetchPrediction() {
         try {
-          const response = await fetch('/api/predict/status');
+          const response = await fetch("/api/predict/status");
           const data = await response.json();
 
-          document.getElementById('status').textContent =
+          document.getElementById("status").textContent =
             new Date().toLocaleTimeString();
 
-          if (data.status !== "ok") {
-            document.getElementById("score").textContent = "Aucune donnée";
-            return;
+          if (data.status !== "ok") return;
+
+          // Températures
+          document.getElementById("ta").textContent = data.Ta.toFixed(2);
+          document.getElementById("tm").textContent = data.Tm.toFixed(2);
+
+          // Paramètres
+          document.getElementById("ra").textContent = data.Ra.toFixed(3);
+          document.getElementById("rm").textContent = data.Rm.toFixed(3);
+          document.getElementById("ca").textContent = data.Ca.toFixed(0);
+          document.getElementById("cm").textContent = data.Cm.toFixed(0);
+          document.getElementById("p").textContent  = data.P.toFixed(0);
+
+          // Temps pour atteindre la consigne
+          if (data.time_to_reach >= 0)
+            document.getElementById("time_to_reach").textContent =
+              (data.time_to_reach / 60).toFixed(1) + " min";
+          else
+            document.getElementById("time_to_reach").textContent = "--";
+
+          // Allumage anticipé
+          if (data.start_heating_at > 0) {
+            const d = new Date(data.start_heating_at * 1000);
+            document.getElementById("start_heating_at").textContent =
+              d.toLocaleTimeString();
+          } else {
+            document.getElementById("start_heating_at").textContent = "--";
           }
-
-          document.getElementById("t1h").textContent = data.Tint_1h.toFixed(2);
-          document.getElementById("t3h").textContent = data.Tint_3h.toFixed(2);
-          document.getElementById("t6h").textContent = data.Tint_6h.toFixed(2);
-
-          document.getElementById("w_effect").textContent = data.weather_effect.toFixed(2);
-          document.getElementById("h_effect").textContent = data.humidity_effect.toFixed(2);
-          document.getElementById("trend").textContent = data.trend_effect.toFixed(2);
-
-          let score = data.heating_need_score;
-          let box = document.getElementById("score");
-
-          box.textContent = score.toFixed(2);
-
-          box.classList.remove("score-hot", "score-cold", "score-neutral");
-
-          if (score > 0.3) box.classList.add("score-hot");
-          else if (score < -0.3) box.classList.add("score-cold");
-          else box.classList.add("score-neutral");
 
         } catch (err) {
           console.error("Erreur API:", err);
@@ -129,7 +123,7 @@
       }
 
       function toggleAutoRefresh() {
-        const btn = document.getElementById('btn-auto');
+        const btn = document.getElementById("btn-auto");
         if (autoRefreshInterval) {
           clearInterval(autoRefreshInterval);
           autoRefreshInterval = null;
@@ -140,7 +134,6 @@
         }
       }
 
-      // Initialisation
       fetchPrediction();
       autoRefreshInterval = setInterval(fetchPrediction, 3000);
     </script>

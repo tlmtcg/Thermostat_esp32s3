@@ -9,6 +9,7 @@
 #include "relay.h"
 
 static const char *TAG = "PRED_ENGINE";
+thermal_runtime_t g_thermal_runtime = {0};
 
 // Dernier résultat stocké
 prediction_outputs_t g_last_pred = {0};
@@ -118,6 +119,17 @@ char *prediction_engine_get_json_status(void)
         cJSON_AddNumberToObject(root, "humidity_effect", g_last_pred.humidity_effect);
         cJSON_AddNumberToObject(root, "trend_effect", g_last_pred.trend_effect);
         cJSON_AddNumberToObject(root, "heating_need_score", g_last_pred.heating_need_score);
+        cJSON_AddNumberToObject(root, "Ta", g_thermal_runtime.Ta);
+        cJSON_AddNumberToObject(root, "Tm", g_thermal_runtime.Tm);
+
+        cJSON_AddNumberToObject(root, "Ra", g_thermal_runtime.Ra);
+        cJSON_AddNumberToObject(root, "Rm", g_thermal_runtime.Rm);
+        cJSON_AddNumberToObject(root, "Ca", g_thermal_runtime.Ca);
+        cJSON_AddNumberToObject(root, "Cm", g_thermal_runtime.Cm);
+        cJSON_AddNumberToObject(root, "P", g_thermal_runtime.P);
+
+        cJSON_AddNumberToObject(root, "time_to_reach", g_thermal_runtime.time_to_reach);
+        cJSON_AddNumberToObject(root, "start_heating_at", g_thermal_runtime.start_heating_at);
     }
 
     char *json = cJSON_PrintUnformatted(root);
@@ -146,19 +158,19 @@ void prediction_engine_parse_command(const char *cmd)
 
 void prediction_engine_tick(void)
 {
-    // Vérification des données météo
-    float t_ext_now = weather_get_forecast_temp(0);
-    float t_ext_1h = weather_get_forecast_temp(1);
-    float t_ext_3h = weather_get_forecast_temp(3);
-    float t_ext_6h = weather_get_forecast_temp(6);
+    // --- 1) Récupération météo ---
+    float Text_now = weather_get_forecast_temp(0);
+    float Text_1h = weather_get_forecast_temp(1);
+    float Text_3h = weather_get_forecast_temp(3);
+    float Text_6h = weather_get_forecast_temp(6);
 
-    float h_ext_now = weather_get_forecast_humidity(0);
-    float h_ext_1h = weather_get_forecast_humidity(1);
+    float H_now = weather_get_forecast_humidity(0);
+    float H_1h = weather_get_forecast_humidity(1);
 
     int code_now = weather_get_current_code();
     int code_1h = weather_get_forecast_code(1);
 
-    // Vérification température intérieure
+    // --- 2) Température intérieure ---
     float Tint_now = g_thermostat_runtime.temperature;
     if (Tint_now < -50 || Tint_now > 80)
     {
@@ -166,15 +178,15 @@ void prediction_engine_tick(void)
         return;
     }
 
-    // Construction des entrées
+    // --- 3) Ancien moteur prédictif (on garde pour l’instant) ---
     prediction_inputs_t in = {
-        .temp_ext_now = t_ext_now,
-        .temp_ext_1h = t_ext_1h,
-        .temp_ext_3h = t_ext_3h,
-        .temp_ext_6h = t_ext_6h,
+        .temp_ext_now = Text_now,
+        .temp_ext_1h = Text_1h,
+        .temp_ext_3h = Text_3h,
+        .temp_ext_6h = Text_6h,
 
-        .humidity_now = h_ext_now,
-        .humidity_1h = h_ext_1h,
+        .humidity_now = H_now,
+        .humidity_1h = H_1h,
 
         .weather_code_now = code_now,
         .weather_code_1h = code_1h,
@@ -182,31 +194,51 @@ void prediction_engine_tick(void)
 
     prediction_outputs_t out = {0};
 
-    // Calcul
     prediction_engine_compute(
-        &g_thermal_model,
+        &g_thermal_model, // ancien modèle → sera supprimé plus tard
         Tint_now,
         &in,
         &out);
 
-    // Stockage pour l’API web
     g_last_pred = out;
     g_pred_valid = true;
 
-    static float last_Tint = NAN;
-
-    float Text_now = weather_get_forecast_temp(0);
+    // --- 4) Nouveau modèle thermique 2R2C + EKF ---
     float u = get_relay_state() ? 1.0f : 0.0f;
 
-    last_Tint = Tint_now;
-
+    // Prédiction du modèle
     thermal_2r2c_predict(Text_now, u);
+
+    // Mise à jour EKF avec la mesure réelle
     thermal_2r2c_update(Tint_now);
 
+    // États (Ta/Tm)
     thermal_state_t st;
     thermal_2r2c_get_state(&st);
 
+    g_thermal_runtime.Ta = st.Ta;
+    g_thermal_runtime.Tm = st.Tm;
+
+    // Paramètres thermiques (Ra/Rm/Ca/Cm/P)
+    thermal_params_t prm;
+    thermal_2r2c_get_params(&prm);
+
+    g_thermal_runtime.Ra = prm.Ra;
+    g_thermal_runtime.Rm = prm.Rm;
+    g_thermal_runtime.Ca = prm.Ca;
+    g_thermal_runtime.Cm = prm.Cm;
+    g_thermal_runtime.P = prm.P;
+
+    // --- 5) Temps pour atteindre la consigne ---
+    float consigne = g_thermostat_runtime.effective_consigne;
+
+    float tsec = thermal_2r2c_time_to_reach(consigne, Text_now);
+    g_thermal_runtime.time_to_reach = tsec;
+
+    // --- 6) Logs ---
     ESP_LOGI("2R2C", "Ta=%.2f Tm=%.2f", st.Ta, st.Tm);
+    ESP_LOGI("2R2C", "Ra=%.2f Rm=%.2f Ca=%.2f Cm=%.2f P=%.2f",
+             prm.Ra, prm.Rm, prm.Ca, prm.Cm, prm.P);
 
     ESP_LOGD(TAG,
              "Tick: Tint+1h=%.2f Tint+3h=%.2f Tint+6h=%.2f score=%.2f",

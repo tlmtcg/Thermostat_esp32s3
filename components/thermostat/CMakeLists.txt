@@ -18,4 +18,5 @@ idf_component_register(
         thermal_model
         predict_adjustment
         rc_estimator
+        prediction_engine
 )

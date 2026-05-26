@@ -17,6 +17,7 @@
 #include "time_utils.h"
 #include "predict_adjustment.h"
 #include "rc_estimator.h"
+#include "prediction_engine.h"
 
 static const char *TAG = "THERMOSTAT";
 
@@ -377,6 +378,18 @@ char *thermostat_get_json_status(void)
     cJSON_AddNumberToObject(config, "calibration", g_thermostat_config.calibration);
     cJSON_AddBoolToObject(config, "frost_mode", g_thermostat_config.frost_mode);
 
+    cJSON_AddNumberToObject(root, "Ta",  g_thermal_runtime.Ta);
+    cJSON_AddNumberToObject(root, "Tm",  g_thermal_runtime.Tm);
+
+    cJSON_AddNumberToObject(root, "time_to_reach", g_thermal_runtime.time_to_reach);
+    cJSON_AddNumberToObject(root, "start_heating_at",  g_thermal_runtime.start_heating_at);
+
+    cJSON_AddNumberToObject(root, "Ra",  g_thermal_runtime.Ra);
+    cJSON_AddNumberToObject(root, "Rm",  g_thermal_runtime.Rm);
+    cJSON_AddNumberToObject(root, "Ca",  g_thermal_runtime.Ca);
+    cJSON_AddNumberToObject(root, "Cm",  g_thermal_runtime.Cm);
+    cJSON_AddNumberToObject(root, "P",   g_thermal_runtime.P);
+
     char *json_string = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     return json_string;
@@ -386,7 +399,6 @@ void app_init_thermal_model(void)
 {
     thermal_model_init(&g_thermal_model);
     thermal_model_load(&g_thermal_model);
-    thermal_2r2c_init(1.0f, g_thermostat_runtime.temperature);
 }
 
 void app_periodic_update(void)

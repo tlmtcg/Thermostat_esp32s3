@@ -65,7 +65,7 @@ void app_main(void)
     }
 
     check_ota_boot();
-    thermostat_init();
+
 
     ESP_ERROR_CHECK(
         i2c_manager_init(
@@ -130,7 +130,8 @@ void app_main(void)
     }
 
     tasks_init();
-
+    thermostat_init();
+    
     oled_service_show_text("THERMOSTAT", "System Ready", NULL);
     oled_service_start();
 

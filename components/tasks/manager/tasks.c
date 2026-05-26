@@ -17,9 +17,10 @@
 #include "config_storage.h"
 #include "thermostat.h"
 #include "prediction_engine.h"
+#include "rc_estimator.h"
 
 // Inclusion obligatoire pour accéder à la variable d'instance "dht_task_config"
-#include "dht_task.h" 
+#include "dht_task.h"
 
 static const char *TAG = "TASKS";
 
@@ -102,7 +103,7 @@ static void tasks_apply_json(cJSON *root)
         }
     }
 
-    // Sécurités matérielles persistantes pour empêcher qu'un JSON mal configuré 
+    // Sécurités matérielles persistantes pour empêcher qu'un JSON mal configuré
     // ou corrompu ne coupe les tâches d'acquisition fondamentales.
     xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
     xEventGroupSetBits(s_task_event_group, BIT_DHT_EN); // <-- Maintien forcé post-JSON
@@ -154,6 +155,10 @@ void ntp_monitor_task(void *pvParameters)
  */
 void thermostat_task(void *pvParameters)
 {
+    // Initialisation du modèle thermique
+    ESP_LOGI("INIT", "Init 2R2C with Ta0=%.2f", g_thermostat_runtime.temperature);
+
+    thermal_2r2c_init(1.0f, g_thermostat_runtime.temperature);
     while (1)
     {
         // Remarque : Le bit THERMO_EN n'est volontairement pas bloquant ici
@@ -206,9 +211,9 @@ void tasks_init(void)
     alert_storage_init("/sdcard/alerts.log");
 
     // 3. CONTOURNEMENT TECHNIQUE : Injection du groupe d'événements dans le DHT.
-    // Puisque task_registry_set_event_group() est figée et ne traite pas le DHT, 
+    // Puisque task_registry_set_event_group() est figée et ne traite pas le DHT,
     // nous assignons le pointeur directement avant l'appel global.
-    dht_task_config.event_group = s_task_event_group; 
+    dht_task_config.event_group = s_task_event_group;
 
     // 4. Application des configurations (Kconfig puis JSON sur carte SD)
     tasks_apply_kconfig();
@@ -300,11 +305,20 @@ cJSON *tasks_get_all_info_json(void)
             const char *st = "Inconnu";
             switch (details.eCurrentState)
             {
-            case eRunning:   st = "Running";   break;
-            case eReady:     st = "Ready";     break;
-            case eBlocked:   st = "Blocked";   break;
-            case eSuspended: st = "Suspended"; break;
-            default:                           break;
+            case eRunning:
+                st = "Running";
+                break;
+            case eReady:
+                st = "Ready";
+                break;
+            case eBlocked:
+                st = "Blocked";
+                break;
+            case eSuspended:
+                st = "Suspended";
+                break;
+            default:
+                break;
             }
             cJSON_AddStringToObject(item, "state", st);
         }
