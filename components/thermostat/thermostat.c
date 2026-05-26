@@ -12,7 +12,6 @@
 #include "app_context.h"
 #include "relay.h"
 #include <math.h>
-#include "thermostat_learning.h"
 #include "time_utils.h"
 #include "rc_estimator.h"
 #include "prediction_engine.h"
@@ -91,7 +90,7 @@ void thermostat_update_current_consigne(void)
         break;
 
         // -------------------------
-        // MODE AUTO (corrigé)
+        // MODE AUTO
         // -------------------------
     case THERMOSTAT_MODE_AUTO:
     {
@@ -189,22 +188,6 @@ void thermostat_update_current_consigne(void)
         last_mode = THERMOSTAT_MODE_HORS_GEL;
         break;
     }
-
-    // -------------------------
-    // MODE LEARNING
-    // -------------------------
-    case THERMOSTAT_MODE_LEARNING:
-        thermostat_learning_update(g_thermostat_runtime.temperature,
-                                   g_thermostat_config.consigne);
-
-        g_thermostat_runtime.effective_consigne =
-            thermostat_learning_predict_consigne();
-
-        ESP_LOGI(TAG, "Learning consigne %.2f",
-                 g_thermostat_runtime.effective_consigne);
-
-        last_mode = THERMOSTAT_MODE_LEARNING;
-        break;
 
     // -------------------------
     // MODE PAR DÉFAUT

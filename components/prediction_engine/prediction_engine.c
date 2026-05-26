@@ -66,7 +66,7 @@ void prediction_engine_tick(void)
         uint32_t sec_midnight = nt.tm_hour * 3600 + nt.tm_min * 60 + nt.tm_sec;
 
         g_thermostat_runtime.next_consigne =
-            heating_get_temp(nt.tm_wday, sec_midnight);
+            heating_get_temp(nt.tm_wday-1, sec_midnight);
     }
     else
     {
