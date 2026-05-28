@@ -249,7 +249,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_sht31);
     httpd_register_uri_handler(server, &uri_ssd1306);
     httpd_register_uri_handler(server, &uri_ota);
-        httpd_register_uri_handler(server, &uri_predictions);
+    httpd_register_uri_handler(server, &uri_predictions);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;

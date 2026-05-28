@@ -13,7 +13,7 @@
 #include "relay.h"
 #include <math.h>
 #include "time_utils.h"
-#include "rc_estimator.h"
+#include "thermal_engine.h"
 #include "prediction_engine.h"
 
 static const char *TAG = "THERMOSTAT";
@@ -22,6 +22,8 @@ static thermostat_config_t g_thermostat_config;
 
 thermostat_runtime_t g_thermostat_runtime = {
     .last_error = "",
+    .enable_2r2c=false,
+    .initialized=false,
 };
 
 static thermostat_config_t thermostat_default_config(void)
@@ -384,8 +386,8 @@ char *thermostat_get_json_status(void)
     cJSON_AddNumberToObject(root, "Cm", g_thermal_runtime.Cm);
     cJSON_AddNumberToObject(root, "P", g_thermal_runtime.P);
 
-    cJSON_AddNumberToObject(root, "next_consigne", g_thermostat_runtime.next_consigne);    
-    cJSON_AddNumberToObject(root, "next_consigne_ts", g_thermostat_runtime.next_consigne_ts);    
+    cJSON_AddNumberToObject(root, "next_consigne", g_thermostat_runtime.next_consigne);
+    cJSON_AddNumberToObject(root, "next_consigne_ts", g_thermostat_runtime.next_consigne_ts);
 
     cJSON *config = cJSON_AddObjectToObject(root, "config");
     cJSON_AddBoolToObject(config, "enabled", g_thermostat_config.enabled);

@@ -32,6 +32,7 @@ static relay_config_t g_relay_config = {
 static relay_runtime_t g_relay_runtime = {
     .last_error = "",
     .remaining_s = 0,
+    .state = false,
 };
 
 static uint32_t s_last_stats_save_ms = 0;

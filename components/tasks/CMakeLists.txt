@@ -18,5 +18,5 @@ idf_component_register(
         thermostat
         dht
         prediction_engine
-        rc_estimator
+        thermal_engine
 )

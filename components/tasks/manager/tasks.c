@@ -17,7 +17,7 @@
 #include "config_storage.h"
 #include "thermostat.h"
 #include "prediction_engine.h"
-#include "rc_estimator.h"
+#include "thermal_engine.h"
 
 // Inclusion obligatoire pour accéder à la variable d'instance "dht_task_config"
 #include "dht_task.h"
@@ -170,7 +170,8 @@ void thermostat_task(void *pvParameters)
             if (g_thermostat_runtime.temperature_valid)
             {
                 ESP_LOGI("INIT", "Init 2R2C with Ta0=%.2f", Tint);
-                thermal_2r2c_init(1.0f, Tint);
+                float dt = my_tasks[7].delay_ms / 1000.0f;
+                thermal_2r2c_init(dt, Tint);
                 model_initialized = true;
             }
             else
@@ -184,8 +185,7 @@ void thermostat_task(void *pvParameters)
         // 2) Maintenant le modèle est initialisé → on peut prédire
         prediction_engine_tick();
         must_heat();
-
-        vTaskDelay(pdMS_TO_TICKS(my_tasks[7].delay_ms));
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 }
 

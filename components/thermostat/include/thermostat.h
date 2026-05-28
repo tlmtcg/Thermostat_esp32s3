@@ -39,6 +39,7 @@ typedef struct
     bool temperature_valid;   // Etat du capteur (true = valid, false = invalid)
     float next_consigne;      // Prochaine consigne programmée (°C)
     int64_t next_consigne_ts; // Timestamp du prochain changement de consigne
+    bool enable_2r2c;   // Enable le mode 2R2C
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */

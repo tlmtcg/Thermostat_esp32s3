@@ -30,7 +30,7 @@
 #include "web_server.h"
 #include "wifi_app.h"
 #include "prediction_engine.h"
-#include "rc_estimator.h"
+#include "thermal_engine.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -64,7 +64,6 @@ void app_main(void)
     }
 
     check_ota_boot();
-
 
     ESP_ERROR_CHECK(
         i2c_manager_init(
@@ -130,6 +129,7 @@ void app_main(void)
 
     tasks_init();
     thermostat_init();
+    prediction_engine_init();
 
     oled_service_show_text("THERMOSTAT", "System Ready", NULL);
     oled_service_start();

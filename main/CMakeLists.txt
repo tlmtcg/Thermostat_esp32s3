@@ -23,7 +23,7 @@ set(my_requires
     app_context
     prediction_engine
     thermostat
-    rc_estimator
+    thermal_engine
 )
 
 # Enregistrement du composant principal

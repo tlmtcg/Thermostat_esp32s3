@@ -12,6 +12,7 @@
 // CONFIGURATION : METTRE À 0 SI LE CAPTEUR SHT31 N'EST PAS CÂBLÉ PHYSIQUEMENT
 // =========================================================================
 #define USE_SHT31_SENSOR 1
+#define SHT31_DEBUG
 
 static const char *TAG = "SHT31_TASK";
 
@@ -61,7 +62,9 @@ void sht31_task(void *pvParameters)
             g_ctx.temperature = temperature;
             g_ctx.humidity = humidity;
 
+#ifdef SHT31_DEBUG
             ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
+#endif
 
             int64_t now = time_utils_get_timestamp();
 
@@ -69,7 +72,9 @@ void sht31_task(void *pvParameters)
             {
                 last_log_time = now;
 
+                #ifdef SHT31_DEBUG
                 ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
+                #endif
 
                 if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
                 {

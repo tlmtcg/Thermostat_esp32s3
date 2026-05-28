@@ -7,22 +7,245 @@
     <title>Modèle Thermique 2R2C</title>
 
     <style>
+      /* --- Variables locales complémentaires si absentes de common.css --- */
+      :root {
+        --blue: #3b82f6;
+      }
+
+      /* --- Typographies & Ajustements --- */
       .value-big {
         font-size: 1.6rem;
         font-weight: bold;
         color: var(--orange);
       }
+
       .section-title {
         margin-top: 20px;
-        font-size: 1.4rem;
+        font-size: 1.2rem;
         color: var(--blue);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 5px;
       }
-      .line {
+
+      /* --- Analyse automatique --- */
+      .analysis-box {
+        padding: 10px;
+        border-radius: 8px;
+        margin-top: 10px;
+        background: #1a1a1a;
+        border-left: 4px solid var(--blue);
+        font-size: 0.9rem;
+      }
+      .analysis-item {
+        padding: 4px 0;
+        color: var(--text-main);
+      }
+
+      /* --- Onglets (Adaptation thème sombre) --- */
+      .tabs {
         display: flex;
-        justify-content: space-between;
-        padding: 6px 0;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 15px;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-left: 55px;
+      }
+      .tab {
+        padding: 8px 14px;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        background: #1a1a1a;
+        border-radius: 6px 6px 0 0;
+        font-size: 0.9rem;
+        color: var(--text-dim);
+        transition: all 0.2s;
+      }
+      .tab:hover {
+        color: var(--text);
+        background: #252525;
+      }
+      .tab.active {
+        background: var(--card);
+        font-weight: bold;
+        border-bottom: 2px solid var(--card);
+        color: var(--orange);
+      }
+
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* --- Graphiques --- */
+      canvas {
+        margin-top: 15px;
+        max-height: 140px;
+        background: #161616;
+        border-radius: 8px;
+        padding: 5px;
+      }
+
+      /* --- Jauges verticales --- */
+      .gauges-container {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        padding-top: 10px;
+      }
+      .gauge {
+        width: 75px;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-main);
+      }
+      .gauge-bar {
+        width: 22px;
+        height: 130px;
+        border: 1px solid var(--border);
+        margin: 8px auto;
+        position: relative;
+        background: #161616;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .gauge-fill {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        background: linear-gradient(to top, var(--orange), var(--orange-hover));
+        transition: height 0.3s ease;
+      }
+      .gauge-value {
+        margin-top: 4px;
+        font-weight: bold;
+        color: var(--orange);
+      }
+      .gauge-range {
+        font-size: 0.7rem;
+        color: var(--text-dim);
+      }
+
+      /* --- Mode expert --- */
+      pre {
+        background: #000;
+        color: #0f0;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        font-family: "Consolas", "Monaco", monospace;
+      }
+      table.matrix {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        font-size: 0.8rem;
+        color: var(--text-main);
+        background: #161616;
+        border-radius: 6px;
+        overflow: hidden;
+        text-align: center;
+      }
+      table.matrix td,
+      table.matrix th {
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        text-align: right;
+      }
+      table.matrix th {
+        background: #252525;
+        color: var(--orange);
+        font-weight: 600;
+        text-align: center;
+      }
+
+      /* --- Groupement contrôles boutons --- */
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+      .controls button {
+        flex: 1;
+        background: var(--orange);
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .controls button:hover {
+        background: var(--orange-hover);
+      }
+      .controls button.secondary {
+        background: #2a2a2a;
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .controls button.secondary:hover {
+        background: #333;
+      }
+
+      /* --- Fenêtre Modale d'explication --- */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        overflow-y: auto;
+      }
+      .modal-content {
+        background-color: #1a1a1a;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid var(--border);
+        width: 85%;
+        max-width: 650px;
+        border-radius: 8px;
+        color: var(--text-main);
+      }
+      .close-btn {
+        color: var(--text-dim);
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .close-btn:hover {
+        color: var(--orange);
+      }
+      .modal h2 {
+        color: var(--orange);
+        margin-bottom: 15px;
+      }
+      .modal h4 {
+        color: var(--blue);
+        margin-top: 15px;
+        margin-bottom: 5px;
+      }
+      .modal p {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        margin: 0 0 10px 0;
+      }
+
+      @media (max-width: 600px) {
+        .tabs {
+          margin-left: 0;
+        }
       }
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
 
   <body>
@@ -30,79 +253,617 @@
 
     <h1 class="page-title">Modèle Thermique (2R2C)</h1>
 
-    <!-- Zone de contrôle -->
-    <div class="box">
-      <h2>Contrôles</h2>
-      <div class="controls">
-        <button onclick="fetchPrediction()">Rafraîchir</button>
-        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">
-          Auto: ON
-        </button>
+    <div class="tabs">
+      <div class="tab active" onclick="openTab(event, 'dashboard')">
+        Dashboard
+      </div>
+      <div class="tab" onclick="openTab(event, 'graphs')">Graphiques</div>
+      <div class="tab" onclick="openTab(event, 'params')">Jauges</div>
+      <div class="tab" onclick="openTab(event, 'expert')">Mode Expert</div>
+      <div class="tab" onclick="openTab(event, 'debug')">Debug JSON</div>
+    </div>
+
+    <div id="dashboard" class="tab-content active">
+      <div class="box">
+        <h2>Contrôles</h2>
+        <div class="controls">
+          <button onclick="fetchPrediction()">Rafraîchir</button>
+          <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">
+            Auto: ON
+          </button>
+          <button class="secondary" id="btn-debug-c" onclick="toggleCDebug()">
+            Debug C: OFF
+          </button>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="line">
+          <span class="label">Dernière mise à jour</span>
+          <span id="status" class="value">--</span>
+        </div>
+
+        <h3 class="section-title">Températures</h3>
+        <div class="line">
+          <span class="label">Ta (air)</span>
+          <span id="ta" class="value-big">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Tm (murs)</span>
+          <span id="tm" class="value-big">--</span>
+        </div>
+
+        <h3 class="section-title">Thermique instantané</h3>
+        <div class="line">
+          <span class="label">ΔT (Ta - Tm)</span>
+          <span id="deltaT" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">dT</span>
+          <span id="last_dT" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">dT/dt</span>
+          <span id="last_dTdt" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">P_est</span>
+          <span id="last_P_est" class="value">--</span>
+        </div>
+
+        <h3 class="section-title">Consignes</h3>
+        <div class="line">
+          <span class="label">Consigne actuelle</span>
+          <span id="consigne_now" class="value-big">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Prochaine consigne</span>
+          <span id="consigne_next" class="value-big">--</span>
+        </div>
+        <div class="line">
+          <span class="label">À</span>
+          <span id="consigne_next_time" class="value-big">--</span>
+        </div>
+
+        <h3 class="section-title">Paramètres du modèle</h3>
+        <div class="line">
+          <span class="label">Ra</span>
+          <span id="ra" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Rm</span>
+          <span id="rm" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Ca</span>
+          <span id="ca" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Cm</span>
+          <span id="cm" class="value">--</span>
+        </div>
+        <div class="line">
+          <span class="label">P</span>
+          <span id="p" class="value">--</span>
+        </div>
+
+        <h3 class="section-title">Chauffe prédictive</h3>
+        <div class="line">
+          <span class="label">Temps pour atteindre la consigne</span>
+          <span id="time_to_reach" class="value-big">--</span>
+        </div>
+        <div class="line">
+          <span class="label">Allumage anticipé</span>
+          <span id="start_heating_at" class="value-big">--</span>
+        </div>
+
+        <h3 class="section-title">Analyse automatique</h3>
+        <div id="analysis" class="analysis-box"></div>
       </div>
     </div>
 
-    <!-- Résultats -->
-    <div class="box">
-      <div class="line">
-        <span class="label">Dernière mise à jour</span>
-        <span id="status" class="value">--</span>
-      </div>
+    <div id="graphs" class="tab-content">
+      <div class="box">
+        <h2>Graphiques thermiques</h2>
+        <canvas id="chartTemp"></canvas>
+        <canvas id="chartDT"></canvas>
+        <canvas id="chartP"></canvas>
 
-      <h2 class="section-title">Températures</h2>
-      <div class="line">
-        <span class="label">Ta (air)</span>
-        <span id="ta" class="value-big">--</span>
+        <h2 style="margin-top: 25px">Paramètres du modèle</h2>
+        <canvas id="chartParams"></canvas>
       </div>
-      <div class="line">
-        <span class="label">Tm (murs)</span>
-        <span id="tm" class="value-big">--</span>
-      </div>
+    </div>
 
-      <h2 class="section-title">Consignes</h2>
+    <div id="params" class="tab-content">
+      <div class="box">
+        <h2>Jauges des paramètres</h2>
+        <div class="gauges-container">
+          <div class="gauge">
+            <div>Ra</div>
+            <div class="gauge-bar">
+              <div
+                id="gauge-fill-ra"
+                class="gauge-fill"
+                style="height: 0%"
+              ></div>
+            </div>
+            <div id="gauge-value-ra" class="gauge-value">--</div>
+            <div class="gauge-range">0.3–5.0</div>
+          </div>
+          <div class="gauge">
+            <div>Rm</div>
+            <div class="gauge-bar">
+              <div
+                id="gauge-fill-rm"
+                class="gauge-fill"
+                style="height: 0%"
+              ></div>
+            </div>
+            <div id="gauge-value-rm" class="gauge-value">--</div>
+            <div class="gauge-range">0.2–3.0</div>
+          </div>
+          <div class="gauge">
+            <div>Ca</div>
+            <div class="gauge-bar">
+              <div
+                id="gauge-fill-ca"
+                class="gauge-fill"
+                style="height: 0%"
+              ></div>
+            </div>
+            <div id="gauge-value-ca" class="gauge-value">--</div>
+            <div class="gauge-range">10k–500k</div>
+          </div>
+          <div class="gauge">
+            <div>Cm</div>
+            <div class="gauge-bar">
+              <div
+                id="gauge-fill-cm"
+                class="gauge-fill"
+                style="height: 0%"
+              ></div>
+            </div>
+            <div id="gauge-value-cm" class="gauge-value">--</div>
+            <div class="gauge-range">1M–20M</div>
+          </div>
+          <div class="gauge">
+            <div>P</div>
+            <div class="gauge-bar">
+              <div
+                id="gauge-fill-p"
+                class="gauge-fill"
+                style="height: 0%"
+              ></div>
+            </div>
+            <div id="gauge-value-p" class="gauge-value">--</div>
+            <div class="gauge-range">200–3000</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <div class="line">
-        <span class="label">Consigne actuelle</span>
-        <span id="consigne_now" class="value-big">--</span>
-      </div>
+    <div id="expert" class="tab-content">
+      <div class="box">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+          "
+        >
+          <h2>Mode Expert — EKF</h2>
+          <button
+            onclick="openModal()"
+            style="
+              padding: 6px 12px;
+              font-size: 0.85rem;
+              background: var(--blue);
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+            "
+          >
+            💡 Expliquer les matrices
+          </button>
+        </div>
 
-      <div class="line">
-        <span class="label">Prochaine consigne</span>
-        <span id="consigne_next" class="value-big">--</span>
-      </div>
+        <p style="font-size: 0.9rem; color: var(--text-dim)">
+          Matrices calculées en temps réel par le Filtre de Kalman Étendu
+          (Modèle 2R2C d'ordre 2).
+        </p>
 
-      <div class="line">
-        <span class="label">À</span>
-        <span id="consigne_next_time" class="value-big">--</span>
-      </div>
+        <h3 class="section-title">Matrices brutes</h3>
+        <pre id="matrix-F">F: --</pre>
+        <pre id="matrix-P">P: --</pre>
+        <pre id="matrix-Q">Q: --</pre>
+        <pre id="matrix-H">H: --</pre>
+        <pre id="matrix-K">K: --</pre>
 
-      <h2 class="section-title">Paramètres du modèle</h2>
-      <div class="line">
-        <span class="label">Ra</span><span id="ra">--</span>
+        <h3 class="section-title">Matrice de Covariance P (Détail)</h3>
+        <table class="matrix" id="matrix-table">
+          <thead>
+            <tr>
+              <th>Indice</th>
+              <th>Ta (Air)</th>
+              <th>Tm (Murs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th style="background: #252525; color: var(--text-main)">
+                Ta (Air)
+              </th>
+              <td id="p-0-0">--</td>
+              <td id="p-0-1">--</td>
+            </tr>
+            <tr>
+              <th style="background: #252525; color: var(--text-main)">
+                Tm (Murs)
+              </th>
+              <td id="p-1-0">--</td>
+              <td id="p-1-1">--</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div class="line">
-        <span class="label">Rm</span><span id="rm">--</span>
-      </div>
-      <div class="line">
-        <span class="label">Ca</span><span id="ca">--</span>
-      </div>
-      <div class="line">
-        <span class="label">Cm</span><span id="cm">--</span>
-      </div>
-      <div class="line"><span class="label">P</span><span id="p">--</span></div>
+    </div>
 
-      <h2 class="section-title">Chauffe prédictive</h2>
-      <div class="line">
-        <span class="label">Temps pour atteindre la consigne</span>
-        <span id="time_to_reach" class="value-big">--</span>
+    <div id="debug" class="tab-content">
+      <div class="box">
+        <h2>JSON brut</h2>
+        <pre id="json-raw">{}</pre>
       </div>
-      <div class="line">
-        <span class="label">Allumage anticipé</span>
-        <span id="start_heating_at" class="value-big">--</span>
+    </div>
+
+    <div id="ekfModal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h2>Comprendre les matrices EKF (2R2C)</h2>
+        <p>
+          Le filtre de Kalman étendu estime en permanence l'état thermique de la
+          pièce (ordre 2 : Air et Murs) en combinant la physique théorique et
+          les mesures réelles.
+        </p>
+
+        <h4>Matrice F (Transition d'état)</h4>
+        <p>
+          Elle représente la dynamique du bâtiment sur le pas de temps
+          <i>dt</i>. Elle dicte comment la température de l'air influence celle
+          des murs (et inversement) en fonction des résistances (Ra, Rm) et des
+          capacités (Ca, Cm).
+        </p>
+
+        <h4>Matrice P (Covariance de l'erreur)</h4>
+        <p>
+          C'est l'indice de confiance du filtre. Les éléments diagonaux
+          indiquent l'incertitude sur l'estimation de Ta (index [0][0]) et de Tm
+          (index [1][1]). Plus la valeur baisse, plus le filtre est sûr de son
+          estimation.
+        </p>
+
+        <h4>Matrice Q (Bruit de processus)</h4>
+        <p>
+          Définit l'incertitude du modèle physique. Elle prend en compte les
+          perturbations non modélisées (ouverture d'une porte, présence humaine,
+          rayonnement solaire).
+        </p>
+
+        <h4>Matrice H (Observation)</h4>
+        <p>
+          Fait le lien entre l'état interne et la mesure. Comme la sonde ne
+          mesure que l'Air (Ta) et pas les murs, la matrice vaut
+          <code>[[1.0, 0.0]]</code>.
+        </p>
+
+        <h4>Matrice K (Gain de Kalman)</h4>
+        <p>
+          Le compromis dynamique : détermine à quel point le filtre doit
+          corriger son estimation théorique lorsqu'un écart apparaît avec la
+          mesure réelle de la sonde.
+        </p>
       </div>
     </div>
 
     <script>
       let autoRefreshInterval = null;
+
+      const hist = {
+        time: [],
+        Ta: [],
+        Tm: [],
+        consigne: [],
+        dTdt: [],
+        P_est: [],
+        Ra: [],
+        Ca: [],
+        P: [],
+      };
+
+      let chartTemp, chartDT, chartP, chartParams;
+
+      /* --- Gestion de la modale --- */
+      function openModal() {
+        document.getElementById("ekfModal").style.display = "block";
+      }
+      function closeModal() {
+        document.getElementById("ekfModal").style.display = "none";
+      }
+
+      // Fermer si clic en dehors
+      window.onclick = function (event) {
+        const modal = document.getElementById("ekfModal");
+        if (event.target == modal) modal.style.display = "none";
+      };
+
+      function openTab(ev, id) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        ev.target.classList.add("active");
+        document.getElementById(id).classList.add("active");
+      }
+
+      function initCharts() {
+        const ctx1 = document.getElementById("chartTemp");
+        const ctx2 = document.getElementById("chartDT");
+        const ctx3 = document.getElementById("chartP");
+        const ctx4 = document.getElementById("chartParams");
+
+        Chart.defaults.color = "#aaa";
+
+        chartTemp = new Chart(ctx1, {
+          type: "line",
+          data: {
+            labels: hist.time,
+            datasets: [
+              {
+                label: "Ta",
+                data: hist.Ta,
+                borderColor: "orange",
+                tension: 0.2,
+              },
+              {
+                label: "Tm",
+                data: hist.Tm,
+                borderColor: "#3b82f6",
+                tension: 0.2,
+              },
+              {
+                label: "Consigne",
+                data: hist.consigne,
+                borderColor: "green",
+                tension: 0.2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: { x: { display: false }, y: { grid: { color: "#222" } } },
+          },
+        });
+
+        chartDT = new Chart(ctx2, {
+          type: "line",
+          data: {
+            labels: hist.time,
+            datasets: [
+              {
+                label: "dT/dt",
+                data: hist.dTdt,
+                borderColor: "red",
+                tension: 0.2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: { x: { display: false }, y: { grid: { color: "#222" } } },
+          },
+        });
+
+        chartP = new Chart(ctx3, {
+          type: "line",
+          data: {
+            labels: hist.time,
+            datasets: [
+              {
+                label: "P_est",
+                data: hist.P_est,
+                borderColor: "purple",
+                tension: 0.2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: { x: { display: false }, y: { grid: { color: "#222" } } },
+          },
+        });
+
+        chartParams = new Chart(ctx4, {
+          type: "line",
+          data: {
+            labels: hist.time,
+            datasets: [
+              {
+                label: "Ra",
+                data: hist.Ra,
+                borderColor: "#ff5722",
+                tension: 0.2,
+              },
+              {
+                label: "Ca",
+                data: hist.Ca,
+                borderColor: "#3f51b5",
+                tension: 0.2,
+                yAxisID: "y1",
+              },
+              {
+                label: "P",
+                data: hist.P,
+                borderColor: "#009688",
+                tension: 0.2,
+                yAxisID: "y2",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: {
+              x: { display: false },
+              y: { type: "linear", position: "left", grid: { color: "#222" } },
+              y1: { type: "linear", position: "right", display: false },
+              y2: { type: "linear", position: "right", display: false },
+            },
+          },
+        });
+      }
+
+      function updateCharts() {
+        chartTemp.update();
+        chartDT.update();
+        chartP.update();
+        chartParams.update();
+      }
+
+      function addHistory(data) {
+        const t = new Date().toLocaleTimeString();
+        hist.time.push(t);
+        hist.Ta.push(data.Ta);
+        hist.Tm.push(data.Tm);
+        hist.consigne.push(data.effective_consigne ?? NaN);
+        hist.dTdt.push(data.last_dTdt ?? NaN);
+        hist.P_est.push(data.last_P_est ?? NaN);
+        hist.Ra.push(data.Ra);
+        hist.Ca.push(data.Ca);
+        hist.P.push(data.P);
+
+        if (hist.time.length > 100) {
+          Object.keys(hist).forEach((k) => hist[k].shift());
+        }
+      }
+
+      function analyse(data) {
+        let out = "";
+        const dTdt = data.last_dTdt ?? 0;
+        const P_est = data.last_P_est ?? 0;
+        const deltaT = data.Ta - data.Tm;
+
+        if (Math.abs(dTdt) < 0.01)
+          out +=
+            "<div class='analysis-item'>✔ Modèle stable : dT/dt faible.</div>";
+        else
+          out +=
+            "<div class='analysis-item'>⚠ Variation thermique notable : dT/dt = " +
+            dTdt.toFixed(4) +
+            "</div>";
+
+        if (P_est < 0)
+          out +=
+            "<div class='analysis-item'>⚠ P_est négatif → correction active.</div>";
+        else if (P_est > 3000)
+          out +=
+            "<div class='analysis-item'>❌ P_est incohérent (>3000 W).</div>";
+        else
+          out +=
+            "<div class='analysis-item'>✔ P_est cohérent : " +
+            P_est.toFixed(1) +
+            " W</div>";
+
+        if (deltaT < 0)
+          out +=
+            "<div class='analysis-item'>⚠ Tm > Ta → inertie forte ou chauffe récente.</div>";
+        else
+          out +=
+            "<div class='analysis-item'>ΔT = " +
+            deltaT.toFixed(2) +
+            " °C.</div>";
+
+        document.getElementById("analysis").innerHTML = out;
+      }
+
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function updateGauges(data) {
+        const raPct = ((clamp(data.Ra, 0.3, 5.0) - 0.3) / (5.0 - 0.3)) * 100;
+        document.getElementById("gauge-fill-ra").style.height = raPct + "%";
+        document.getElementById("gauge-value-ra").textContent =
+          data.Ra.toFixed(2);
+
+        const rmPct = ((clamp(data.Rm, 0.2, 3.0) - 0.2) / (3.0 - 0.2)) * 100;
+        document.getElementById("gauge-fill-rm").style.height = rmPct + "%";
+        document.getElementById("gauge-value-rm").textContent =
+          data.Rm.toFixed(2);
+
+        const caPct =
+          ((clamp(data.Ca, 10000, 500000) - 10000) / (500000 - 10000)) * 100;
+        document.getElementById("gauge-fill-ca").style.height = caPct + "%";
+        document.getElementById("gauge-value-ca").textContent =
+          data.Ca.toFixed(0);
+
+        const cmPct =
+          ((clamp(data.Cm, 1000000, 20000000) - 1000000) /
+            (20000000 - 1000000)) *
+          100;
+        document.getElementById("gauge-fill-cm").style.height = cmPct + "%";
+        document.getElementById("gauge-value-cm").textContent =
+          data.Cm.toFixed(0);
+
+        const pPct = ((clamp(data.P, 200, 3000) - 200) / (3000 - 200)) * 100;
+        document.getElementById("gauge-fill-p").style.height = pPct + "%";
+        document.getElementById("gauge-value-p").textContent =
+          data.P.toFixed(0);
+      }
+
+      function updateExpertMode(data) {
+        if (data.matrix_F)
+          document.getElementById("matrix-F").textContent =
+            "F: " + data.matrix_F;
+        if (data.matrix_P)
+          document.getElementById("matrix-P").textContent =
+            "P: " + data.matrix_P;
+        if (data.matrix_Q)
+          document.getElementById("matrix-Q").textContent =
+            "Q: " + data.matrix_Q;
+        if (data.matrix_H)
+          document.getElementById("matrix-H").textContent =
+            "H: " + data.matrix_H;
+        if (data.matrix_K)
+          document.getElementById("matrix-K").textContent =
+            "K: " + data.matrix_K;
+
+        if (data.matrix_P) {
+          try {
+            const matrixP = JSON.parse(data.matrix_P);
+            document.getElementById("p-0-0").textContent =
+              matrixP[0][0].toFixed(4);
+            document.getElementById("p-0-1").textContent =
+              matrixP[0][1].toFixed(4);
+            document.getElementById("p-1-0").textContent =
+              matrixP[1][0].toFixed(4);
+            document.getElementById("p-1-1").textContent =
+              matrixP[1][1].toFixed(4);
+          } catch (e) {
+            console.error("Erreur parsing matrix_P:", e);
+          }
+        }
+      }
 
       async function fetchPrediction() {
         try {
@@ -111,26 +872,38 @@
 
           document.getElementById("status").textContent =
             new Date().toLocaleTimeString();
-
           if (data.status !== "ok") return;
+
+          if (data.enabled_2R2C !== undefined) {
+            cDebugEnabled = data.enabled_2R2C;
+            updateDebugButton();
+          }
 
           // Températures
           document.getElementById("ta").textContent = data.Ta.toFixed(2);
           document.getElementById("tm").textContent = data.Tm.toFixed(2);
 
-          // Consigne actuelle
-          if (data.effective_consigne !== undefined)
-            document.getElementById("consigne_now").textContent =
-              data.effective_consigne.toFixed(1) + " °C";
-          else document.getElementById("consigne_now").textContent = "--";
+          // Thermique instantané
+          document.getElementById("deltaT").textContent = (
+            data.Ta - data.Tm
+          ).toFixed(3);
+          document.getElementById("last_dT").textContent =
+            data.last_dT !== undefined ? data.last_dT.toFixed(6) : "--";
+          document.getElementById("last_dTdt").textContent =
+            data.last_dTdt !== undefined ? data.last_dTdt.toFixed(6) : "--";
+          document.getElementById("last_P_est").textContent =
+            data.last_P_est !== undefined ? data.last_P_est.toFixed(2) : "--";
 
-          // Prochaine consigne
-          if (data.next_consigne !== undefined && data.next_consigne >= 0)
-            document.getElementById("consigne_next").textContent =
-              data.next_consigne.toFixed(1) + " °C";
-          else document.getElementById("consigne_next").textContent = "--";
+          // Consignes
+          document.getElementById("consigne_now").textContent =
+            data.effective_consigne !== undefined
+              ? data.effective_consigne.toFixed(1) + " °C"
+              : "--";
+          document.getElementById("consigne_next").textContent =
+            data.next_consigne !== undefined && data.next_consigne >= 0
+              ? data.next_consigne.toFixed(1) + " °C"
+              : "--";
 
-          // Heure de la prochaine consigne
           if (data.next_consigne_ts > 0) {
             const d2 = new Date(data.next_consigne_ts * 1000);
             document.getElementById("consigne_next_time").textContent =
@@ -146,13 +919,11 @@
           document.getElementById("cm").textContent = data.Cm.toFixed(0);
           document.getElementById("p").textContent = data.P.toFixed(0);
 
-          // Temps pour atteindre la consigne
-          if (data.time_to_reach >= 0)
-            document.getElementById("time_to_reach").textContent =
-              (data.time_to_reach / 60).toFixed(1) + " min";
-          else document.getElementById("time_to_reach").textContent = "--";
-
-          // Allumage anticipé
+          // Chauffe prédictive
+          document.getElementById("time_to_reach").textContent =
+            data.time_to_reach >= 0
+              ? (data.time_to_reach / 60).toFixed(1) + " min"
+              : "--";
           if (data.start_heating_at > 0) {
             const d = new Date(data.start_heating_at * 1000);
             document.getElementById("start_heating_at").textContent =
@@ -160,6 +931,18 @@
           } else {
             document.getElementById("start_heating_at").textContent = "--";
           }
+
+          analyse(data);
+          updateGauges(data);
+          updateExpertMode(data);
+          addHistory(data);
+          updateCharts();
+
+          document.getElementById("json-raw").textContent = JSON.stringify(
+            data,
+            null,
+            2,
+          );
         } catch (err) {
           console.error("Erreur API:", err);
         }
@@ -177,6 +960,47 @@
         }
       }
 
+      let cDebugEnabled = false;
+
+      async function toggleCDebug() {
+        const nextState = !cDebugEnabled; // Alterne l'état local
+
+        try {
+          // Envoi de la commande en POST sous forme de JSON stringifié
+          const response = await fetch("/api/predict/cmd", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled_2R2C: nextState }),
+          });
+
+          if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+          const data = await response.json();
+
+          // Synchronisation avec la réponse de l'ESP32
+          cDebugEnabled = data.debug;
+          updateDebugButton();
+        } catch (err) {
+          console.error("Erreur mode debug:", err);
+        }
+      }
+
+      function updateDebugButton() {
+        const btn = document.getElementById("btn-debug-c");
+        if (!btn) return;
+        if (cDebugEnabled) {
+          btn.textContent = "2R2C ON";
+          btn.style.borderColor = "var(--orange)";
+          btn.style.color = "var(--orange)";
+        } else {
+          btn.textContent = "2R2C OFF";
+          btn.style.borderColor = "var(--border)";
+          btn.style.color = "var(--text)";
+        }
+      }
+
+      initCharts();
       fetchPrediction();
       autoRefreshInterval = setInterval(fetchPrediction, 3000);
     </script>

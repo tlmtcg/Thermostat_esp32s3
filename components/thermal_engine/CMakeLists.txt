@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "rc_estimator.c"
+    SRCS "thermal_engine.c"
     INCLUDE_DIRS "include"
     REQUIRES log
 )
