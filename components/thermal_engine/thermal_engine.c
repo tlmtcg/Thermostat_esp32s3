@@ -1,6 +1,7 @@
 #include "thermal_engine.h"
 #include <math.h>
 #include <string.h>
+#include "../prediction_engine/include/prediction_engine.h"
 
 // -----------------------------------------------------------------------------
 // EKF AUGMENTÉ 2R2C
@@ -25,8 +26,6 @@ float thermal_2r2c_get_dt(void)
 {
     return s_dt;
 }
-
-static ekf_state_t s_x;
 
 // Covariance 7x7
 static float s_P[7][7];
@@ -54,37 +53,30 @@ static inline float clampf(float v, float vmin, float vmax)
 
 void thermal_2r2c_init(float dt_seconds, float Ta0)
 {
+    // Pas de temps du modèle (pour predict/update)
     s_dt = dt_seconds > 0.0f ? dt_seconds : 1.0f;
 
-    // État initial
-    s_x.Ta = Ta0;
-    s_x.Tm = Ta0;
+    // État thermique initial
+    g_thermal_runtime.Ta = Ta0;
+    g_thermal_runtime.Tm = Ta0;
 
     // -----------------------------
     // PARAMÈTRES THERMIQUES RÉALISTES
     // -----------------------------
-    s_x.Ra = 1.5f;        // K/W  (pertes air -> extérieur)
-    s_x.Rm = 0.8f;        // K/W  (échange air -> murs)
-    s_x.Ca = 300000.0f;   // J/K  (capacité thermique air + mobilier)
-    s_x.Cm = 5e6f;        // J/K  (inertie murs)
-    s_x.P  = 1500.0f;     // W    (radiateur typique)
+    g_thermal_runtime.Ra = 3.0f;         // pertes air -> extérieur
+    g_thermal_runtime.Rm = 5.0f;         // échange air -> murs
+    g_thermal_runtime.Ca = 120000.0f;    // capacité thermique air + mobilier
+    g_thermal_runtime.Cm = 5e6f;         // inertie murs
+    g_thermal_runtime.P  = 1500.0f;      // puissance radiateur
 
-    // Covariance initiale
-    memset(s_P, 0, sizeof(s_P));
-    for (int i = 0; i < 7; ++i)
-        s_P[i][i] = 1.0f;
+    // Dernières estimations du learn
+    g_thermal_runtime.last_dT    = 0.0f;
+    g_thermal_runtime.last_dTdt  = 0.0f;
+    g_thermal_runtime.last_Ra_est = 0.0f;
+    g_thermal_runtime.last_P_est  = 0.0f;
 
-    // Bruit modèle : états plus bruités que paramètres
-    memset(s_Q, 0, sizeof(s_Q));
-    s_Q[0][0] = 0.01f; // Ta
-    s_Q[1][1] = 0.01f; // Tm
-    s_Q[2][2] = 1e-6f; // Ra
-    s_Q[3][3] = 1e-6f; // Rm
-    s_Q[4][4] = 1e-3f; // Ca
-    s_Q[5][5] = 1e-3f; // Cm
-    s_Q[6][6] = 1e-3f; // P
-
-    s_R = 0.05f; // bruit mesure Ta
+    // Matrices EKF (déjà initialisées ailleurs)
+    // Rien à faire ici
 }
 
 void thermal_2r2c_set_params(const thermal_params_t *p)
@@ -92,31 +84,31 @@ void thermal_2r2c_set_params(const thermal_params_t *p)
     if (!p)
         return;
 
-    // On force les paramètres dans l’état EKF
-    s_x.Ra = p->Ra;
-    s_x.Rm = p->Rm;
-    s_x.Ca = p->Ca;
-    s_x.Cm = p->Cm;
-    s_x.P = p->P;
+    // Mise à jour des paramètres réellement utilisés par le modèle
+    g_thermal_runtime.Ra = p->Ra;
+    g_thermal_runtime.Rm = p->Rm;
+    g_thermal_runtime.Ca = p->Ca;
+    g_thermal_runtime.Cm = p->Cm;
+    g_thermal_runtime.P  = p->P;
 }
 
 void thermal_2r2c_get_state(thermal_state_t *s)
 {
     if (!s)
         return;
-    s->Ta = s_x.Ta;
-    s->Tm = s_x.Tm;
+    s->Ta = g_thermal_runtime.Ta;
+    s->Tm = g_thermal_runtime.Tm;
 }
 
 void thermal_2r2c_get_params(thermal_params_t *p)
 {
     if (!p)
         return;
-    p->Ra = s_x.Ra;
-    p->Rm = s_x.Rm;
-    p->Ca = s_x.Ca;
-    p->Cm = s_x.Cm;
-    p->P = s_x.P;
+    p->Ra = g_thermal_runtime.Ra;
+    p->Rm = g_thermal_runtime.Rm;
+    p->Ca = g_thermal_runtime.Ca;
+    p->Cm = g_thermal_runtime.Cm;
+    p->P  = g_thermal_runtime.P;
 }
 
 // -----------------------------------------------------------------------------
@@ -128,94 +120,43 @@ void thermal_2r2c_get_params(thermal_params_t *p)
 void thermal_2r2c_predict(float Text, float u)
 {
     // Sécurité paramètres
-    if (s_x.Ra <= 0.0f || s_x.Rm <= 0.0f ||
-        s_x.Ca <= 0.0f || s_x.Cm <= 0.0f)
+    if (g_thermal_runtime.Ra <= 0.0f || g_thermal_runtime.Rm <= 0.0f ||
+        g_thermal_runtime.Ca <= 0.0f || g_thermal_runtime.Cm <= 0.0f)
     {
         return;
     }
 
-    float Ta = s_x.Ta;
-    float Tm = s_x.Tm;
+    float Ta = g_thermal_runtime.Ta;
+    float Tm = g_thermal_runtime.Tm;
 
     // Modèle continu 2R2C
-    float dTa = (Tm - Ta) / (s_x.Rm * s_x.Ca) + (Text - Ta) / (s_x.Ra * s_x.Ca) + (s_x.P * u) / s_x.Ca;
+    float dTa = (Tm - Ta) / (g_thermal_runtime.Rm * g_thermal_runtime.Ca)
+              + (Text - Ta) / (g_thermal_runtime.Ra * g_thermal_runtime.Ca)
+              + (g_thermal_runtime.P * u) / g_thermal_runtime.Ca;
 
-    float dTm = (Ta - Tm) / (s_x.Rm * s_x.Cm);
+    float dTm = (Ta - Tm) / (g_thermal_runtime.Rm * g_thermal_runtime.Cm);
 
     // Intégration Euler
-    s_x.Ta += s_dt * dTa;
-    s_x.Tm += s_dt * dTm;
+    g_thermal_runtime.Ta += s_dt * dTa;
+    g_thermal_runtime.Tm += s_dt * dTm;
 
-    // Clamp léger pour éviter dérives absurdes
-    s_x.Ta = clampf(s_x.Ta, -40.0f, 80.0f);
-    s_x.Tm = clampf(s_x.Tm, -40.0f, 80.0f);
+    // Clamp léger
+    g_thermal_runtime.Ta = clampf(g_thermal_runtime.Ta, -40.0f, 80.0f);
+    g_thermal_runtime.Tm = clampf(g_thermal_runtime.Tm, -40.0f, 80.0f);
 
-    // Jacobien F (7x7) – on ne dérive que par rapport à Ta/Tm,
-    // les paramètres sont modélisés comme constants (dX/dt = 0)
-    float F[7][7] = {0};
+    // Jacobien F (2x2 utile pour l’EKF)
+    float dTa_dTa = -(1.0f / (g_thermal_runtime.Rm * g_thermal_runtime.Ca))
+                    - (1.0f / (g_thermal_runtime.Ra * g_thermal_runtime.Ca));
 
-    // dTa/dTa
-    float dTa_dTa = -(1.0f / (s_x.Rm * s_x.Ca)) - (1.0f / (s_x.Ra * s_x.Ca));
-    // dTa/dTm
-    float dTa_dTm = 1.0f / (s_x.Rm * s_x.Ca);
+    float dTa_dTm = 1.0f / (g_thermal_runtime.Rm * g_thermal_runtime.Ca);
 
-    // dTm/dTa
-    float dTm_dTa = 1.0f / (s_x.Rm * s_x.Cm);
-    // dTm/dTm
-    float dTm_dTm = -1.0f / (s_x.Rm * s_x.Cm);
+    float dTm_dTa = 1.0f / (g_thermal_runtime.Rm * g_thermal_runtime.Cm);
+    float dTm_dTm = -1.0f / (g_thermal_runtime.Rm * g_thermal_runtime.Cm);
 
-    // Discrétisation : F = I + dt * A
-    F[0][0] = 1.0f + s_dt * dTa_dTa;
-    F[0][1] = s_dt * dTa_dTm;
-    F[1][0] = s_dt * dTm_dTa;
-    F[1][1] = 1.0f + s_dt * dTm_dTm;
-
-    // Paramètres constants → dérivée = 0 → F[i][i] = 1
-    for (int i = 2; i < 7; ++i)
-    {
-        F[i][i] = 1.0f;
-    }
-
-    // P = F P F^T + Q
-    float FP[7][7] = {0};
-    float FPFt[7][7] = {0};
-
-    // FP = F * P
-    for (int i = 0; i < 7; ++i)
-    {
-        for (int j = 0; j < 7; ++j)
-        {
-            float sum = 0.0f;
-            for (int k = 0; k < 7; ++k)
-            {
-                sum += F[i][k] * s_P[k][j];
-            }
-            FP[i][j] = sum;
-        }
-    }
-
-    // FPFt = FP * F^T
-    for (int i = 0; i < 7; ++i)
-    {
-        for (int j = 0; j < 7; ++j)
-        {
-            float sum = 0.0f;
-            for (int k = 0; k < 7; ++k)
-            {
-                sum += FP[i][k] * F[j][k]; // F^T[k][j] = F[j][k]
-            }
-            FPFt[i][j] = sum;
-        }
-    }
-
-    // Ajout du bruit modèle
-    for (int i = 0; i < 7; ++i)
-    {
-        for (int j = 0; j < 7; ++j)
-        {
-            s_P[i][j] = FPFt[i][j] + s_Q[i][j];
-        }
-    }
+    g_thermal_runtime.ekf_F[0][0] = 1.0f + s_dt * dTa_dTa;
+    g_thermal_runtime.ekf_F[0][1] = s_dt * dTa_dTm;
+    g_thermal_runtime.ekf_F[1][0] = s_dt * dTm_dTa;
+    g_thermal_runtime.ekf_F[1][1] = 1.0f + s_dt * dTm_dTm;
 }
 
 // -----------------------------------------------------------------------------
@@ -224,58 +165,46 @@ void thermal_2r2c_predict(float Text, float u)
 
 void thermal_2r2c_update(float Ta_measured)
 {
-    // Mesure invalide
     if (isnan(Ta_measured))
-    {
         return;
-    }
 
     // Innovation
     float y = Ta_measured;
-    float y_hat = s_x.Ta;
+    float y_hat = g_thermal_runtime.Ta;
     float e = y - y_hat;
 
-    // H = [1, 0, 0, 0, 0, 0, 0]
-    // S = H P H^T + R = P[0][0] + R
+    // S = P[0][0] + R
     float S = s_P[0][0] + s_R;
     if (S <= 0.0f)
-    {
         return;
-    }
 
-    // Gain de Kalman K = P H^T / S → K[i] = P[i][0] / S
+    // Gain de Kalman
     float K[7];
     for (int i = 0; i < 7; ++i)
-    {
         K[i] = s_P[i][0] / S;
-    }
 
     // Mise à jour état
-    s_x.Ta += K[0] * e;
-    s_x.Tm += K[1] * e;
-    s_x.Ra += K[2] * e;
-    s_x.Rm += K[3] * e;
-    s_x.Ca += K[4] * e;
-    s_x.Cm += K[5] * e;
-    s_x.P += K[6] * e;
+    g_thermal_runtime.Ta += K[0] * e;
+    g_thermal_runtime.Tm += K[1] * e;
+    g_thermal_runtime.Ra += K[2] * e;
+    g_thermal_runtime.Rm += K[3] * e;
+    g_thermal_runtime.Ca += K[4] * e;
+    g_thermal_runtime.Cm += K[5] * e;
+    g_thermal_runtime.P  += K[6] * e;
 
-    // Clamps physiques simples
-    s_x.Ra = clampf(s_x.Ra, 0.01f, 5.0f);
-    s_x.Rm = clampf(s_x.Rm, 0.01f, 5.0f);
-    s_x.Ca = clampf(s_x.Ca, 100.0f, 20000.0f);
-    s_x.Cm = clampf(s_x.Cm, 1e5f, 1e8f);
-    s_x.P = clampf(s_x.P, 1000.0f, 20000.0f);
+    // Clamps physiques
+    g_thermal_runtime.Ra = clampf(g_thermal_runtime.Ra, 0.01f, 5.0f);
+    g_thermal_runtime.Rm = clampf(g_thermal_runtime.Rm, 0.01f, 20.0f);
+    g_thermal_runtime.Ca = clampf(g_thermal_runtime.Ca, 20000.0f, 300000.0f);
+    g_thermal_runtime.Cm = clampf(g_thermal_runtime.Cm, 1e5f, 1e8f);
+    g_thermal_runtime.P  = clampf(g_thermal_runtime.P, 500.0f, 5000.0f);
 
     // Mise à jour covariance : P = (I - K H) P
-    // Comme H = [1,0,0,0,0,0,0], (I - K H) a :
-    // diag[0] = 1 - K[0], diag[i>0] = 1, et (i>0,0) = -K[i]
     float newP[7][7];
-
     for (int i = 0; i < 7; ++i)
     {
         for (int j = 0; j < 7; ++j)
         {
-            // newP[i][j] = P[i][j] - K[i] * P[0][j]
             newP[i][j] = s_P[i][j] - K[i] * s_P[0][j];
         }
     }
@@ -286,14 +215,13 @@ void thermal_2r2c_update(float Ta_measured)
 float thermal_2r2c_time_to_reach(float Ta_target, float Text)
 {
     // Copie locale de l’état EKF (on ne modifie rien)
-    float Ta = s_x.Ta;
-    float Tm = s_x.Tm;
-
-    float Ra = s_x.Ra;
-    float Rm = s_x.Rm;
-    float Ca = s_x.Ca;
-    float Cm = s_x.Cm;
-    float P = s_x.P;
+    float Ta = g_thermal_runtime.Ta;
+    float Tm = g_thermal_runtime.Tm; 
+    float Ra = g_thermal_runtime.Ra;
+    float Rm = g_thermal_runtime.Rm;
+    float Ca = g_thermal_runtime.Ca;
+    float Cm = g_thermal_runtime.Cm;
+    float P  = g_thermal_runtime.P;
 
     // Sécurité paramètres
     if (Ra <= 0 || Rm <= 0 || Ca <= 0 || Cm <= 0 || P <= 0)
@@ -303,7 +231,7 @@ float thermal_2r2c_time_to_reach(float Ta_target, float Text)
     if (Ta >= Ta_target)
         return -1.0f;
 
-    const float dt = s_dt;          // même pas de temps que le modèle réel
+    const float dt = 1.0f;          // 1 seconde
     const float TMAX = 6 * 3600.0f; // limite 6h
     const float u = 1.0f;           // chauffage ON
 

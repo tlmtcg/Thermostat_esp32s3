@@ -22,7 +22,7 @@ static thermostat_config_t g_thermostat_config;
 
 thermostat_runtime_t g_thermostat_runtime = {
     .last_error = "",
-    .enable_2r2c=false,
+    .enable_2r2c=true,
     .initialized=false,
 };
 
@@ -104,34 +104,37 @@ void thermostat_update_current_consigne(void)
         int64_t start_ts = g_thermal_runtime.start_heating_at;
         int64_t now = time(NULL);
 
-        // --- 1. Déjà au-dessus de la consigne ? ---
-        if (Tint >= consigne_auto)
-        {
-            // Pas besoin de chauffer
-            g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
-            break;
-        }
+        // // --- 1. Déjà au-dessus de la consigne ? ---
+        // if (Tint >= consigne_auto)
+        // {
+        //     // Pas besoin de chauffer
+        //     g_thermostat_runtime.effective_consigne = consigne_auto;
+        //     // g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
+        //     break;
+        // }
 
-        // --- 2. Impossible d’atteindre la consigne (chauffage trop faible) ---
-        if (tsec < 0)
-        {
-            // On chauffe quand même, mais sans early-start
-            g_thermostat_runtime.effective_consigne = consigne_auto;
-            break;
-        }
+        // // --- 2. Impossible d’atteindre la consigne (chauffage trop faible) ---
+        // if (tsec < 0)
+        // {
+        //     // On chauffe quand même, mais sans early-start
+        //     g_thermostat_runtime.effective_consigne = consigne_auto;
+        //     break;
+        // }
 
-        // --- 3. Early-start : doit-on chauffer maintenant ? ---
-        if (start_ts > 0 && now >= start_ts)
-        {
-            // C’est le moment d’allumer pour atteindre la consigne à l’heure
-            g_thermostat_runtime.effective_consigne = consigne_auto;
-        }
-        else
-        {
-            // Pas encore l’heure → on laisse descendre légèrement
-            g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
-        }
+        // // --- 3. Early-start : doit-on chauffer maintenant ? ---
+        // if (start_ts > 0 && now >= start_ts)
+        // {
+        //     // C’est le moment d’allumer pour atteindre la consigne à l’heure
+        //     g_thermostat_runtime.effective_consigne = consigne_auto;
+        // }
+        // else
+        // {
+        //     // Pas encore l’heure → on laisse descendre légèrement
+        //     // g_thermostat_runtime.effective_consigne = consigne_auto - 0.2f;
+        //     g_thermostat_runtime.effective_consigne = consigne_auto ;
+        // }
 
+        g_thermostat_runtime.effective_consigne = consigne_auto;
         last_mode = THERMOSTAT_MODE_AUTO;
         break;
     }
@@ -412,15 +415,9 @@ void app_periodic_update(void)
     // Le modèle thermique est déjà mis à jour dans prediction_engine_tick()
     // Ici on ne fait que du monitoring / logging
 
-    thermal_state_t st;
-    thermal_2r2c_get_state(&st);
-
-    thermal_params_t prm;
-    thermal_2r2c_get_params(&prm);
-
-    ESP_LOGI("THERMO", "2R2C: Ta=%.2f Tm=%.2f", st.Ta, st.Tm);
+    ESP_LOGI("THERMO", "2R2C: Ta=%.2f Tm=%.2f", g_thermal_runtime.Ta, g_thermal_runtime.Tm);
     ESP_LOGI("THERMO", "Params: Ra=%.3f Rm=%.3f Ca=%.0f Cm=%.0f P=%.0f",
-             prm.Ra, prm.Rm, prm.Ca, prm.Cm, prm.P);
+             g_thermal_runtime.Ra, g_thermal_runtime.Rm, g_thermal_runtime.Ca, g_thermal_runtime.Cm, g_thermal_runtime.P);
 
     // Exemple : prédiction à 1h via simulation active
     float Tint_1h = thermal_2r2c_simulate_future(3600.0f, Text, heating_on);
@@ -429,30 +426,25 @@ void app_periodic_update(void)
 
 float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
 {
-    thermal_state_t st;
-    thermal_params_t prm;
+    float Ta = g_thermal_runtime.Ta;
+    float Tm = g_thermal_runtime.Tm;
 
-    thermal_2r2c_get_state(&st);
-    thermal_2r2c_get_params(&prm);
-
-    float Ta = st.Ta;
-    float Tm = st.Tm;
-
-    float Ra = prm.Ra;
-    float Rm = prm.Rm;
-    float Ca = prm.Ca;
-    float Cm = prm.Cm;
-    float P = prm.P;
+    float Ra = g_thermal_runtime.Ra;
+    float Rm = g_thermal_runtime.Rm;
+    float Ca = g_thermal_runtime.Ca;
+    float Cm = g_thermal_runtime.Cm;
+    float P  = g_thermal_runtime.P;
 
     float u = heating ? 1.0f : 0.0f;
 
-    // 🔥 On récupère le dt réel du modèle
-    float dt = thermal_2r2c_get_dt();
+    float dt = 0.5f;  // dt fin pour la simulation
     int steps = (int)(horizon_sec / dt);
 
     for (int i = 0; i < steps; i++)
     {
-        float dTa = ((Text - Ta) / (Ra * Ca)) + ((Tm - Ta) / (Rm * Ca)) + (u * P / Ca);
+        float dTa = ((Text - Ta) / (Ra * Ca))
+                  + ((Tm - Ta) / (Rm * Ca))
+                  + (u * P / Ca);
 
         float dTm = ((Ta - Tm) / (Rm * Cm));
 
@@ -462,3 +454,4 @@ float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
 
     return Ta;
 }
+
