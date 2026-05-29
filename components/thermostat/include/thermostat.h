@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
+#include "saison_manager.h"
 #include "esp_err.h"
 
 typedef enum
@@ -40,6 +40,7 @@ typedef struct
     float next_consigne;      // Prochaine consigne programmée (°C)
     int64_t next_consigne_ts; // Timestamp du prochain changement de consigne
     bool enable_2r2c;         // Enable le mode 2R2C
+    saison_t saison;          // Saison détectée
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */

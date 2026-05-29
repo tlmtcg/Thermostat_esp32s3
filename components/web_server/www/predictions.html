@@ -283,6 +283,15 @@
           <span id="status" class="value">--</span>
         </div>
 
+        <h3 class="section-title">Saison</h3>
+
+        <div class="line">
+          <span class="label">Saison</span>
+          <span id="saison" class="value-big">--</span>
+        </div>
+
+        <div class="line">
+
         <h3 class="section-title">Températures</h3>
         <div class="line">
           <span class="label">Ta (air)</span>
@@ -882,6 +891,20 @@
           // Températures
           document.getElementById("ta").textContent = data.Ta.toFixed(2);
           document.getElementById("tm").textContent = data.Tm.toFixed(2);
+
+          const saisonEl = document.getElementById("saison");
+          saisonEl.textContent = data.saison;
+
+          if (data.saison === "ete") {
+            saisonEl.style.color = "orange";
+            saisonEl.textContent = "☀️ été";
+          } else if (data.saison === "hiver") {
+            saisonEl.style.color = "blue";
+            saisonEl.textContent = "❄️ hiver";
+          } else {
+            saisonEl.style.color = "gray";
+            saisonEl.textContent = "🌤️ intersaison";
+          }
 
           // Thermique instantané
           document.getElementById("deltaT").textContent = (

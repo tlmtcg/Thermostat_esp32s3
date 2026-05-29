@@ -29,6 +29,7 @@ esp_err_t init_sd_card(const sd_card_config_t *config);
 // Fonctions utilitaires
 esp_err_t sd_write_file(const char *path, const char *data);
 esp_err_t sd_read_file(const char *path);
+char *sd_read_file_alloc(const char *path);
 esp_err_t sd_delete_file(const char *path);
 esp_err_t sd_rename_file(const char *old_path, const char *new_path);
 void sd_list_files(const char *dir_path);

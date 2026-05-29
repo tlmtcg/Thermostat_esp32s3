@@ -113,6 +113,46 @@ esp_err_t sd_read_file(const char *path)
     return ESP_OK;
 }
 
+char *sd_read_file_alloc(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+    {
+        ESP_LOGW("SD", "Impossible d'ouvrir %s", path);
+        return NULL;
+    }
+
+    // Aller à la fin pour connaître la taille
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (size <= 0)
+    {
+        fclose(f);
+        ESP_LOGW("SD", "Fichier vide : %s", path);
+        return NULL;
+    }
+
+    // Allocation du buffer (+1 pour le '\0')
+    char *buf = malloc(size + 1);
+    if (!buf)
+    {
+        fclose(f);
+        ESP_LOGE("SD", "malloc(%ld) a échoué", size + 1);
+        return NULL;
+    }
+
+    // Lecture du fichier
+    size_t read = fread(buf, 1, size, f);
+    fclose(f);
+
+    buf[read] = '\0'; // Terminaison string
+
+    ESP_LOGI("SD", "Lecture OK (%ld octets) depuis %s", size, path);
+    return buf;
+}
+
 esp_err_t sd_delete_file(const char *path)
 {
     ESP_LOGI(TAG, "Tentative de suppression de %s...", path);

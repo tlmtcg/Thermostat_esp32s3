@@ -73,6 +73,16 @@ typedef struct {
 
 } thermal_runtime_t;
 
+typedef struct {
+    float Ra;
+    float Rm;
+    float Ca;
+    float Cm;
+    float P;
+} thermal_model_t;
+
+extern thermal_model_t g_saved_model;
+
 extern thermal_runtime_t g_thermal_runtime;
 
 void prediction_engine_init(void);
