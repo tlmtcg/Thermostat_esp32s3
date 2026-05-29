@@ -1,0 +1,26 @@
+<div class="box">
+  <h2>Météo</h2>
+
+  <div class="line">
+    <span class="label">Ville</span>
+    <select id="city_select" onchange="selectCity()"></select>
+  </div>
+
+  <div class="line">
+    <span class="label">Ajouter une ville</span>
+    <input id="city_new" type="text" placeholder="Nom de la ville" />
+    <button onclick="addCity()">Ajouter</button>
+  </div>
+
+  <div class="line">
+    <span class="label">Latitude</span>
+    <input id="lat" type="number" step="0.0001" />
+  </div>
+
+  <div class="line">
+    <span class="label">Longitude</span>
+    <input id="lon" type="number" step="0.0001" />
+  </div>
+
+  <button onclick="updateWeather()">Mettre à jour la météo</button>
+</div>

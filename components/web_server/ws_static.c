@@ -58,7 +58,19 @@ extern const uint8_t history_html_start[] asm("_binary_history_html_start");
 extern const uint8_t history_html_end[] asm("_binary_history_html_end");
 extern const uint8_t config_html_start[] asm("_binary_config_html_start");
 extern const uint8_t config_html_end[] asm("_binary_config_html_end");
+extern const uint8_t config_meteo_html_start[] asm("_binary_config_meteo_html_start");
+extern const uint8_t config_meteo_html_end[] asm("_binary_config_meteo_html_end");
+extern const uint8_t config_thermo_html_start[] asm("_binary_config_thermo_html_start");
+extern const uint8_t config_thermo_html_end[] asm("_binary_config_thermo_html_end");
+extern const uint8_t config_sht31_html_start[] asm("_binary_config_sht31_html_start");
+extern const uint8_t config_sht31_html_end[] asm("_binary_config_sht31_html_end");
+extern const uint8_t config_jeedom_html_start[] asm("_binary_config_jeedom_html_start");
+extern const uint8_t config_jeedom_html_end[] asm("_binary_config_jeedom_html_end");
+extern const uint8_t config_js_start[] asm("_binary_config_js_start");
+extern const uint8_t config_js_end[] asm("_binary_config_js_end");
+
 /**
+ *
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
  * @param type Le type MIME (ex: text/html). Ajoute auto le charset UTF-8 pour le texte.
  */
@@ -209,6 +221,46 @@ static esp_err_t get_config(httpd_req_t *req)
     return send_embedded_file(req, config_html_start, config_html_end, "text/html");
 }
 
+static esp_err_t get_config_meteo(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              config_meteo_html_start,
+                              config_meteo_html_end,
+                              "text/html");
+}
+
+static esp_err_t get_config_thermo(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              config_thermo_html_start,
+                              config_thermo_html_end,
+                              "text/html");
+}
+
+static esp_err_t get_config_sht31(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              config_sht31_html_start,
+                              config_sht31_html_end,
+                              "text/html");
+}
+
+static esp_err_t get_config_jeedom(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              config_jeedom_html_start,
+                              config_jeedom_html_end,
+                              "text/html");
+}
+
+static esp_err_t get_config_js(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              config_js_start,
+                              config_js_end,
+                              "application/javascript");
+}
+
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -241,6 +293,11 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_predictions = {.uri = "/predictions", .method = HTTP_GET, .handler = get_predictions};
     httpd_uri_t uri_history = {.uri = "/history", .method = HTTP_GET, .handler = get_history};
     httpd_uri_t uri_config = {.uri = "/config", .method = HTTP_GET, .handler = get_config};
+    httpd_uri_t uri_config_meteo = {.uri = "/config_meteo.html", .method = HTTP_GET, .handler = get_config_meteo};
+    httpd_uri_t uri_config_thermo = {.uri = "/config_thermo.html", .method = HTTP_GET, .handler = get_config_thermo};
+    httpd_uri_t uri_config_sht31 = {.uri = "/config_sht31.html", .method = HTTP_GET, .handler = get_config_sht31};
+    httpd_uri_t uri_config_jeedom = {.uri = "/config_jeedom.html", .method = HTTP_GET, .handler = get_config_jeedom};
+    httpd_uri_t uri_config_js = {.uri = "/config.js", .method = HTTP_GET, .handler = get_config_js};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -267,6 +324,11 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_predictions);
     httpd_register_uri_handler(server, &uri_history);
     httpd_register_uri_handler(server, &uri_config);
+    httpd_register_uri_handler(server, &uri_config_meteo);
+    httpd_register_uri_handler(server, &uri_config_thermo);
+    httpd_register_uri_handler(server, &uri_config_sht31);
+    httpd_register_uri_handler(server, &uri_config_jeedom);
+    httpd_register_uri_handler(server, &uri_config_js);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;

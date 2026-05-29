@@ -87,4 +87,9 @@ idf_component_register(
         "www/ssd1306.html"
         "www/history.html"
         "www/config.html"
+        www/config_meteo.html
+        www/config_thermo.html
+        www/config_sht31.html
+        www/config_jeedom.html
+        www/config.js
 )

@@ -3,7 +3,7 @@ idf_component_register(
         "weather.c"
         "weather_task.c"
     INCLUDE_DIRS "include"
-    REQUIRES esp_http_client esp_netif cjson esp-tls alert_manager freertos thermostat
+    REQUIRES esp_http_client esp_netif cjson esp-tls alert_manager freertos thermostat config_runtime
     # Inclure le certificat dans le binaire
     EMBED_FILES "certs/isrgrootx1.pem"
 )

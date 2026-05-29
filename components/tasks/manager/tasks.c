@@ -313,36 +313,62 @@ cJSON *tasks_get_all_info_json(void)
         cJSON_AddBoolToObject(item, "active", (current_bits & my_tasks[i].event_bit) != 0);
         cJSON_AddNumberToObject(item, "delay_min", my_tasks[i].delay_ms / 60000);
 
-        // Récupération des données dynamiques réelles de FreeRTOS si la tâche est instanciée
-        if (my_tasks[i].pxTask != NULL)
+        // Vérification du handle FreeRTOS
+        TaskHandle_t h = my_tasks[i].pxTask;
+
+        if (h != NULL)
         {
-            vTaskGetInfo(my_tasks[i].pxTask, &details, pdTRUE, eInvalid);
+            // Vérifie que le handle est valide (évite les pointeurs morts)
+            eTaskState st = eTaskGetState(h);
 
-            cJSON_AddNumberToObject(item, "prio_curr", details.uxCurrentPriority);
-            cJSON_AddNumberToObject(item, "stack_min_ever", details.usStackHighWaterMark); // Pile restante (High Water Mark)
-
-            const char *st = "Inconnu";
-            switch (details.eCurrentState)
+            if (st != eDeleted && st != eInvalid)
             {
-            case eRunning:
-                st = "Running";
-                break;
-            case eReady:
-                st = "Ready";
-                break;
-            case eBlocked:
-                st = "Blocked";
-                break;
-            case eSuspended:
-                st = "Suspended";
-                break;
-            default:
-                break;
+                // Vérifie aussi que la pile est accessible (sécurité supplémentaire)
+                if (uxTaskGetStackHighWaterMark(h) != (UBaseType_t)-1)
+                {
+                    vTaskGetInfo(h, &details, pdTRUE, eInvalid);
+
+                    cJSON_AddNumberToObject(item, "prio_curr", details.uxCurrentPriority);
+                    cJSON_AddNumberToObject(item, "stack_min_ever", details.usStackHighWaterMark);
+
+                    const char *state_str = "Inconnu";
+                    switch (details.eCurrentState)
+                    {
+                    case eRunning:
+                        state_str = "Running";
+                        break;
+                    case eReady:
+                        state_str = "Ready";
+                        break;
+                    case eBlocked:
+                        state_str = "Blocked";
+                        break;
+                    case eSuspended:
+                        state_str = "Suspended";
+                        break;
+                    default:
+                        break;
+                    }
+                    cJSON_AddStringToObject(item, "state", state_str);
+                }
+                else
+                {
+                    cJSON_AddStringToObject(item, "state", "Invalid handle");
+                }
             }
-            cJSON_AddStringToObject(item, "state", st);
+            else
+            {
+                cJSON_AddStringToObject(item, "state", "Deleted");
+            }
         }
+        else
+        {
+            cJSON_AddStringToObject(item, "state", "Not created");
+        }
+
         cJSON_AddItemToArray(root, item);
     }
+
     return root;
 }
 

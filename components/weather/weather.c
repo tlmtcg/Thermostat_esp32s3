@@ -8,10 +8,12 @@
 #include "esp_crt_bundle.h"
 #include "alert_manager.h"
 #include "thermostat.h"
+#include "config_runtime.h"
+#include "weather_store.h"
 
 static const char *TAG = "WEATHER_SERVICE";
 static char *response_data = NULL;
-static int response_len = 0;
+static int weather_response_len = 0;
 #define MAX_HTTP_RECV_BUFFER 25600
 
 weather_data_t latest_weather;
@@ -26,19 +28,19 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     {
     case HTTP_EVENT_ON_DATA:
         // Allouer ou réallouer le buffer pour les nouvelles données
-        char *new_data = realloc(response_data, response_len + evt->data_len + 1);
+        char *new_data = realloc(response_data, weather_response_len + evt->data_len + 1);
         if (new_data == NULL)
         {
             ESP_LOGE(TAG, "Échec de l'allocation mémoire pour la réponse");
             free(response_data);
             response_data = NULL;
-            response_len = 0;
+            weather_response_len = 0;
             return ESP_FAIL;
         }
         response_data = new_data;
-        memcpy(response_data + response_len, evt->data, evt->data_len);
-        response_len += evt->data_len;
-        response_data[response_len] = '\0'; // Terminaison nulle
+        memcpy(response_data + weather_response_len, evt->data, evt->data_len);
+        weather_response_len += evt->data_len;
+        response_data[weather_response_len] = '\0'; // Terminaison nulle
         break;
     default:
         break;
@@ -53,7 +55,7 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     {
         free(response_data);
         response_data = NULL;
-        response_len = 0;
+        weather_response_len = 0;
     }
 
     // Configuration du client HTTP
@@ -90,7 +92,7 @@ esp_err_t http_get_to_buffer(const char *url, int timeout_ms)
     }
 
     // Vérifier que la réponse existe et n'est pas vide
-    if (response_data == NULL || response_len == 0)
+    if (response_data == NULL || weather_response_len == 0)
     {
         ESP_LOGE(TAG, "Aucune donnée reçue");
         alert_add("Absence METEO");
@@ -154,13 +156,17 @@ esp_err_t weather_update(weather_data_t *data)
     // hourly : mêmes données sur 48h
     // daily : météo sur 7 jours
     // URL optimisée pour un seul appel
-    const char *url =
-        "https://api.open-meteo.com/v1/forecast?"
-        "latitude=50.75&longitude=3.12"
-        "&current=temperature_2m,relative_humidity_2m,weather_code"
-        "&hourly=temperature_2m,relative_humidity_2m,weather_code&forecast_hours=48"
-        "&daily=weather_code,temperature_2m_max,relative_humidity_2m_max"
-        "&timezone=auto&timeformat=unixtime";
+    char url[512];
+
+    snprintf(url, sizeof(url),
+             "https://api.open-meteo.com/v1/forecast?"
+             "latitude=%.5f&longitude=%.5f"
+             "&current=temperature_2m,relative_humidity_2m,weather_code"
+             "&hourly=temperature_2m,relative_humidity_2m,weather_code&forecast_hours=48"
+             "&daily=weather_code,temperature_2m_max,relative_humidity_2m_max"
+             "&timezone=auto&timeformat=unixtime",
+             g_cfg.weather_lat,
+             g_cfg.weather_lon);
 
     // Appel de la fonction commune
     esp_err_t err = http_get_to_buffer(url, 20000);
@@ -274,7 +280,9 @@ esp_err_t weather_update(weather_data_t *data)
     cJSON_Delete(root);
     free(response_data);
     response_data = NULL;
-    response_len = 0;
+    weather_response_len = 0;
+
+    weather_store_set_all(data);
 
     return ESP_OK;
 }
@@ -302,7 +310,7 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
 
     free(response_data);
     response_data = NULL;
-    response_len = 0;
+    weather_response_len = 0;
 
     return ESP_OK;
 }
@@ -354,4 +362,77 @@ int weather_get_forecast_code(int hours)
     }
 
     return g_weather_data.forecast_48h_code[hours];
+}
+
+esp_err_t weather_geocode_city(const char *city, double *lat, double *lon)
+{
+    if (!city || !lat || !lon)
+        return ESP_ERR_INVALID_ARG;
+
+    char url[256];
+    snprintf(url, sizeof(url),
+             "https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=fr&format=json",
+             city);
+
+    esp_err_t err = http_get_to_buffer(url, 20000);
+    if (err != ESP_OK || response_data == NULL)
+    {
+        ESP_LOGE("WEATHER", "Erreur requête geocoding");
+        return ESP_FAIL;
+    }
+
+    // Parse JSON depuis response_data
+    cJSON *root = cJSON_Parse(response_data);
+    if (!root)
+    {
+        ESP_LOGE("WEATHER", "JSON geocoding invalide");
+        free(response_data);
+        response_data = NULL;
+        weather_response_len = 0;
+        return ESP_FAIL;
+    }
+
+    cJSON *results = cJSON_GetObjectItem(root, "results");
+    if (!cJSON_IsArray(results) || cJSON_GetArraySize(results) == 0)
+    {
+        cJSON_Delete(root);
+        free(response_data);
+        response_data = NULL;
+        weather_response_len = 0;
+        return ESP_FAIL;
+    }
+
+    cJSON *item = cJSON_GetArrayItem(results, 0);
+
+    *lat = cJSON_GetObjectItem(item, "latitude")->valuedouble;
+    *lon = cJSON_GetObjectItem(item, "longitude")->valuedouble;
+
+    cJSON_Delete(root);
+
+    // Libération du buffer HTTP
+    free(response_data);
+    response_data = NULL;
+    weather_response_len = 0;
+
+    return ESP_OK;
+}
+
+extern void weather_store_set_all(const weather_data_t *src);
+
+void weather_update_task(void *arg)
+{
+    weather_data_t tmp;
+    esp_err_t ret = weather_update(&tmp);
+
+    if (ret == ESP_OK)
+    {
+        weather_store_set_all(&tmp);
+        ESP_LOGI("WEATHER", "Mise à jour météo manuelle OK");
+    }
+    else
+    {
+        ESP_LOGE("WEATHER", "Échec mise à jour météo manuelle");
+    }
+
+    vTaskDelete(NULL);
 }

@@ -3,56 +3,62 @@
 #include "esp_err.h"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef struct {
-    long timestamp;
-    float temperature;
-    float humidity;
-    int weather_code;
-    float jee_temp;  
-} weather_entry_t;
+    typedef struct
+    {
+        long timestamp;
+        float temperature;
+        float humidity;
+        int weather_code;
+        float jee_temp;
+    } weather_entry_t;
 
-typedef struct {
-    weather_entry_t current;
-    weather_entry_t forecast_48h;
-    weather_entry_t forecast_7j[7];
+    typedef struct
+    {
+        weather_entry_t current;
+        weather_entry_t forecast_48h;
+        weather_entry_t forecast_7j[7];
 
-    float forecast_48h_temp[48];
-    float forecast_48h_hum[48];
-    int   forecast_48h_code[48];
-} weather_data_t;
+        float forecast_48h_temp[48];
+        float forecast_48h_hum[48];
+        int forecast_48h_code[48];
+    } weather_data_t;
 
+    /**
+     * @brief Retourne une description textuelle (avec emoji) pour un code météo Open‑Meteo.
+     *
+     * @param code Code météo (0, 1, 2, 3, 45, 48, 51, 53, 55, 61, 63, 65, 71, 73, 75, 80, 81, 82, 95, 96, 99)
+     * @return Chaîne statique décrivant le phénomène météo.
+     */
+    const char *get_weather_description(int code);
 
-/**
- * @brief Retourne une description textuelle (avec emoji) pour un code météo Open‑Meteo.
- *
- * @param code Code météo (0, 1, 2, 3, 45, 48, 51, 53, 55, 61, 63, 65, 71, 73, 75, 80, 81, 82, 95, 96, 99)
- * @return Chaîne statique décrivant le phénomène météo.
- */
-const char *get_weather_description(int code);
+    // Fonction commune
+    esp_err_t http_get_to_buffer(const char *url, int timeout_ms);
 
-// Fonction commune
-esp_err_t http_get_to_buffer(const char *url, int timeout_ms);
+    esp_err_t weather_update(weather_data_t *data);
 
-esp_err_t weather_update(weather_data_t *data);
+    esp_err_t jeedom_temp_update(weather_data_t *data);
 
-esp_err_t jeedom_temp_update(weather_data_t *data);
+    extern weather_data_t latest_weather;
 
-extern weather_data_t latest_weather;
+    float temperature_get_outdoor();
 
-float temperature_get_outdoor();
+    float weather_get_forecast_temp(int hours);
 
-float weather_get_forecast_temp(int hours);
+    float weather_get_forecast_humidity(int hours);
 
-float weather_get_forecast_humidity(int hours);
+    int weather_get_forecast_code(int hours);
 
-int weather_get_forecast_code(int hours);
+    int weather_get_current_code(void);
 
-int weather_get_current_code(void);
+    esp_err_t weather_geocode_city(const char *city, double *lat, double *lon);
 
-extern weather_data_t g_weather_data;
+    void weather_update_task(void *arg);
+
+    extern weather_data_t g_weather_data;
 
 #ifdef __cplusplus
 }
