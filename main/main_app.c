@@ -31,6 +31,7 @@
 #include "wifi_app.h"
 #include "prediction_engine.h"
 #include "thermal_engine.h"
+#include "config_runtime.h"
 
 static const char *TAG = "MAIN_APP";
 
@@ -62,6 +63,9 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_erase());
         ESP_ERROR_CHECK(nvs_flash_init());
     }
+
+    // --- Charger la config runtime (NVS) ---
+    config_runtime_load(); // 🔥 NOUVEAU : charge ville, lat/lon, thermostat, calibration, etc.
 
     check_ota_boot();
 

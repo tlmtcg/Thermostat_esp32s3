@@ -23,6 +23,8 @@ idf_component_register(
         "ws_api_ota.c"
         "ws_api_thermostat.c"
         "ws_api_prediction.c"
+        "ws_api_history.c"
+        "ws_api_config.c"
 
     INCLUDE_DIRS 
         "include"
@@ -48,6 +50,7 @@ idf_component_register(
         ssd1306
         thermostat
         prediction_engine
+        config_runtime
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -82,4 +85,6 @@ idf_component_register(
         "www/common.css"
         "www/index.js"
         "www/ssd1306.html"
+        "www/history.html"
+        "www/config.html"
 )

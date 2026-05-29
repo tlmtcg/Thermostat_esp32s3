@@ -15,19 +15,19 @@
 
 static const char *TAG = "OLED_SERVICE";
 
-#define OLED_I2C_ADDR         0x3C
-#define OLED_TASK_STACK_SIZE  4096
-#define OLED_TASK_PRIORITY    5
-#define OLED_TASK_DELAY_MS    500
+#define OLED_I2C_ADDR 0x3C
+#define OLED_TASK_STACK_SIZE 4096
+#define OLED_TASK_PRIORITY 5
+#define OLED_TASK_DELAY_MS 500
 #define OLED_LINE_BUFFER_SIZE 32
 #define OLED_PAGE_DURATION_MS 5000
 #define OLED_HISTORY_SAMPLE_MS 10000
-#define OLED_HEADER_HEIGHT    16
+#define OLED_HEADER_HEIGHT 16
 #define OLED_MAIN_SEPARATOR_Y 15
-#define OLED_GRAPH_TOP_Y      19
-#define OLED_GRAPH_BOTTOM_Y   63
-#define OLED_GRAPH_LEFT_X     16
-#define OLED_GRAPH_RIGHT_X    127
+#define OLED_GRAPH_TOP_Y 19
+#define OLED_GRAPH_BOTTOM_Y 63
+#define OLED_GRAPH_LEFT_X 16
+#define OLED_GRAPH_RIGHT_X 127
 
 static oled_graph_data_t graph_data = {0};
 static oled_page_t current_page = OLED_PAGE_MAIN;
@@ -40,7 +40,7 @@ static void oled_draw_error(const char *msg);
 static void oled_task(void *arg);
 static void draw_centered_string(uint8_t y, const char *str);
 static void history_add_temperature(float temp);
-static void maybe_sample_temperature_history(void);
+static void maybe_sample_history(void);
 static void draw_main_page(void);
 static void draw_history_page(void);
 static void draw_wifi_page(void);
@@ -64,13 +64,15 @@ static bool oled_is_ready(void)
 
 static void oled_draw_error(const char *msg)
 {
-    if (!oled_is_ready()) {
+    if (!oled_is_ready())
+    {
         return;
     }
 
     ssd1306_clear(&oled);
     ssd1306_draw_string(&oled, 0, 0, "ERROR");
-    if (msg) {
+    if (msg)
+    {
         ssd1306_draw_string(&oled, 0, 16, msg);
     }
     ssd1306_update(&oled);
@@ -78,17 +80,35 @@ static void oled_draw_error(const char *msg)
 
 static void draw_centered_string(uint8_t y, const char *str)
 {
-    if (!oled_is_ready() || str == NULL) {
+    if (!oled_is_ready() || str == NULL)
+    {
         return;
     }
 
     int len = (int)strlen(str);
     int x = (SSD1306_WIDTH - (len * 6)) / 2;
-    if (x < 0) {
+    if (x < 0)
+    {
         x = 0;
     }
 
     ssd1306_draw_string(&oled, (uint8_t)x, y, str);
+}
+
+void history_add_sample(float temp, float hum)
+{
+    memmove(&g_ctx.temp_history[0], &g_ctx.temp_history[1],
+            (HISTORY_SIZE - 1) * sizeof(float));
+
+    memmove(&g_ctx.hum_history[0], &g_ctx.hum_history[1],
+            (HISTORY_SIZE - 1) * sizeof(float));
+
+    memmove(&g_ctx.ts_history[0], &g_ctx.ts_history[1],
+            (HISTORY_SIZE - 1) * sizeof(uint64_t));
+
+    g_ctx.temp_history[HISTORY_SIZE - 1] = temp;
+    g_ctx.hum_history[HISTORY_SIZE - 1] = hum;
+    g_ctx.ts_history[HISTORY_SIZE - 1] = time_utils_get_timestamp();
 }
 
 static void history_add_temperature(float temp)
@@ -101,13 +121,26 @@ static void history_add_temperature(float temp)
     g_ctx.temp_history[HISTORY_SIZE - 1] = temp;
 }
 
-static void maybe_sample_temperature_history(void)
+static void history_add_humidity(float hum)
+{
+    memmove(
+        &g_ctx.hum_history[0],
+        &g_ctx.hum_history[1],
+        (HISTORY_SIZE - 1) * sizeof(float));
+
+    g_ctx.hum_history[HISTORY_SIZE - 1] = hum;
+}
+
+static void maybe_sample_history(void)
 {
     TickType_t now = xTaskGetTickCount();
 
     if (last_history_sample == 0 ||
-        (now - last_history_sample) >= pdMS_TO_TICKS(OLED_HISTORY_SAMPLE_MS)) {
+        (now - last_history_sample) >= pdMS_TO_TICKS(OLED_HISTORY_SAMPLE_MS))
+    {
         history_add_temperature(g_ctx.temperature);
+        history_add_humidity(g_ctx.humidity);
+
         last_history_sample = now;
     }
 }
@@ -116,7 +149,8 @@ void oled_service_add_temp_to_history(float temp)
 {
     graph_data.temp_history[graph_data.history_index] = temp;
     graph_data.history_index = (graph_data.history_index + 1) % TEMP_HISTORY_SIZE;
-    if (graph_data.history_index == 0) {
+    if (graph_data.history_index == 0)
+    {
         graph_data.history_full = true;
     }
 }
@@ -166,7 +200,8 @@ static void draw_wifi_page(void)
     draw_centered_string(4, "Etat WiFi");
     draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
 
-    if (!g_ctx.wifi_connected) {
+    if (!g_ctx.wifi_connected)
+    {
         draw_box(4, 22, 120, 18);
         draw_centered_string(28, "Deconnecte");
         return;
@@ -255,8 +290,10 @@ static void draw_alert_page(void)
     draw_centered_string(4, "Alertes");
     draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
 
-    for (int i = 0; i < count && shown < 4; i++) {
-        if (active_alerts[i].name[0] == '\0') {
+    for (int i = 0; i < count && shown < 4; i++)
+    {
+        if (active_alerts[i].name[0] == '\0')
+        {
             continue;
         }
 
@@ -274,7 +311,8 @@ static void draw_alert_page(void)
         shown++;
     }
 
-    if (shown == 0) {
+    if (shown == 0)
+    {
         draw_box(4, 26, 120, 16);
         draw_centered_string(31, "Aucune alarme");
     }
@@ -292,7 +330,8 @@ static void draw_vline(uint8_t x, uint8_t y1, uint8_t y2)
 
 static void draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
-    if (w < 2 || h < 2) {
+    if (w < 2 || h < 2)
+    {
         return;
     }
 
@@ -304,23 +343,28 @@ static void draw_box(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 
 static void draw_status_dot(uint8_t x, uint8_t y, bool enabled)
 {
-    for (int dy = 0; dy < 4; dy++) {
-        for (int dx = 0; dx < 4; dx++) {
+    for (int dy = 0; dy < 4; dy++)
+    {
+        for (int dx = 0; dx < 4; dx++)
+        {
             ssd1306_draw_pixel(&oled, x + dx, y + dy, enabled);
         }
     }
 
-    if (!enabled) {
+    if (!enabled)
+    {
         draw_box(x, y, 4, 4);
     }
 }
 
 static uint8_t clamp_u8_int(int value, int min_value, int max_value)
 {
-    if (value < min_value) {
+    if (value < min_value)
+    {
         return (uint8_t)min_value;
     }
-    if (value > max_value) {
+    if (value > max_value)
+    {
         return (uint8_t)max_value;
     }
     return (uint8_t)value;
@@ -328,40 +372,41 @@ static uint8_t clamp_u8_int(int value, int min_value, int max_value)
 
 static const char *weather_code_short_description(int code)
 {
-    switch (code) {
-        case 0:
-            return "Clair";
-        case 1:
-            return "Peu nuageux";
-        case 2:
-            return "Nuages";
-        case 3:
-            return "Couvert";
-        case 45:
-        case 48:
-            return "Brouillard";
-        case 51:
-        case 53:
-        case 55:
-            return "Bruine";
-        case 61:
-        case 63:
-        case 65:
-            return "Pluie";
-        case 71:
-        case 73:
-        case 75:
-            return "Neige";
-        case 80:
-        case 81:
-        case 82:
-            return "Averses";
-        case 95:
-        case 96:
-        case 99:
-            return "Orage";
-        default:
-            return "Inconnu";
+    switch (code)
+    {
+    case 0:
+        return "Clair";
+    case 1:
+        return "Peu nuageux";
+    case 2:
+        return "Nuages";
+    case 3:
+        return "Couvert";
+    case 45:
+    case 48:
+        return "Brouillard";
+    case 51:
+    case 53:
+    case 55:
+        return "Bruine";
+    case 61:
+    case 63:
+    case 65:
+        return "Pluie";
+    case 71:
+    case 73:
+    case 75:
+        return "Neige";
+    case 80:
+    case 81:
+    case 82:
+        return "Averses";
+    case 95:
+    case 96:
+    case 99:
+        return "Orage";
+    default:
+        return "Inconnu";
     }
 }
 
@@ -369,8 +414,10 @@ static size_t get_history_point_count(void)
 {
     size_t count = 0;
 
-    for (size_t i = 0; i < HISTORY_SIZE; i++) {
-        if (g_ctx.temp_history[i] > 0.0f) {
+    for (size_t i = 0; i < HISTORY_SIZE; i++)
+    {
+        if (g_ctx.temp_history[i] > 0.0f)
+        {
             count++;
         }
     }
@@ -385,35 +432,43 @@ static void history_stats(float *out_min, float *out_max, float *out_latest)
     float latest_temp = g_ctx.temperature;
     bool found = false;
 
-    for (size_t i = 0; i < HISTORY_SIZE; i++) {
+    for (size_t i = 0; i < HISTORY_SIZE; i++)
+    {
         float value = g_ctx.temp_history[i];
-        if (value <= 0.0f) {
+        if (value <= 0.0f)
+        {
             continue;
         }
 
-        if (!found) {
+        if (!found)
+        {
             min_temp = value;
             max_temp = value;
             found = true;
         }
 
-        if (value < min_temp) {
+        if (value < min_temp)
+        {
             min_temp = value;
         }
-        if (value > max_temp) {
+        if (value > max_temp)
+        {
             max_temp = value;
         }
 
         latest_temp = value;
     }
 
-    if (out_min) {
+    if (out_min)
+    {
         *out_min = min_temp;
     }
-    if (out_max) {
+    if (out_max)
+    {
         *out_max = max_temp;
     }
-    if (out_latest) {
+    if (out_latest)
+    {
         *out_latest = latest_temp;
     }
 }
@@ -426,7 +481,8 @@ static void draw_temp_graph_area(uint8_t origin_y)
     float latest = 0.0f;
     size_t point_count = get_history_point_count();
 
-    if (point_count < 2) {
+    if (point_count < 2)
+    {
         draw_centered_string(36, "Pas assez de donnees");
         return;
     }
@@ -435,7 +491,8 @@ static void draw_temp_graph_area(uint8_t origin_y)
 
     float scale_min = (float)((int)(raw_min - 1.0f));
     float scale_max = (float)((int)(raw_max + 2.0f));
-    if ((scale_max - scale_min) < 4.0f) {
+    if ((scale_max - scale_min) < 4.0f)
+    {
         float center = (raw_min + raw_max) * 0.5f;
         scale_min = center - 2.0f;
         scale_max = center + 2.0f;
@@ -459,7 +516,8 @@ static void draw_temp_graph_area(uint8_t origin_y)
     draw_box((uint8_t)graph_left, (uint8_t)graph_top, (uint8_t)(graph_width + 1), (uint8_t)(graph_height + 1));
     draw_hline((uint8_t)(graph_top + graph_height / 2), (uint8_t)graph_left, (uint8_t)graph_right);
 
-    for (int x = graph_left + 16; x < graph_right; x += 16) {
+    for (int x = graph_left + 16; x < graph_right; x += 16)
+    {
         draw_vline((uint8_t)x, (uint8_t)graph_top, (uint8_t)graph_bottom);
     }
 
@@ -467,14 +525,16 @@ static void draw_temp_graph_area(uint8_t origin_y)
     int prev_y = -1;
     size_t first_index = HISTORY_SIZE - point_count;
 
-    for (size_t i = 0; i < point_count; i++) {
+    for (size_t i = 0; i < point_count; i++)
+    {
         float value = g_ctx.temp_history[first_index + i];
         float normalized = (value - scale_min) / (scale_max - scale_min);
         int x = graph_left + (int)((i * graph_width) / (point_count - 1));
         int y = graph_bottom - (int)(normalized * graph_height);
         y = clamp_u8_int(y, graph_top, graph_bottom);
 
-        if (prev_x >= 0) {
+        if (prev_x >= 0)
+        {
             ssd1306_draw_line(&oled, (uint8_t)prev_x, (uint8_t)prev_y, (uint8_t)x, (uint8_t)y, 1);
         }
 
@@ -493,47 +553,52 @@ static void oled_task(void *arg)
 {
     (void)arg;
 
-    while (1) {
-        if (!oled_is_ready()) {
+    while (1)
+    {
+        if (!oled_is_ready())
+        {
             vTaskDelay(pdMS_TO_TICKS(OLED_TASK_DELAY_MS));
             continue;
         }
 
-        maybe_sample_temperature_history();
+        maybe_sample_history();
 
         TickType_t now = xTaskGetTickCount();
 
-        if ((now - last_switch) > pdMS_TO_TICKS(OLED_PAGE_DURATION_MS)) {
+        if ((now - last_switch) > pdMS_TO_TICKS(OLED_PAGE_DURATION_MS))
+        {
             current_page = (current_page + 1) % OLED_PAGE_COUNT;
             last_switch = now;
         }
 
         ssd1306_clear(&oled);
 
-        switch (current_page) {
-            case OLED_PAGE_MAIN:
-                draw_main_page();
-                break;
-            case OLED_PAGE_HISTORY:
-                draw_history_page();
-                break;
-            case OLED_PAGE_WIFI:
-                draw_wifi_page();
-                break;
-            case OLED_PAGE_TIME:
-                draw_time_page();
-                break;
-            case OLED_PAGE_WEATHER:
-                draw_weather_page();
-                break;
-            case OLED_PAGE_ALERTS:
-                draw_alert_page();
-                break;
-            default:
-                break;
+        switch (current_page)
+        {
+        case OLED_PAGE_MAIN:
+            draw_main_page();
+            break;
+        case OLED_PAGE_HISTORY:
+            draw_history_page();
+            break;
+        case OLED_PAGE_WIFI:
+            draw_wifi_page();
+            break;
+        case OLED_PAGE_TIME:
+            draw_time_page();
+            break;
+        case OLED_PAGE_WEATHER:
+            draw_weather_page();
+            break;
+        case OLED_PAGE_ALERTS:
+            draw_alert_page();
+            break;
+        default:
+            break;
         }
 
-        if (ssd1306_update(&oled) != ESP_OK) {
+        if (ssd1306_update(&oled) != ESP_OK)
+        {
             ESP_LOGE(TAG, "OLED update failed");
         }
 
@@ -548,14 +613,16 @@ esp_err_t oled_service_init(i2c_master_bus_handle_t bus)
     ESP_LOGI(TAG, "Initializing OLED...");
 
     esp_err_t err = ssd1306_init(&oled, bus, OLED_I2C_ADDR);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "ssd1306_init failed: %s", esp_err_to_name(err));
         return err;
     }
 
     graph_data.history_index = 0;
     graph_data.history_full = false;
-    for (uint8_t i = 0; i < TEMP_HISTORY_SIZE; i++) {
+    for (uint8_t i = 0; i < TEMP_HISTORY_SIZE; i++)
+    {
         graph_data.temp_history[i] = TEMP_MIN;
     }
 
@@ -565,12 +632,14 @@ esp_err_t oled_service_init(i2c_master_bus_handle_t bus)
 
 void oled_service_start(void)
 {
-    if (!oled_is_ready()) {
+    if (!oled_is_ready())
+    {
         ESP_LOGW(TAG, "OLED not initialized, skipping task start");
         return;
     }
 
-    if (display_task_handle != NULL) {
+    if (display_task_handle != NULL)
+    {
         ESP_LOGW(TAG, "OLED task already started");
         return;
     }
@@ -585,14 +654,16 @@ void oled_service_start(void)
         OLED_TASK_PRIORITY,
         &display_task_handle);
 
-    if (res != pdPASS) {
+    if (res != pdPASS)
+    {
         ESP_LOGE(TAG, "Failed to create OLED task");
     }
 }
 
 void oled_service_show_boot(void)
 {
-    if (!oled_is_ready()) {
+    if (!oled_is_ready())
+    {
         return;
     }
 
@@ -609,19 +680,23 @@ void oled_service_show_error(const char *msg)
 
 void oled_service_show_text(const char *line1, const char *line2, const char *line3)
 {
-    if (!oled_is_ready()) {
+    if (!oled_is_ready())
+    {
         return;
     }
 
     ssd1306_clear(&oled);
 
-    if (line1) {
+    if (line1)
+    {
         ssd1306_draw_string(&oled, 0, 0, line1);
     }
-    if (line2) {
+    if (line2)
+    {
         ssd1306_draw_string(&oled, 0, 16, line2);
     }
-    if (line3) {
+    if (line3)
+    {
         ssd1306_draw_string(&oled, 0, 32, line3);
     }
 
@@ -633,7 +708,8 @@ void oled_service_show_temp_hum(float temp, float hum)
     char line1[OLED_LINE_BUFFER_SIZE];
     char line2[OLED_LINE_BUFFER_SIZE];
 
-    if (!oled_is_ready()) {
+    if (!oled_is_ready())
+    {
         return;
     }
 

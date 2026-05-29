@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Historique Température & Humidité</title>
+
+    <style>
+      .chart-container {
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 6px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+
+      #historyChart {
+        width: 100%;
+        height: 350px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+        font-weight: bold;
+      }
+
+      button.secondary {
+        background-color: #444;
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Historique Température & Humidité</h1>
+
+    <div class="box">
+      <h2>Contrôles</h2>
+      <div class="controls">
+        <button onclick="fetchHistory()">Rafraîchir</button>
+        <button class="secondary" id="btn-auto" onclick="toggleAutoRefresh()">
+          Auto: ON
+        </button>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="line">
+        <span class="label">Dernier rafraîchissement</span>
+        <span id="status" class="value">--</span>
+      </div>
+
+      <div class="chart-container">
+        <canvas id="historyChart"></canvas>
+      </div>
+    </div>
+
+    <script>
+      let autoRefreshInterval = null;
+      let historyChart = null;
+
+      async function fetchHistory() {
+        try {
+          const response = await fetch("/api/history");
+          const data = await response.json();
+
+          document.getElementById("status").textContent =
+            new Date().toLocaleTimeString();
+
+          updateChart(data.temperature, data.humidity);
+        } catch (err) {
+          console.error("Erreur fetch:", err);
+        }
+      }
+
+      function initChart() {
+        const ctx = document.getElementById("historyChart");
+
+        const textColor = "#ccc";
+        const gridColor = "rgba(255,255,255,0.15)";
+
+        historyChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: Array.from({ length: 256 }, (_, i) => i),
+            datasets: [
+              {
+                label: "Température (°C)",
+                data: [],
+                borderColor: "#ff9800",
+                backgroundColor: "transparent",
+                tension: 0.2,
+              },
+              {
+                label: "Humidité (%)",
+                data: [],
+                borderColor: "#4fc3f7",
+                backgroundColor: "transparent",
+                tension: 0.2,
+                yAxisID: "y2",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            plugins: {
+              legend: {
+                labels: { color: textColor },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+              },
+              y: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+                title: { display: true, text: "Température", color: textColor },
+              },
+              y2: {
+                position: "right",
+                ticks: { color: "#4fc3f7" },
+                grid: { display: false },
+                title: { display: true, text: "Humidité", color: "#4fc3f7" },
+              },
+            },
+          },
+        });
+      }
+
+      function updateChart(temp, hum) {
+        if (!historyChart) return;
+
+        historyChart.data.datasets[0].data = temp;
+        historyChart.data.datasets[1].data = hum;
+
+        historyChart.update("none");
+      }
+
+      function toggleAutoRefresh() {
+        const btn = document.getElementById("btn-auto");
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          btn.textContent = "Auto: OFF";
+        } else {
+          autoRefreshInterval = setInterval(fetchHistory, 5000);
+          btn.textContent = "Auto: ON";
+        }
+      }
+
+      // Initialisation
+      initChart();
+      fetchHistory();
+      autoRefreshInterval = setInterval(fetchHistory, 5000);
+    </script>
+
+    <script src="index.js"></script>
+  </body>
+</html>

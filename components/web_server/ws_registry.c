@@ -23,6 +23,8 @@
 #include "ws_api_ota.h"
 #include "ws_api_thermostat.h"
 #include "ws_api_prediction.h"
+#include "ws_api_history.h"
+#include "ws_api_config.h"
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -50,17 +52,22 @@ static ws_register_fn_t registry[] = {
     ws_register_ota_api,
     ws_register_thermostat_api,
     ws_register_prediction_api,
-    ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
-};
+    ws_register_history_api,
+    ws_register_config_api;
+ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
+}
+;
 
 void ws_register_all(httpd_handle_t server)
 {
-    if (server == NULL) {
+    if (server == NULL)
+    {
         ESP_LOGE(TAG, "Handle serveur NULL : enregistrement impossible");
         return;
     }
 
-    if (is_web_registered) {
+    if (is_web_registered)
+    {
         ESP_LOGW(TAG, "Routes déjà présentes en mémoire. Blocage de la ré-inscription.");
         return;
     }
@@ -68,8 +75,10 @@ void ws_register_all(httpd_handle_t server)
     int module_count = sizeof(registry) / sizeof(registry[0]);
     ESP_LOGI(TAG, "Lancement de l'enregistrement de %d modules...", module_count);
 
-    for (int i = 0; i < module_count; i++) {
-        if (registry[i] != NULL) {
+    for (int i = 0; i < module_count; i++)
+    {
+        if (registry[i] != NULL)
+        {
             registry[i](server);
         }
     }

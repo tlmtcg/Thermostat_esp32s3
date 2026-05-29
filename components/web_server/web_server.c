@@ -22,6 +22,8 @@
 #include "ws_api_ota.h"
 #include "ws_api_thermostat.h"
 #include "ws_api_prediction.h"
+#include "ws_api_history.h"
+#include "ws_api_config.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -40,8 +42,10 @@ esp_err_t register_module(httpd_handle_t server,
     static const char *registered[32];
     static int count = 0;
 
-    for (int i = 0; i < count; i++) {
-        if (strcmp(registered[i], name) == 0) {
+    for (int i = 0; i < count; i++)
+    {
+        if (strcmp(registered[i], name) == 0)
+        {
             ESP_LOGW(TAG, "Module %s déjà enregistré", name);
             return ESP_OK;
         }
@@ -105,8 +109,10 @@ httpd_handle_t start_webserver(void)
     register_module(server, "sht31", ws_register_sht31_api);
     register_module(server, "ssd1306", ws_register_ssd1306_api);
     register_module(server, "ota", ws_register_ota_api);
-    register_module(server, "index",ws_register_index_api);
+    register_module(server, "index", ws_register_index_api);
     register_module(server, "prediction", ws_register_prediction_api);
+    register_module(server, "history", ws_register_history_api);
+    register_module(server, "config", ws_register_config_api);
 
     ESP_LOGI(TAG, "Serveur Web prêt.");
 

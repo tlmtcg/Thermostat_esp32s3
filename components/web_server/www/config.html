@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Configuration</title>
+    <link rel="stylesheet" href="common.css" />
+  </head>
+
+  <body>
+    <div id="navbar"></div>
+    <div class="container">
+      <h1>Configuration générale</h1>
+
+      <div class="section">
+        <h2>Météo</h2>
+        <label>Ville :</label>
+        <input id="city" type="text" />
+
+        <label>Latitude :</label>
+        <input id="lat" type="number" step="0.0001" />
+
+        <label>Longitude :</label>
+        <input id="lon" type="number" step="0.0001" />
+      </div>
+
+      <div class="section">
+        <h2>Thermostat</h2>
+        <label>Offset :</label>
+        <input id="th_offset" type="number" step="0.1" />
+
+        <label>Hystérésis :</label>
+        <input id="th_hyst" type="number" step="0.1" />
+
+        <label>Mode auto :</label>
+        <input id="th_auto" type="checkbox" />
+      </div>
+
+      <div class="section">
+        <h2>Capteur SHT31</h2>
+        <label>Calibration température :</label>
+        <input id="sht_tcal" type="number" step="0.1" />
+
+        <label>Calibration humidité :</label>
+        <input id="sht_hcal" type="number" step="0.1" />
+      </div>
+
+      <div class="section">
+        <h2>Jeedom</h2>
+        <label>Activer Jeedom :</label>
+        <input id="jee_en" type="checkbox" />
+
+        <label>ID équipement :</label>
+        <input id="jee_id" type="number" />
+      </div>
+
+      <button onclick="saveConfig()">💾 Sauvegarder</button>
+
+      <p id="status"></p>
+    </div>
+
+    <script>
+      function loadConfig() {
+        fetch("/api/config")
+          .then((r) => r.json())
+          .then((cfg) => {
+            // WEATHER
+            document.getElementById("city").value = cfg.weather.city;
+            document.getElementById("lat").value = cfg.weather.lat;
+            document.getElementById("lon").value = cfg.weather.lon;
+
+            // THERMOSTAT
+            document.getElementById("th_offset").value = cfg.thermostat.offset;
+            document.getElementById("th_hyst").value =
+              cfg.thermostat.hysteresis;
+            document.getElementById("th_auto").checked =
+              cfg.thermostat.auto_mode;
+
+            // SHT31
+            document.getElementById("sht_tcal").value = cfg.sht31.temp_cal;
+            document.getElementById("sht_hcal").value = cfg.sht31.hum_cal;
+
+            // JEEDOM
+            document.getElementById("jee_en").checked = cfg.jeedom.enabled;
+            document.getElementById("jee_id").value = cfg.jeedom.id;
+          })
+          .catch((err) => {
+            document.getElementById("status").innerText =
+              "Erreur chargement config";
+          });
+      }
+
+      function saveConfig() {
+        const payload = {
+          weather: {
+            city: document.getElementById("city").value,
+            lat: parseFloat(document.getElementById("lat").value),
+            lon: parseFloat(document.getElementById("lon").value),
+          },
+          thermostat: {
+            offset: parseFloat(document.getElementById("th_offset").value),
+            hysteresis: parseFloat(document.getElementById("th_hyst").value),
+            auto_mode: document.getElementById("th_auto").checked,
+          },
+          sht31: {
+            temp_cal: parseFloat(document.getElementById("sht_tcal").value),
+            hum_cal: parseFloat(document.getElementById("sht_hcal").value),
+          },
+          jeedom: {
+            enabled: document.getElementById("jee_en").checked,
+            id: parseInt(document.getElementById("jee_id").value),
+          },
+        };
+
+        fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+          .then((r) => r.json())
+          .then((resp) => {
+            document.getElementById("status").innerText =
+              "Configuration sauvegardée ✔";
+          })
+          .catch((err) => {
+            document.getElementById("status").innerText =
+              "Erreur sauvegarde ❌";
+          });
+      }
+
+      window.onload = loadConfig;
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

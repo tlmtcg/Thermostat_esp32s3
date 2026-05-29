@@ -10,6 +10,9 @@
       /* --- Variables locales complémentaires si absentes de common.css --- */
       :root {
         --blue: #3b82f6;
+        --green: #4caf50;
+        --orange: #ff9800;
+        --red: #f44336;
       }
 
       /* --- Typographies & Ajustements --- */
@@ -243,6 +246,43 @@
           margin-left: 0;
         }
       }
+      .matrix {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      .matrix th,
+      .matrix td {
+        border: 1px solid #333;
+        padding: 6px 8px;
+        text-align: center;
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: var(--text-main);
+      }
+
+      .matrix th {
+        background: #252525;
+        color: var(--text-main);
+      }
+
+      #expert-anomalies {
+        margin-top: 10px;
+        font-size: 0.9rem;
+      }
+
+      #expert-anomalies .ok {
+        color: var(--green);
+      }
+
+      #expert-anomalies .warn {
+        color: orange;
+      }
+
+      #expert-anomalies .error {
+        color: red;
+      }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -290,7 +330,7 @@
           <span id="saison" class="value-big">--</span>
         </div>
 
-        <div class="line">
+        <div class="line"></div>
 
         <h3 class="section-title">Températures</h3>
         <div class="line">
@@ -481,42 +521,94 @@
 
         <p style="font-size: 0.9rem; color: var(--text-dim)">
           Matrices calculées en temps réel par le Filtre de Kalman Étendu
-          (Modèle 2R2C d'ordre 2).
+          (Modèle 2R2C).
         </p>
 
-        <h3 class="section-title">Matrices brutes</h3>
-        <pre id="matrix-F">F: --</pre>
-        <pre id="matrix-P">P: --</pre>
-        <pre id="matrix-Q">Q: --</pre>
-        <pre id="matrix-H">H: --</pre>
-        <pre id="matrix-K">K: --</pre>
+        <!-- F -->
+        <h3 class="section-title">Matrice F (Jacobian)</h3>
+        <table class="matrix">
+          <tbody>
+            <tr>
+              <td id="F-0-0">--</td>
+              <td id="F-0-1">--</td>
+            </tr>
+            <tr>
+              <td id="F-1-0">--</td>
+              <td id="F-1-1">--</td>
+            </tr>
+          </tbody>
+        </table>
 
-        <h3 class="section-title">Matrice de Covariance P (Détail)</h3>
-        <table class="matrix" id="matrix-table">
+        <!-- P -->
+        <h3 class="section-title">Matrice de Covariance P</h3>
+        <table class="matrix">
           <thead>
             <tr>
-              <th>Indice</th>
-              <th>Ta (Air)</th>
-              <th>Tm (Murs)</th>
+              <th></th>
+              <th>Ta</th>
+              <th>Tm</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <th style="background: #252525; color: var(--text-main)">
-                Ta (Air)
-              </th>
-              <td id="p-0-0">--</td>
-              <td id="p-0-1">--</td>
+              <th>Ta</th>
+              <td id="P-0-0">--</td>
+              <td id="P-0-1">--</td>
             </tr>
             <tr>
-              <th style="background: #252525; color: var(--text-main)">
-                Tm (Murs)
-              </th>
-              <td id="p-1-0">--</td>
-              <td id="p-1-1">--</td>
+              <th>Tm</th>
+              <td id="P-1-0">--</td>
+              <td id="P-1-1">--</td>
             </tr>
           </tbody>
         </table>
+
+        <!-- Q -->
+        <h3 class="section-title">Matrice Q (bruit du modèle)</h3>
+        <table class="matrix">
+          <tbody>
+            <tr>
+              <td id="Q-0-0">--</td>
+              <td id="Q-0-1">--</td>
+            </tr>
+            <tr>
+              <td id="Q-1-0">--</td>
+              <td id="Q-1-1">--</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- H -->
+        <h3 class="section-title">Matrice H (Observation)</h3>
+        <table class="matrix">
+          <tbody>
+            <tr>
+              <td id="H-0-0">--</td>
+              <td id="H-0-1">--</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- K -->
+        <h3 class="section-title">Gain de Kalman K</h3>
+        <table class="matrix">
+          <tbody>
+            <tr>
+              <td id="K-0-0">--</td>
+            </tr>
+            <tr>
+              <td id="K-1-0">--</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Anomalies -->
+        <h3 class="section-title">Analyse EKF</h3>
+        <div id="expert-anomalies">--</div>
+
+        <!-- Graphique P -->
+        <h3 class="section-title">Évolution de la covariance P</h3>
+        <canvas id="chartEKF" height="120"></canvas>
       </div>
     </div>
 
@@ -578,6 +670,7 @@
 
     <script>
       let autoRefreshInterval = null;
+      let pChart = null;
 
       const hist = {
         time: [],
@@ -616,6 +709,61 @@
           .forEach((c) => c.classList.remove("active"));
         ev.target.classList.add("active");
         document.getElementById(id).classList.add("active");
+      }
+
+      let ekfChart = null;
+      function initEKFChart() {
+        const ctx = document.getElementById("chartEKF");
+        if (!ctx) return;
+
+        // Détruit un graphique existant si nécessaire
+        const existing = Chart.getChart("chartEKF");
+        if (existing) existing.destroy();
+
+        const textColor = "#ccc"; // visible sur fond sombre
+        const gridColor = "rgba(255,255,255,0.15)";
+
+        ekfChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "P00 (Ta)",
+                data: [],
+                borderColor: "#4caf50", // vert
+                backgroundColor: "transparent",
+                tension: 0.2,
+              },
+              {
+                label: "P11 (Tm)",
+                data: [],
+                borderColor: "#ff9800", // orange
+                backgroundColor: "transparent",
+                tension: 0.2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            animation: false,
+            plugins: {
+              legend: {
+                labels: { color: textColor },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+              },
+              y: {
+                ticks: { color: textColor },
+                grid: { color: gridColor },
+              },
+            },
+          },
+        });
       }
 
       function initCharts() {
@@ -749,6 +897,60 @@
         chartParams.update();
       }
 
+      function updateExpertMatrices(data) {
+        if (!data.matrix_P) return;
+
+        const F = JSON.parse(data.matrix_F);
+        const P = JSON.parse(data.matrix_P);
+        const Q = JSON.parse(data.matrix_Q);
+        const H = JSON.parse(data.matrix_H);
+        const K = JSON.parse(data.matrix_K);
+
+        updateMatrix("F", F);
+        updateMatrix("P", P);
+        updateMatrix("Q", Q);
+        updateMatrix("H", H);
+        updateMatrix("K", K, 4);
+
+        // Couleurs sur P (diagonale)
+        colorCell(document.getElementById("P-0-0"), P[0][0], {
+          green: 0.05,
+          orange: 0.5,
+        });
+        colorCell(document.getElementById("P-1-1"), P[1][1], {
+          green: 1.0,
+          orange: 10,
+        });
+
+        // Anomalies
+        const anomalies = detectAnomalies(P, K, F);
+        const box = document.getElementById("expert-anomalies");
+        if (box) {
+          if (!anomalies.length) {
+            box.innerHTML = '<span class="ok">✔️ EKF stable</span>';
+          } else {
+            box.innerHTML = anomalies
+              .map((a) => `<div class="warn">${a}</div>`)
+              .join("");
+          }
+        }
+
+        // Graphique P
+        if (ekfChart) {
+          const label = new Date().toLocaleTimeString();
+          ekfChart.data.labels.push(label);
+          ekfChart.data.datasets[0].data.push(P[0][0]);
+          ekfChart.data.datasets[1].data.push(P[1][1]);
+
+          if (ekfChart.data.labels.length > 100) {
+            ekfChart.data.labels.shift();
+            ekfChart.data.datasets.forEach((ds) => ds.data.shift());
+          }
+
+          ekfChart.update("none");
+        }
+      }
+
       function addHistory(data) {
         const t = new Date().toLocaleTimeString();
         hist.time.push(t);
@@ -840,40 +1042,6 @@
           data.P.toFixed(0);
       }
 
-      function updateExpertMode(data) {
-        if (data.matrix_F)
-          document.getElementById("matrix-F").textContent =
-            "F: " + data.matrix_F;
-        if (data.matrix_P)
-          document.getElementById("matrix-P").textContent =
-            "P: " + data.matrix_P;
-        if (data.matrix_Q)
-          document.getElementById("matrix-Q").textContent =
-            "Q: " + data.matrix_Q;
-        if (data.matrix_H)
-          document.getElementById("matrix-H").textContent =
-            "H: " + data.matrix_H;
-        if (data.matrix_K)
-          document.getElementById("matrix-K").textContent =
-            "K: " + data.matrix_K;
-
-        if (data.matrix_P) {
-          try {
-            const matrixP = JSON.parse(data.matrix_P);
-            document.getElementById("p-0-0").textContent =
-              matrixP[0][0].toFixed(4);
-            document.getElementById("p-0-1").textContent =
-              matrixP[0][1].toFixed(4);
-            document.getElementById("p-1-0").textContent =
-              matrixP[1][0].toFixed(4);
-            document.getElementById("p-1-1").textContent =
-              matrixP[1][1].toFixed(4);
-          } catch (e) {
-            console.error("Erreur parsing matrix_P:", e);
-          }
-        }
-      }
-
       async function fetchPrediction() {
         try {
           const response = await fetch("/api/predict/status");
@@ -955,9 +1123,11 @@
             document.getElementById("start_heating_at").textContent = "--";
           }
 
+          if (ekfChart === null) initEKFChart();
+          updateExpertMatrices(data);
+
           analyse(data);
           updateGauges(data);
-          updateExpertMode(data);
           addHistory(data);
           updateCharts();
 
@@ -1021,6 +1191,38 @@
           btn.style.borderColor = "var(--border)";
           btn.style.color = "var(--text)";
         }
+      }
+      function updateMatrix(prefix, matrix, digits = 4) {
+        for (let i = 0; i < matrix.length; i++) {
+          for (let j = 0; j < matrix[i].length; j++) {
+            const cell = document.getElementById(`${prefix}-${i}-${j}`);
+            if (cell) {
+              const v = matrix[i][j];
+              cell.textContent = isFinite(v) ? v.toFixed(digits) : "--";
+            }
+          }
+        }
+      }
+
+      function colorCell(cell, value, thresholds) {
+        if (!cell || !isFinite(value)) return;
+        if (value < thresholds.green) cell.style.color = "var(--green)";
+        else if (value < thresholds.orange) cell.style.color = "orange";
+        else cell.style.color = "red";
+      }
+
+      function detectAnomalies(P, K, F) {
+        const anomalies = [];
+
+        if (P[1][1] > 20) anomalies.push("⚠️ Incertitude Tm très élevée (P11)");
+        if (P[0][0] > 1) anomalies.push("⚠️ Incertitude Ta élevée (P00)");
+        if (K[0][0] > 1) anomalies.push("⚠️ Gain de Kalman K0 trop grand");
+        if (Math.abs(F[0][0] - 1) > 0.1)
+          anomalies.push("⚠️ F(0,0) s’éloigne de 1");
+        if (Math.abs(F[1][1] - 1) > 0.1)
+          anomalies.push("⚠️ F(1,1) s’éloigne de 1");
+
+        return anomalies;
       }
 
       initCharts();

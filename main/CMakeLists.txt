@@ -24,6 +24,7 @@ set(my_requires
     prediction_engine
     thermostat
     thermal_engine
+    config_runtime
 )
 
 # Enregistrement du composant principal

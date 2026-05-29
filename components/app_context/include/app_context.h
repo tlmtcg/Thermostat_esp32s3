@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define HISTORY_SIZE 128
 
@@ -12,6 +13,7 @@ typedef struct
 
     float temp_history[HISTORY_SIZE];
     float hum_history[HISTORY_SIZE];
+    uint64_t ts_history[HISTORY_SIZE];
 
     char wifi_ip[16];
 

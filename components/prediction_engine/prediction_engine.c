@@ -25,6 +25,7 @@ thermal_runtime_t g_thermal_runtime = {0};
 thermal_model_t g_saved_model = {0};
 
 static int64_t s_last_ekf_ts = 0;
+static int64_t last_save_ts = 0;
 
 // ======================================================
 // Variables internes pour l’apprentissage 2R2C
@@ -44,11 +45,16 @@ static float clamp(float v, float lo, float hi)
 
 bool model_changed_significantly(void)
 {
-    if (fabsf(g_thermal_runtime.Ra - g_saved_model.Ra) > g_saved_model.Ra * 0.05f) return true;
-    if (fabsf(g_thermal_runtime.Rm - g_saved_model.Rm) > g_saved_model.Rm * 0.05f) return true;
-    if (fabsf(g_thermal_runtime.Ca - g_saved_model.Ca) > g_saved_model.Ca * 0.10f) return true;
-    if (fabsf(g_thermal_runtime.Cm - g_saved_model.Cm) > g_saved_model.Cm * 0.10f) return true;
-    if (fabsf(g_thermal_runtime.P  - g_saved_model.P ) > g_saved_model.P  * 0.05f) return true;
+    if (fabsf(g_thermal_runtime.Ra - g_saved_model.Ra) > g_saved_model.Ra * 0.05f)
+        return true;
+    if (fabsf(g_thermal_runtime.Rm - g_saved_model.Rm) > g_saved_model.Rm * 0.05f)
+        return true;
+    if (fabsf(g_thermal_runtime.Ca - g_saved_model.Ca) > g_saved_model.Ca * 0.10f)
+        return true;
+    if (fabsf(g_thermal_runtime.Cm - g_saved_model.Cm) > g_saved_model.Cm * 0.10f)
+        return true;
+    if (fabsf(g_thermal_runtime.P - g_saved_model.P) > g_saved_model.P * 0.05f)
+        return true;
 
     return false;
 }
@@ -59,6 +65,34 @@ static void thermal_learn_step(float Tint_prev,
                                float u,
                                float dt)
 {
+    int64_t now = time_utils_get_timestamp();
+    // Sauvegarde périodique (toutes les 6h)
+    if (now - last_save_ts > 6 * 3600)
+    {
+        saison_save_profile();
+
+        g_saved_model.Ca = g_thermal_runtime.Ca;
+        g_saved_model.Cm = g_thermal_runtime.Cm;
+        g_saved_model.P = g_thermal_runtime.P;
+        g_saved_model.Ra = g_thermal_runtime.Ra;
+        g_saved_model.Rm = g_thermal_runtime.Rm;
+
+        last_save_ts = now;
+    }
+
+    // Sauvegarde si le modèle change vraiment
+    if (model_changed_significantly())
+    {
+        saison_save_profile();
+
+        g_saved_model.Ca = g_thermal_runtime.Ca;
+        g_saved_model.Cm = g_thermal_runtime.Cm;
+        g_saved_model.P = g_thermal_runtime.P;
+        g_saved_model.Ra = g_thermal_runtime.Ra;
+        g_saved_model.Rm = g_thermal_runtime.Rm;
+
+        last_save_ts = now;
+    }
     // ============================================================
     // 0) Raccourcis vers le runtime (source unique de vérité)
     // ============================================================

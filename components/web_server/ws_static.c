@@ -47,14 +47,17 @@ extern const uint8_t tasks_html_end[] asm("_binary_tasks_html_end");
 extern const uint8_t i2c_html_start[] asm("_binary_i2c_html_start");
 extern const uint8_t i2c_html_end[] asm("_binary_i2c_html_end");
 extern const uint8_t sht31_html_start[] asm("_binary_sht31_html_start");
-extern const uint8_t sht31_html_end[]   asm("_binary_sht31_html_end");
+extern const uint8_t sht31_html_end[] asm("_binary_sht31_html_end");
 extern const uint8_t ssd1306_html_start[] asm("_binary_ssd1306_html_start");
-extern const uint8_t ssd1306_html_end[]   asm("_binary_ssd1306_html_end");
+extern const uint8_t ssd1306_html_end[] asm("_binary_ssd1306_html_end");
 extern const uint8_t ota_html_start[] asm("_binary_ota_html_start");
-extern const uint8_t ota_html_end[]   asm("_binary_ota_html_end");
+extern const uint8_t ota_html_end[] asm("_binary_ota_html_end");
 extern const uint8_t predictions_html_start[] asm("_binary_predictions_html_start");
-extern const uint8_t predictions_html_end[]   asm("_binary_predictions_html_end");
-
+extern const uint8_t predictions_html_end[] asm("_binary_predictions_html_end");
+extern const uint8_t history_html_start[] asm("_binary_history_html_start");
+extern const uint8_t history_html_end[] asm("_binary_history_html_end");
+extern const uint8_t config_html_start[] asm("_binary_config_html_start");
+extern const uint8_t config_html_end[] asm("_binary_config_html_end");
 /**
  * @brief Fonction générique pour envoyer un fichier stocké en Flash.
  * @param type Le type MIME (ex: text/html). Ajoute auto le charset UTF-8 pour le texte.
@@ -196,6 +199,16 @@ static esp_err_t get_predictions(httpd_req_t *req)
     return send_embedded_file(req, predictions_html_start, predictions_html_end, "text/html");
 }
 
+static esp_err_t get_history(httpd_req_t *req)
+{
+    return send_embedded_file(req, history_html_start, history_html_end, "text/html");
+}
+
+static esp_err_t get_config(httpd_req_t *req)
+{
+    return send_embedded_file(req, config_html_start, config_html_end, "text/html");
+}
+
 /**
  * 3. ENREGISTREMENT DES ROUTES
  * C'est ici qu'on associe une URL (ex: /sys) à un Handler (ex: get_sys).
@@ -226,6 +239,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_ssd1306 = {.uri = "/ssd1306", .method = HTTP_GET, .handler = get_ssd1306};
     httpd_uri_t uri_ota = {.uri = "/ota", .method = HTTP_GET, .handler = get_ota};
     httpd_uri_t uri_predictions = {.uri = "/predictions", .method = HTTP_GET, .handler = get_predictions};
+    httpd_uri_t uri_history = {.uri = "/history", .method = HTTP_GET, .handler = get_history};
+    httpd_uri_t uri_config = {.uri = "/config", .method = HTTP_GET, .handler = get_config};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -250,6 +265,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_ssd1306);
     httpd_register_uri_handler(server, &uri_ota);
     httpd_register_uri_handler(server, &uri_predictions);
+    httpd_register_uri_handler(server, &uri_history);
+    httpd_register_uri_handler(server, &uri_config);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;
