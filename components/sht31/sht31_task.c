@@ -84,7 +84,7 @@ void sht31_task(void *pvParameters)
                              "%s,%.2f,%.2f\n",
                              time_str, temperature, humidity);
 
-                    if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer) != ESP_OK)
+                    if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer,"a") != ESP_OK)
                     {
                         ESP_LOGE(TAG, "Erreur ecriture log SHT31");
                     }

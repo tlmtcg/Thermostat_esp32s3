@@ -319,3 +319,77 @@ esp_err_t freebox_ftp_config(const freebox_ftp_config_t *config)
 
 esp_err_t freebox_ftp_init(void) { return ESP_OK; }
 void freebox_ftp_deinit(void) {}
+
+/**
+ * @brief Modifie un fichier (Download -> Callback de modification -> Upload).
+ * @param filename Nom du fichier à éditer.
+ * @param edit_callback Fonction prenant le buffer et sa taille pour modification.
+ */
+esp_err_t freebox_ftp_edit(const char *filename, void (*edit_callback)(char *buffer, size_t *len))
+{
+    // Sécurité sur les arguments
+    if (!filename || !edit_callback)
+    {
+        ESP_LOGE(TAG, "Arguments invalides pour freebox_ftp_edit");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // CORRECTION : Augmentation du buffer à 64KB pour éviter la saturation du CSV quotidien
+    size_t buffer_size = 65536; 
+    char *work_buffer = calloc(1, buffer_size);
+    if (!work_buffer)
+    {
+        ESP_LOGE(TAG, "Mémoire insuffisante pour allouer le buffer de travail FTP");
+        return ESP_ERR_NO_MEM;
+    }
+
+    size_t bytes_read = 0;
+    ESP_LOGI(TAG, "Édition du fichier '%s' : Étape 1/3 (Téléchargement)...", filename);
+
+    // 1. Téléchargement du fichier distant dans notre buffer de travail
+    esp_err_t err = freebox_ftp_download(filename, work_buffer, buffer_size, &bytes_read);
+    
+    if (err != ESP_OK)
+    {
+        /* * CORRECTION CRITIQUE : Interception du cas "Fichier inexistant" (Erreur FTP 550).
+         * Si le fichier n'existe pas sur la Freebox (par exemple le premier envoi de la journée),
+         * freebox_ftp_download renvoie une erreur mais bytes_read reste à 0.
+         * Ce n'est pas un problème critique, on décide donc de tolérer cette erreur pour créer le fichier.
+         */
+        if (bytes_read == 0) 
+        {
+            ESP_LOGW(TAG, "Le fichier '%s' n'existe pas encore sur la Freebox. Il sera initialisé.", filename);
+            err = ESP_OK; // On efface l'erreur pour autoriser la suite du traitement
+        }
+        else 
+        {
+            // C'est une vraie erreur (Ex: coupure Wi-Fi, serveur déconnecté...) -> On quitte
+            ESP_LOGE(TAG, "Échec critique du téléchargement du fichier pour modification (Code: %d)", err);
+            free(work_buffer);
+            return err;
+        }
+    }
+
+    ESP_LOGI(TAG, "Fichier prêt en RAM (%d octets). Étape 2/3 (Modification)...", bytes_read);
+
+    // 2. Appel du callback utilisateur pour modifier ou initialiser le contenu du buffer
+    // Si bytes_read valait 0, le callback sait qu'il doit générer l'en-tête "Timestamp;Temperature..."
+    edit_callback(work_buffer, &bytes_read);
+
+    ESP_LOGI(TAG, "Modification appliquée (Nouvelle taille : %d octets). Étape 3/3 (Téléversement)...", bytes_read);
+
+    // 3. Renvoi du buffer modifié vers le serveur FTP (Crée ou écrase le fichier via la commande STOR)
+    err = freebox_ftp_upload(filename, work_buffer, bytes_read);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "❌ Échec du téléversement du fichier modifié");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "✅ Fichier '%s' mis à jour et sauvegardé sur la Freebox !", filename);
+    }
+
+    // Libération de la mémoire de travail
+    free(work_buffer);
+    return err;
+}

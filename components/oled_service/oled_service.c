@@ -39,7 +39,7 @@ static bool oled_is_ready(void);
 static void oled_draw_error(const char *msg);
 static void oled_task(void *arg);
 static void draw_centered_string(uint8_t y, const char *str);
-static void history_add_temperature(float temp);
+
 static void maybe_sample_history(void);
 static void draw_main_page(void);
 static void draw_history_page(void);
@@ -111,26 +111,6 @@ void history_add_sample(float temp, float hum)
     g_ctx.ts_history[HISTORY_SIZE - 1] = time_utils_get_timestamp();
 }
 
-static void history_add_temperature(float temp)
-{
-    memmove(
-        &g_ctx.temp_history[0],
-        &g_ctx.temp_history[1],
-        (HISTORY_SIZE - 1) * sizeof(float));
-
-    g_ctx.temp_history[HISTORY_SIZE - 1] = temp;
-}
-
-static void history_add_humidity(float hum)
-{
-    memmove(
-        &g_ctx.hum_history[0],
-        &g_ctx.hum_history[1],
-        (HISTORY_SIZE - 1) * sizeof(float));
-
-    g_ctx.hum_history[HISTORY_SIZE - 1] = hum;
-}
-
 static void maybe_sample_history(void)
 {
     TickType_t now = xTaskGetTickCount();
@@ -138,9 +118,7 @@ static void maybe_sample_history(void)
     if (last_history_sample == 0 ||
         (now - last_history_sample) >= pdMS_TO_TICKS(OLED_HISTORY_SAMPLE_MS))
     {
-        history_add_temperature(g_ctx.temperature);
-        history_add_humidity(g_ctx.humidity);
-
+        history_add_sample(g_ctx.temperature,g_ctx.humidity);
         last_history_sample = now;
     }
 }

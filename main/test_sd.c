@@ -11,7 +11,7 @@ void test_sd_card(void) {
     const char* new_path = MOUNT_POINT"/old_config.txt";
 
     // 2. Écrire
-    sd_write_file(file_path, "Temperature: 22.5\nStatus: OK");
+    sd_write_file(file_path, "Temperature: 22.5\nStatus: OK","a");
 
     // 3. Lire
     sd_read_file(file_path);

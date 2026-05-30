@@ -18,6 +18,7 @@ void led_task(void *pvParameters);
 void alert_storage_task(void *pvParameters);
 void serial_task(void *pvParameters);
 void thermostat_task(void *pvParameter);
+void freebox_history_sync_task(void *pvParameters);
 
 void task_registry_set_event_group(EventGroupHandle_t event_group);
 

@@ -74,15 +74,28 @@ esp_err_t init_sd_card(const sd_card_config_t *config) {
 /* =========================================================
    OPÉRATIONS SUR LES FICHIERS
    ========================================================= */
-esp_err_t sd_write_file(const char *path, const char *data)
+/**
+ * @brief Écrit des données dans un fichier sur la carte SD.
+ * * @param path Chemin complet du fichier (ex: "/sdcard/model.json")
+ * @param data Chaîne de caractères à écrire
+ * @param mode Mode d'ouverture ("w" pour écraser, "a" pour ajouter). Si NULL, "a" est utilisé par défaut.
+ * @return esp_err_t ESP_OK en cas de succès
+ */
+esp_err_t sd_write_file(const char *path, const char *data, const char *mode)
 {
-    ESP_LOGI(TAG, "Ouverture de %s en écriture...", path);
-    FILE *f = fopen(path, "a");
+    // Si aucun mode n'est spécifié, on applique le mode "a" (Append) par défaut
+    const char *actual_mode = (mode != NULL) ? mode : "a";
+
+    ESP_LOGI(TAG, "Ouverture de %s (Mode: %s)...", path, actual_mode);
+    
+    FILE *f = fopen(path, actual_mode);
     if (f == NULL)
     {
         ESP_LOGE(TAG, "Impossible d'ouvrir le fichier %s (%s)", path, strerror(errno));
         return ESP_FAIL;
     }
+
+    // Écriture des données
     int bytes_written = fprintf(f, "%s", data);
     if (bytes_written < 0)
     {
@@ -90,6 +103,7 @@ esp_err_t sd_write_file(const char *path, const char *data)
         fclose(f);
         return ESP_FAIL;
     }
+
     fclose(f);
     ESP_LOGI(TAG, "Écriture réussie (%d octets).", bytes_written);
     return ESP_OK;

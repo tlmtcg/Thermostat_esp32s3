@@ -56,7 +56,7 @@ void alert_storage_task(void *arg)
             ESP_LOGI(TAG, "Réception message SD : %s", msg.line);
             ESP_LOGI(TAG, "Écriture dans : %s", log_path);
 
-            esp_err_t err = sd_write_file(log_path, msg.line);
+            esp_err_t err = sd_write_file(log_path, msg.line,"a");
             if (err != ESP_OK)
             {
                 alert_add("Erreur ECRITURE SD");

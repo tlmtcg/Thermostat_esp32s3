@@ -289,6 +289,7 @@ esp_err_t weather_update(weather_data_t *data)
 
 esp_err_t jeedom_temp_update(weather_data_t *data)
 {
+    ESP_LOGI(TAG, "jeedom_temp_update");
     if (!data)
         return ESP_ERR_INVALID_ARG;
 
@@ -303,6 +304,13 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
         return err;
     }
 
+    // Sécurité au cas où le buffer de réponse est NULL ou vide
+    if (response_data == NULL || strlen(response_data) == 0)
+    {
+        ESP_LOGW(TAG, "Reponse Jeedom vide ou NULL");
+        return ESP_FAIL;
+    }
+
     // Conversion de la réponse texte ("8.4") en float
     ESP_LOGI(TAG, "Réponse brute Jeedom : '%s'", response_data);
     data->current.jee_temp = atof(response_data);
@@ -311,6 +319,9 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
     free(response_data);
     response_data = NULL;
     weather_response_len = 0;
+
+    // Mettre à jour le store global ici aussi pour ne pas perdre la valeur
+    weather_store_set_all(data);
 
     return ESP_OK;
 }
@@ -419,7 +430,7 @@ esp_err_t weather_geocode_city(const char *city, double *lat, double *lon)
 
 extern void weather_store_set_all(const weather_data_t *src);
 
-void weather_update_task(void *arg)
+void weather_update_task_manually(void *arg)
 {
     weather_data_t tmp;
     esp_err_t ret = weather_update(&tmp);

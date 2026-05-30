@@ -19,4 +19,5 @@ idf_component_register(
         dht
         prediction_engine
         thermal_engine
+        freebox_report
 )

@@ -1,0 +1,12 @@
+idf_component_register(
+    SRCS 
+        "freebox_report.c"
+    INCLUDE_DIRS 
+        "include"                
+    REQUIRES
+        app_context
+        freebox_ftp    
+        cjson
+        log 
+        tasks    
+)

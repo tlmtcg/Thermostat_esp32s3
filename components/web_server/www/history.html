@@ -106,6 +106,9 @@
                 borderColor: "#ff9800",
                 backgroundColor: "transparent",
                 tension: 0.2,
+                pointRadius: 0,       // Masque également les gros points de la courbe d'humidité
+                pointHoverRadius: 4,
+                borderWidth: 2,
               },
               {
                 label: "Humidité (%)",
@@ -114,6 +117,9 @@
                 backgroundColor: "transparent",
                 tension: 0.2,
                 yAxisID: "y2",
+                pointRadius: 0,       // Masque également les gros points de la courbe d'humidité
+                pointHoverRadius: 4,
+                borderWidth: 2,
               },
             ],
           },
@@ -134,12 +140,19 @@
                 ticks: { color: textColor },
                 grid: { color: gridColor },
                 title: { display: true, text: "Température", color: textColor },
+                grace: '10%', // Ajoute 10% de marge en haut et en bas des valeurs max/min réelles
+                suggestedMin: 15, // Empêche l'échelle de descendre trop bas si le capteur est stable
+                suggestedMax: 25, // Empêche l'échelle de trop zoomer si la température ne bouge pas
               },
               y2: {
                 position: "right",
                 ticks: { color: "#4fc3f7" },
                 grid: { display: false },
                 title: { display: true, text: "Humidité", color: "#4fc3f7" },
+                // Stabiliser l'échelle de l'humidité
+                grace: '5%',
+                suggestedMin: 30,
+                suggestedMax: 70,
               },
             },
           },

@@ -26,5 +26,11 @@ menu "Freebox FTP Configuration"
             help
                 Le dossier sur la Freebox où les fichiers seront stockés.
 
+        config BIT_FTP_SYNC_EN
+            bool "Enable Freebox FTP History Sync Task"
+            default y
+            help
+                Permet d'activer ou de désactiver la tâche de synchronisation de l'historique des températures vers la Freebox au démarrage.
+
 
     endmenu

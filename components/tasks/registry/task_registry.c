@@ -8,6 +8,8 @@
 #include "dht_task.h"
 #include "driver/gpio.h"
 #include "dht.h"
+#include "app_context.h"
+#include <thermostat.h>
 
 task_info_t my_tasks[] = {
     {"Meteo", "weather", 8192, 5, BIT_WEATHER_EN, NULL, 15 * 60 * 1000},
@@ -18,7 +20,8 @@ task_info_t my_tasks[] = {
     {"Serial", "serial", 4096, 5, BIT_SERIAL_EN, NULL, 0},
     {"SHT31", "sht31", 4096, 5, BIT_SHT31_EN, NULL, 0},
     {"Thermostat","thermostat",4096, 5, BIT_THERMO_EN, NULL, 10000},
-    {"DHT",        "dht",        4096, 5,  BIT_DHT_EN,     NULL, 2000}
+    {"DHT",        "dht",        4096, 5,  BIT_DHT_EN,     NULL, 2000},
+    {"Freebox FTP", "ftp_sync",  4096, 3,  BIT_FTP_SYNC_EN, NULL, 10 * 60 * 1000}
 };
 
 const int TASK_COUNT = sizeof(my_tasks) / sizeof(task_info_t);
@@ -65,7 +68,8 @@ task_registry_entry_t task_registry[] = {
     {&my_tasks[5], serial_task, NULL},
     {&my_tasks[6], sht31_task, &sht31_task_config},
     {&my_tasks[7], thermostat_task, NULL},
-    {&my_tasks[8], dht_task, (void *)&dht_task_config}
+    {&my_tasks[8], dht_task, (void *)&dht_task_config},
+    {&my_tasks[9], freebox_history_sync_task, &g_thermostat_runtime}
 };
 
 const int TASK_REGISTRY_COUNT = sizeof(task_registry) / sizeof(task_registry_entry_t);

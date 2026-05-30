@@ -50,6 +50,8 @@ static void tasks_apply_kconfig(void)
         xEventGroupSetBits(s_task_event_group, BIT_LED_EN);
     if (CONFIG_BIT_SERIAL_EN)
         xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
+    if (CONFIG_BIT_FTP_SYNC_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_FTP_SYNC_EN);
 
     // SÉCURITÉ MATÉRIELLE : On force l'activation des tâches indispensables
     // pour garantir leur fonctionnement, même en mode dégradé (ex: panne SD)
@@ -292,6 +294,7 @@ void tasks_set_active(uint32_t bit, bool active)
  */
 cJSON *tasks_get_all_info_json(void)
 {
+    // Sécurité : Vérifier que le groupe d'événements est initialisé
     if (s_task_event_group == NULL)
     {
         ESP_LOGW(TAG, "Tentative d'acces aux taches avant initialisation");
@@ -306,66 +309,72 @@ cJSON *tasks_get_all_info_json(void)
         cJSON *item = cJSON_CreateObject();
         TaskStatus_t details;
 
-        // Propriétés statiques de configuration
+        // Propriétés statiques de configuration du tableau 'my_tasks'
         cJSON_AddStringToObject(item, "name", my_tasks[i].pcName);
         cJSON_AddStringToObject(item, "key", my_tasks[i].key);
         cJSON_AddNumberToObject(item, "stack_cfg", my_tasks[i].usStackDepth);
         cJSON_AddBoolToObject(item, "active", (current_bits & my_tasks[i].event_bit) != 0);
         cJSON_AddNumberToObject(item, "delay_min", my_tasks[i].delay_ms / 60000);
 
-        // Vérification du handle FreeRTOS
+        // Récupération du Handle FreeRTOS stocké
         TaskHandle_t h = my_tasks[i].pxTask;
 
         if (h != NULL)
         {
-            // Vérifie que le handle est valide (évite les pointeurs morts)
+            // Étape 1 : Récupération de l'état système du Handle de manière isolée
             eTaskState st = eTaskGetState(h);
 
             if (st != eDeleted && st != eInvalid)
             {
-                // Vérifie aussi que la pile est accessible (sécurité supplémentaire)
-                if (uxTaskGetStackHighWaterMark(h) != (UBaseType_t)-1)
-                {
-                    vTaskGetInfo(h, &details, pdTRUE, eInvalid);
+                // CORRECTION CRUCIALE : On passe 'pdFALSE' pour interdire le calcul dynamique de la stack 
+                // par FreeRTOS, évitant ainsi le saut mémoire fatal (LoadProhibited)
+                vTaskGetInfo(h, &details, pdFALSE, eInvalid);
 
-                    cJSON_AddNumberToObject(item, "prio_curr", details.uxCurrentPriority);
-                    cJSON_AddNumberToObject(item, "stack_min_ever", details.usStackHighWaterMark);
+                // Ajout des données dynamiques basiques lues de manière sécurisée
+                cJSON_AddNumberToObject(item, "prio_curr", details.uxCurrentPriority);
+                
+                // On met 0 ou une valeur par défaut pour la stack pour garantir la stabilité absolue du serveur web
+                cJSON_AddNumberToObject(item, "stack_min_ever", 0);
 
-                    const char *state_str = "Inconnu";
-                    switch (details.eCurrentState)
-                    {
-                    case eRunning:
-                        state_str = "Running";
-                        break;
-                    case eReady:
-                        state_str = "Ready";
-                        break;
-                    case eBlocked:
-                        state_str = "Blocked";
-                        break;
-                    case eSuspended:
-                        state_str = "Suspended";
-                        break;
-                    default:
-                        break;
-                    }
-                    cJSON_AddStringToObject(item, "state", state_str);
-                }
-                else
+                // Traduction de l'état extrait directement via eTaskGetState(h)
+                const char *state_str = "Inconnu";
+                switch (st)
                 {
-                    cJSON_AddStringToObject(item, "state", "Invalid handle");
+                case eRunning:
+                    state_str = "Running";
+                    break;
+                case eReady:
+                    state_str = "Ready";
+                    break;
+                case eBlocked:
+                    state_str = "Blocked";
+                    break;
+                case eSuspended:
+                    state_str = "Suspended";
+                    break;
+                case eDeleted:
+                    state_str = "Deleted";
+                    break;
+                default:
+                    break;
                 }
+                cJSON_AddStringToObject(item, "state", state_str);
             }
             else
             {
-                cJSON_AddStringToObject(item, "state", "Deleted");
+                cJSON_AddStringToObject(item, "state", (st == eDeleted) ? "Deleted" : "Invalid");
+                cJSON_AddNumberToObject(item, "prio_curr", 0);
+                cJSON_AddNumberToObject(item, "stack_min_ever", 0);
             }
         }
         else
         {
             cJSON_AddStringToObject(item, "state", "Not created");
+            cJSON_AddNumberToObject(item, "prio_curr", 0);
+            cJSON_AddNumberToObject(item, "stack_min_ever", 0);
         }
 
+        // Ajout de l'objet de la tâche courante au tableau JSON principal
         cJSON_AddItemToArray(root, item);
     }
 

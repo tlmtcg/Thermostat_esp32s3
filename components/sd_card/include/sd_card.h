@@ -27,7 +27,7 @@ typedef struct {
 esp_err_t init_sd_card(const sd_card_config_t *config);
 
 // Fonctions utilitaires
-esp_err_t sd_write_file(const char *path, const char *data);
+esp_err_t sd_write_file(const char *path, const char *data, const char *mode);
 esp_err_t sd_read_file(const char *path);
 char *sd_read_file_alloc(const char *path);
 esp_err_t sd_delete_file(const char *path);

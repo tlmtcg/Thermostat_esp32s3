@@ -93,7 +93,7 @@ void saison_save_profile(void)
     if (!json)
         return;
 
-    esp_err_t err = sd_write_file(filename, json);
+    esp_err_t err = sd_write_file(filename, json, "w");
     free(json);
 
     if (err == ESP_OK)

@@ -93,7 +93,7 @@ static esp_err_t api_weather_geocode(httpd_req_t *req)
 static esp_err_t api_weather_update(httpd_req_t *req)
 {
     // Lancer la mise à jour météo dans une tâche séparée
-    xTaskCreate(weather_update_task, "weather_update_task", 8192, NULL, 5, NULL);
+    xTaskCreate(weather_update_task_manually, "weather_update_task_manually", 8192, NULL, 5, NULL);
 
     // Construction de la réponse JSON détaillée
     cJSON *root = cJSON_CreateObject();

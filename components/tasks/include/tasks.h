@@ -18,6 +18,7 @@
 #define BIT_SHT31_EN     (1 << 6)
 #define BIT_THERMO_EN    (1 << 7)
 #define BIT_DHT_EN       (1 << 8)
+#define BIT_FTP_SYNC_EN  (1 << 9)
 
 typedef struct
 {

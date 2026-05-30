@@ -74,7 +74,7 @@ void dht_task(void *pvParameters)
                 time_utils_get_time_str(time_str, sizeof(time_str));
                 snprintf(log_buffer, sizeof(log_buffer), "%s,%.1f,%.1f\n", time_str, temperature, humidity);
 
-                if (sd_write_file(DHT_LOG_FILE_PATH, log_buffer) != ESP_OK)
+                if (sd_write_file(DHT_LOG_FILE_PATH, log_buffer,"a") != ESP_OK)
                 {
                     ESP_LOGE(TAG, "Erreur ecriture log DHT");
                 }

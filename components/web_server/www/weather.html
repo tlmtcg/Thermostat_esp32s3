@@ -63,14 +63,14 @@
     <div class="columns-container">
       <!-- Colonne 1 : Jeedom -->
       <div class="card">
-        <h3>Maison (Jeedom)</h3>
+        <h3>Jeedom</h3>
         <div class="temp-main" id="jee_temp">--°C</div>
-        <div style="color: #7f8c8d">Sonde Intérieure</div>
+        <div style="color: #7f8c8d">Sonde Extérieure</div>
       </div>
 
       <!-- Colonne 2 : Extérieur -->
       <div class="card">
-        <h3 id="desc">Extérieur</h3>
+        <h3 id="desc">Chargement...</h3>
         <div class="temp-main" id="temp">--°C</div>
         <div id="hum" style="color: #7f8c8d">Humidité: --%</div>
       </div>
@@ -145,7 +145,36 @@
           .catch((e) => console.error("Erreur:", e));
       }
 
+      function loadWebConfig() {
+        fetch("/api/config")
+          .then((response) => response.json())
+          .then((data) => {
+            // Extraction sécurisée du nom de la ville depuis l'objet "weather"
+            if (
+              data.weather &&
+              data.weather.city &&
+              data.weather.city.trim() !== ""
+            ) {
+              document.getElementById("desc").innerText = data.weather.city;
+            } else {
+              // Valeur de secours si le champ est vide
+              document.getElementById("desc").innerText = "Extérieur";
+            }
+          })
+          .catch((err) => {
+            console.error(
+              "Erreur lors du chargement de la configuration:",
+              err,
+            );
+            document.getElementById("desc").innerText = "Extérieur";
+          });
+      }
+
+      // Appeler la fonction au chargement de la page
+      window.addEventListener("DOMContentLoaded", loadWebConfig);
+
       update();
+      loadWebConfig();
       setInterval(update, 60000);
     </script>
 

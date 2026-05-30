@@ -56,7 +56,7 @@ extern "C"
 
     esp_err_t weather_geocode_city(const char *city, double *lat, double *lon);
 
-    void weather_update_task(void *arg);
+    void weather_update_task_manually(void *arg);
 
     extern weather_data_t g_weather_data;
 
