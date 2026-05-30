@@ -300,7 +300,7 @@ int64_t heating_program_get_next_target_timestamp(void)
     for (int p = 0; p < NB_PLAGES; ++p)
     {
         uint32_t s = config.planning[cur_day][p].secondes_minuit;
-        float temp = config.planning[cur_day][p].temperature;
+        // float temp = config.planning[cur_day][p].temperature;
 
         // ESP_LOGI("PLANNING", "Test jour=%d plage=%d sec=%u temp=%.2f",
         //          cur_day, p, s, temp);
@@ -337,7 +337,7 @@ int64_t heating_program_get_next_target_timestamp(void)
     tomorrow_tm.tm_min  = 0;
     tomorrow_tm.tm_sec  = 0;
 
-    time_t tomorrow_midnight_ts = mktime(&tomorrow_tm);
+    // time_t tomorrow_midnight_ts = mktime(&tomorrow_tm);
 
     // ESP_LOGI("PLANNING", "Minuit demain ts=%lld", (long long)tomorrow_midnight_ts);
 
@@ -346,7 +346,7 @@ int64_t heating_program_get_next_target_timestamp(void)
     for (int p = 0; p < NB_PLAGES; ++p)
     {
         uint32_t s = config.planning[next_day][p].secondes_minuit;
-        float temp = config.planning[next_day][p].temperature;
+        // float temp = config.planning[next_day][p].temperature;
 
         // ESP_LOGI("PLANNING", "Test demain jour=%d plage=%d sec=%u temp=%.2f",
         //          next_day, p, s, temp);
@@ -364,7 +364,7 @@ int64_t heating_program_get_next_target_timestamp(void)
             best_ts = slot_ts;
     }
 
-    ESP_LOGW("PLANNING", ">>> NEXT CONSIGNE DEMAIN: ts=%lld", (long long)best_ts);
+    // ESP_LOGW("PLANNING", ">>> NEXT CONSIGNE DEMAIN: ts=%lld", (long long)best_ts);
     return best_ts;
 }
 

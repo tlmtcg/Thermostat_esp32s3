@@ -97,12 +97,12 @@ void thermostat_update_current_consigne(void)
     case THERMOSTAT_MODE_AUTO:
     {
         float consigne_auto = heating_get_temp_current();
-        float Tint = g_thermostat_runtime.temperature;
-        float Text = g_thermostat_runtime.temp_ext;
+        // float Tint = g_thermostat_runtime.temperature;
+        // float Text = g_thermostat_runtime.temp_ext;
 
-        float tsec = g_thermal_runtime.time_to_reach; // secondes
-        int64_t start_ts = g_thermal_runtime.start_heating_at;
-        int64_t now = time(NULL);
+        // float tsec = g_thermal_runtime.time_to_reach; // secondes
+        // int64_t start_ts = g_thermal_runtime.start_heating_at;
+        // int64_t now = time(NULL);
 
         // // --- 1. Déjà au-dessus de la consigne ? ---
         // if (Tint >= consigne_auto)
@@ -407,21 +407,21 @@ char *thermostat_get_json_status(void)
 
 void app_periodic_update(void)
 {
-    float Tint = g_thermostat_runtime.temperature;
+    // float Tint = g_thermostat_runtime.temperature;
     float Text = temperature_get_outdoor();
     bool heating_on = get_relay_state();
-    int64_t now = time_utils_get_timestamp();
+    // int64_t now = time_utils_get_timestamp();
 
     // Le modèle thermique est déjà mis à jour dans prediction_engine_tick()
     // Ici on ne fait que du monitoring / logging
 
-    ESP_LOGI("THERMO", "2R2C: Ta=%.2f Tm=%.2f", g_thermal_runtime.Ta, g_thermal_runtime.Tm);
-    ESP_LOGI("THERMO", "Params: Ra=%.3f Rm=%.3f Ca=%.0f Cm=%.0f P=%.0f",
+    ESP_LOGI("TAG", "2R2C: Ta=%.2f Tm=%.2f", g_thermal_runtime.Ta, g_thermal_runtime.Tm);
+    ESP_LOGI("TAG", "Params: Ra=%.3f Rm=%.3f Ca=%.0f Cm=%.0f P=%.0f",
              g_thermal_runtime.Ra, g_thermal_runtime.Rm, g_thermal_runtime.Ca, g_thermal_runtime.Cm, g_thermal_runtime.P);
 
     // Exemple : prédiction à 1h via simulation active
     float Tint_1h = thermal_2r2c_simulate_future(3600.0f, Text, heating_on);
-    ESP_LOGI("THERMO", "Pred Tint +1h = %.2f°C", Tint_1h);
+    ESP_LOGI("TAG", "Pred Tint +1h = %.2f°C", Tint_1h);
 }
 
 float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
