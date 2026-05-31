@@ -1,168 +1,110 @@
-#pragma once
-
-#include <stdint.h>
-#include <stdbool.h>
-#include "esp_err.h"
-#include "driver/i2c_master.h"
+#ifndef SSD1306_H
+#define SSD1306_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* -------------------------------------------------------------------------- */
-/*  OLED CONFIG                                                              */
-/* -------------------------------------------------------------------------- */
-
-#define SSD1306_WIDTH   128
-#define SSD1306_HEIGHT  64
-#define SSD1306_PAGES   (SSD1306_HEIGHT / 8)
+#include <stdint.h>
+#include <stdbool.h>
+#include "driver/i2c_master.h"
+#include "esp_err.h"
 
 /* -------------------------------------------------------------------------- */
-/*  STRUCTURE DEVICE                                                         */
+/* CONSTANTES CONFIGURATION                                                   */
 /* -------------------------------------------------------------------------- */
+#define SSD1306_WIDTH  128
+#define SSD1306_HEIGHT 64
+#define SSD1306_PAGES  8  // 64 / 8 pixels par page
 
+/* -------------------------------------------------------------------------- */
+/* STRUCTURES DE DONNÉES                                                      */
+/* -------------------------------------------------------------------------- */
 typedef struct {
-    const uint8_t *bitmap;   // tableau brut
-    uint8_t width;           // largeur d’un caractère
-    uint8_t height;          // hauteur d’un caractère
-    uint8_t spacing;         // espace entre caractères
+    const uint8_t *bitmap; // Pointeur vers le tableau de pixels brut
+    uint8_t width;         // Largeur d'un caractère en pixels
+    uint8_t height;        // Hauteur d'un caractère en pixels
+    uint8_t spacing;       // Espace horizontal entre deux caractères
 } ssd1306_font_t;
 
 typedef struct {
-    i2c_master_dev_handle_t dev;   // handle I2C device
-    uint8_t address;               // I2C address (0x3C / 0x3D)
-    bool initialized;              // state
-    uint8_t buffer[SSD1306_WIDTH * SSD1306_PAGES];
-    const ssd1306_font_t *font;
+    i2c_master_dev_handle_t dev;  // Handle du périphérique I2C (driver master)
+    uint8_t address;               // Adresse I2C effective
+    bool initialized;              // Statut du driver
+    const ssd1306_font_t *font;    // Police courante sélectionnée
+    uint8_t buffer[SSD1306_WIDTH * SSD1306_PAGES]; // Buffer graphique (1024 octets)
 } ssd1306_t;
 
 /* -------------------------------------------------------------------------- */
-/*  CORE API                                                                 */
+/* PROTOTYPES DES FONCTIONS PUBLIQUES                                         */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Init OLED (wrapper de reinit)
+ * @brief Initialise la structure et configure la police par défaut.
  */
-esp_err_t ssd1306_init(
-    ssd1306_t *lcd,
-    i2c_master_bus_handle_t bus,
-    uint8_t address
-);
+esp_err_t ssd1306_init(ssd1306_t *lcd, i2c_master_bus_handle_t bus, uint8_t address);
 
 /**
- * Re-init complet (safe reattach I2C device)
+ * @brief Enregistre le périphérique sur le bus I2C et envoie la séquence d'init matérielle.
  */
-esp_err_t ssd1306_reinit(
-    ssd1306_t *lcd,
-    i2c_master_bus_handle_t bus,
-    uint8_t address
-);
+esp_err_t ssd1306_reinit(ssd1306_t *lcd, i2c_master_bus_handle_t bus, uint8_t address);
 
 /**
- * Remove device from I2C bus
+ * @brief Éteint l'écran et détache proprement le périphérique du bus I2C.
  */
 esp_err_t ssd1306_deinit(ssd1306_t *lcd);
 
-/* -------------------------------------------------------------------------- */
-/*  DRAW PRIMITIVES                                                          */
-/* -------------------------------------------------------------------------- */
-
 /**
- * Clear framebuffer
+ * @brief Efface l'intégralité du buffer RAM local (met tout à zéro).
  */
 void ssd1306_clear(ssd1306_t *lcd);
 
 /**
- * Draw pixel
- */
-void ssd1306_draw_pixel(
-    ssd1306_t *lcd,
-    uint8_t x,
-    uint8_t y,
-    bool color
-);
-
-/**
- * Draw string (5x7 font)
- */
-void ssd1306_draw_string(
-    ssd1306_t *lcd,
-    uint8_t x,
-    uint8_t y,
-    const char *str
-);
-
-/* -------------------------------------------------------------------------- */
-/*  UPDATE DISPLAY                                                           */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Push framebuffer to OLED
+ * @brief Transmet l'intégralité du buffer RAM local à l'écran.
  */
 esp_err_t ssd1306_update(ssd1306_t *lcd);
 
-/* -------------------------------------------------------------------------- */
-/*  HIGH LEVEL HELPERS (WEB API FRIENDLY)                                   */
-/* -------------------------------------------------------------------------- */
-
 /**
- * Write text at line (0–7)
+ * @brief Dessine ou efface un pixel unique dans le buffer local.
  */
-esp_err_t ssd1306_write_line(
-    ssd1306_t *lcd,
-    uint8_t line,
-    const char *text
-);
+void ssd1306_draw_pixel(ssd1306_t *lcd, uint8_t x, uint8_t y, bool color);
 
 /**
- * Print formatted text (printf-like)
+ * @brief Trace une ligne entre deux points (Algorithme de Bresenham).
  */
-esp_err_t ssd1306_printf(
-    ssd1306_t *lcd,
-    uint8_t x,
-    uint8_t y,
-    const char *fmt,
-    ...
-);
+// 🚀 Correction ici : changement de *dev en *lcd pour correspondre au .c
+void ssd1306_draw_line(ssd1306_t *lcd, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color);
 
 /**
- * Invert display
+ * @brief Écrit une chaîne de caractères à des coordonnées précises.
  */
-esp_err_t ssd1306_set_invert(
-    ssd1306_t *lcd,
-    bool invert
-);
+void ssd1306_draw_string(ssd1306_t *lcd, uint8_t x, uint8_t y, const char *str);
 
 /**
- * Reset display to default state
+ * @brief Efface une page de 8 pixels de haut et y écrit une chaîne de caractères.
+ */
+esp_err_t ssd1306_write_line(ssd1306_t *lcd, uint8_t line, const char *text);
+
+/**
+ * @brief Écrit une chaîne de caractères formatée (façon printf) à des coordonnées précises.
+ */
+esp_err_t ssd1306_printf(ssd1306_t *lcd, uint8_t x, uint8_t y, const char *fmt, ...) __attribute__ ((format (__printf__, 4, 5)));
+
+/**
+ * @brief Inverse l'affichage matériel.
+ */
+esp_err_t ssd1306_set_invert(ssd1306_t *lcd, bool invert);
+
+/**
+ * @brief Réinitialise l'état par défaut (Efface le buffer et rafraîchit l'écran).
  */
 esp_err_t ssd1306_reset_display(ssd1306_t *lcd);
 
-esp_err_t ssd1306_write_line(
-    ssd1306_t *lcd,
-    uint8_t line,
-    const char *text
-);
-
-esp_err_t ssd1306_reset_display(ssd1306_t *lcd);
-
-esp_err_t ssd1306_set_invert(
-    ssd1306_t *lcd,
-    bool invert
-);
-
-esp_err_t ssd1306_printf(
-    ssd1306_t *lcd,
-    uint8_t x,
-    uint8_t y,
-    const char *fmt,
-    ...
-);
-
+// 🚀 Instance globale partagée avec l'application
 extern ssd1306_t oled;
-
-void ssd1306_draw_line(ssd1306_t *dev, uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color);
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif // SSD1306_H
