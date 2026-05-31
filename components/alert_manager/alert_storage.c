@@ -175,7 +175,7 @@ void alert_storage_init(const char *path)
     ESP_LOGI(TAG, "Initialisation du stockage AVEC Carte SD : %s", log_path);
     
     // On ne crée la tâche FreeRTOS que si la carte SD est activée
-    xTaskCreate(alert_storage_task, "alert_storage_task", 4096, NULL, 5, &s_alert_task);
+    // xTaskCreate(alert_storage_task, "alert_storage_task", 4096, NULL, 5, &s_alert_task);
 #else
     ESP_LOGI(TAG, "Initialisation du stockage SANS Carte SD (Log console uniquement)");
 #endif

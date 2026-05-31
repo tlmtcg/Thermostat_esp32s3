@@ -97,16 +97,6 @@ static esp_err_t index_command_handler(httpd_req_t *req)
         thermostat_set_mode(THERMOSTAT_MODE_LEARNING);
     }
 
-    /* -------- ENABLE : Activation / Désactivation globale -------- */
-    else if (strcmp(buf, "ON") == 0)
-    {
-        thermostat_set_enabled(true);
-    }
-    else if (strcmp(buf, "OFF") == 0)
-    {
-        thermostat_set_enabled(false);
-    }
-
     /* -------- CONSIGNE : Modification de la température cible -------- */
     else if (strncmp(buf, "SET:", 4) == 0)
     {

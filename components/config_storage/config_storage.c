@@ -37,33 +37,6 @@ esp_err_t config_storage_save(const char *filename, const char *data, size_t siz
     return ESP_OK;
 }
 
-// esp_err_t config_storage_load(const char *filename, char **data, size_t *size)
-// {
-//     struct stat st;
-//     if (stat(filename, &st) != 0) {
-//         ESP_LOGW(TAG, "Fichier absent : %s", filename);
-//         return ESP_ERR_NOT_FOUND;
-//     }
-
-//     FILE *f = fopen(filename, "r");
-//     if (!f) return ESP_FAIL;
-
-//     *data = malloc(st.st_size + 1);
-//     if (!*data) {
-//         fclose(f);
-//         return ESP_ERR_NO_MEM;
-//     }
-
-//     size_t read = fread(*data, 1, st.st_size, f);
-//     fclose(f);
-
-//     (*data)[read] = '\0';
-//     *size = read;
-
-//     ESP_LOGI(TAG, "Chargé : %s (%u octets)", filename, read);
-//     return ESP_OK;
-// }
-
 esp_err_t config_storage_load(const char *filename, char **data, size_t *size)
 {
     struct stat st;
@@ -256,37 +229,6 @@ bool save_kconfig_to_sdcard(const char *path)
 
     return write_cjson_to_file(path, root);
 }
-
-// bool save_nvsconfig_to_sdcard(const char *path, const runtime_config_t *config)
-// {
-//     if (path == NULL || config == NULL) return false;
-
-//     cJSON *root = cJSON_CreateObject();
-//     if (!root) return false;
-
-//     // --- Météo ---
-//     cJSON_AddStringToObject(root, "weather_city", config->weather_city);
-//     cJSON_AddNumberToObject(root, "weather_lat",  config->weather_lat);
-//     cJSON_AddNumberToObject(root, "weather_lon",  config->weather_lon);
-
-//     // --- Thermostat ---
-//     cJSON_AddNumberToObject(root, "thermostat_offset",     config->thermostat_offset);
-//     cJSON_AddNumberToObject(root, "thermostat_hysteresis", config->thermostat_hysteresis);
-//     cJSON_AddBoolToObject(root,   "thermostat_auto_mode",  config->thermostat_auto_mode);
-
-//     // --- Capteurs SHT31 ---
-//     cJSON_AddNumberToObject(root, "sht31_temp_calibration", config->sht31_temp_calibration);
-//     cJSON_AddNumberToObject(root, "sht31_hum_calibration",  config->sht31_hum_calibration);
-
-//     // --- Jeedom ---
-//     cJSON_AddBoolToObject(root,   "jeedom_enabled", config->jeedom_enabled);
-//     cJSON_AddNumberToObject(root, "jeedom_id",      (double)config->jeedom_id);
-
-//     // --- WiFi ---
-//     cJSON_AddBoolToObject(root,   "wifi_autoreconnect", config->wifi_autoreconnect);
-
-//     return write_cjson_to_file(path, root);
-// }
 
 bool save_nvsconfig_to_sdcard(const char *path, const runtime_config_t *config)
 {

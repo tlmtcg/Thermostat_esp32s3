@@ -106,7 +106,7 @@ void freebox_history_sync_task(void *pvParameters)
     TickType_t xLastWakeTime = xTaskGetTickCount();
     char filename[32];
 
-    ESP_LOGI(TAG_SYNC, "Tâche de synchronisation 2R2C initialisée à 1 point par minute.");
+    ESP_LOGI(TAG_SYNC, "Tâche de synchronisation 2R2C initialisée");
 
     while (1)
     {

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define HISTORY_SIZE 128
+#define HISTORY_SIZE 256
 
 typedef struct
 {

@@ -22,17 +22,95 @@ static esp_err_t sht31_handler(httpd_req_t *req)
     return res;
 }
 
+// Handler POST pour mettre à jour la configuration
+esp_err_t sht31_config_post_handler(httpd_req_t *req)
+{
+    char buf[150];
+    int ret, remaining = req->content_len;
+
+    // 1. Sécurité de taille du tampon
+    if (remaining >= sizeof(buf)) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON trop grand");
+        return ESP_FAIL;
+    }
+
+    // 2. Lecture du contenu du POST
+    ret = httpd_req_recv(req, buf, remaining);
+    if (ret <= 0) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur réception");
+        return ESP_FAIL;
+    }
+    buf[ret] = '\0'; // Fin de chaîne
+
+    // 3. Parsing du JSON reçu
+    cJSON *root = cJSON_Parse(buf);
+    if (root == NULL) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON Invalide");
+        return ESP_FAIL;
+    }
+
+    // Récupération de la config runtime actuelle
+    sht31_config_t current_config;
+    sht31_get_config(&current_config);
+
+    // Extraction des champs du JSON
+    cJSON *addr = cJSON_GetObjectItem(root, "addr");
+    cJSON *interval = cJSON_GetObjectItem(root, "read_interval_ms");
+    cJSON *log_sd = cJSON_GetObjectItem(root, "log_to_sd");
+
+    if (addr)     current_config.addr = (uint8_t)addr->valueint;
+    if (interval) current_config.read_interval_ms = (uint32_t)interval->valueint;
+    if (log_sd)   current_config.log_to_sd = cJSON_IsTrue(log_sd);
+
+    cJSON_Delete(root);
+
+    // 4. Application de la nouvelle config en RAM
+    sht31_set_config(&current_config);
+
+    // 5. [Optionnel mais recommandé] Sauvegarde immédiate du JSON sur SD 
+    // Pour que l'ESP32 s'en rappelle au prochain démarrage
+    // config_mgr_save_sht31_to_sd(&current_config); 
+
+    // 6. Réponse au client web
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"status\":\"OK\",\"message\":\"Configuration SHT31 appliquée\"}");
+    return ESP_OK;
+}
+
 esp_err_t ws_register_sht31_api(httpd_handle_t server)
 {
-    httpd_uri_t uri = {
-        .uri = "/api/sensors/sht31",
-        .method = HTTP_GET,
-        .handler = sht31_handler,
+    // 1. Déclaration de l'URI GET pour la lecture des mesures (Runtime)
+    httpd_uri_t uri_get = {
+        .uri      = "/api/sensors/sht31",
+        .method   = HTTP_GET,
+        .handler  = sht31_handler,
+        .user_ctx = NULL
     };
 
-    esp_err_t err = httpd_register_uri_handler(server, &uri);
-    ESP_LOGI(TAG, "API SHT31 enregistree: %s", esp_err_to_name(err));
-    return err;
+    // 2. Déclaration de l'URI POST pour la modification de la configuration
+    httpd_uri_t uri_post = {
+        .uri      = "/api/config/sht31",
+        .method   = HTTP_POST,
+        .handler  = sht31_config_post_handler, // Ton handler qui parse le cJSON
+        .user_ctx = NULL
+    };
+
+    // Enregistrement du GET
+    esp_err_t err = httpd_register_uri_handler(server, &uri_get);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Échec enregistrement GET SHT31: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    // Enregistrement du POST
+    err = httpd_register_uri_handler(server, &uri_post);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Échec enregistrement POST SHT31: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    ESP_LOGI(TAG, "API SHT31 enregistree (GET /sensors + POST /config) : %s", esp_err_to_name(err));
+    return ESP_OK;
 }
 
 esp_err_t i2c_manager_reinit(void)

@@ -209,15 +209,7 @@ void thermostat_update_current_consigne(void)
 
 static void thermostat_sync_alerts(void)
 {
-    if (g_thermostat_config.enabled)
-    {
-        alert_remove("Thermostat DESACTIVE");
-    }
-    else
-    {
-        alert_add("Thermostat DESACTIVE");
-    }
-
+    
     if (g_thermostat_config.mode == THERMOSTAT_MODE_HORS_GEL ||
         g_thermostat_config.frost_mode)
     {
