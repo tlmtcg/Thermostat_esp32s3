@@ -238,6 +238,41 @@ const sht31_state_t *sht31_get_state(void)
     return &g_sht31.runtime;
 }
 
+// esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
+// {
+//     if (!bus)
+//         return ESP_ERR_INVALID_ARG;
+
+//     if (addr == 0)
+//         return ESP_ERR_INVALID_ARG;
+
+//     if (g_sht31.runtime.initialized)
+//     {
+//         ESP_LOGW(TAG, "SHT31 deja initialise");
+//         return ESP_OK;
+//     }
+
+//     g_sht31.bus = bus;
+//     g_sht31.config.addr = addr;
+    
+
+
+//     esp_err_t err = sht31_attach_device(g_sht31.config.addr);
+//     if (err != ESP_OK)
+//     {
+//         alert_add("Capteur SHT31 absent");
+//         sht31_record_error(err);
+//         ESP_LOGE(TAG, "Erreur add device: %s", esp_err_to_name(err));
+//         return err;
+//     }
+
+//     g_sht31.runtime.initialized = true;
+//     sht31_clear_error();
+
+//     ESP_LOGI(TAG, "SHT31 initialise @0x%02X", g_sht31.config.addr);
+//     return ESP_OK;
+// }
+
 esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
 {
     if (!bus)
@@ -254,7 +289,7 @@ esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
 
     g_sht31.bus = bus;
     g_sht31.config.addr = addr;
-
+    
     esp_err_t err = sht31_attach_device(g_sht31.config.addr);
     if (err != ESP_OK)
     {

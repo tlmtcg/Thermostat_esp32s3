@@ -72,9 +72,9 @@ void sht31_task(void *pvParameters)
             {
                 last_log_time = now;
 
-                #ifdef SHT31_DEBUG
+#ifdef SHT31_DEBUG
                 ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
-                #endif
+#endif
 
                 if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
                 {
@@ -84,9 +84,41 @@ void sht31_task(void *pvParameters)
                              "%s,%.2f,%.2f\n",
                              time_str, temperature, humidity);
 
-                    if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer,"a") != ESP_OK)
+                    if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
                     {
-                        ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+                        time_utils_get_time_str(time_str, sizeof(time_str));
+
+                        snprintf(log_buffer, sizeof(log_buffer),
+                                 "%s,%.2f,%.2f\n",
+                                 time_str, temperature, humidity);
+
+                        // Variable statique pour se souvenir si le fichier a été validé
+                        static bool file_checked = false;
+                        const char *mode = "a";
+
+                        if (!file_checked)
+                        {
+                            // On vérifie si le fichier existe
+                            FILE *test_f = fopen(SHT31_LOG_FILE_PATH, "r");
+                            if (test_f == NULL)
+                            {
+                                // Absent ! On force le mode "w" pour ce premier coup
+                                mode = "w";
+                                ESP_LOGW(TAG, "Log SHT31 absent, utilisation du mode 'w' pour création.");
+                            }
+                            else
+                            {
+                                fclose(test_f);
+                            }
+                            file_checked = true; // Inutile de re-vérifier à chaque cycle de 10 min
+                        }
+
+                        // Écriture effective avec le mode adapté ("w" si absent au départ, "a" sinon)
+                        if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer, mode) != ESP_OK)
+                        {
+                            ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+                            file_checked = false; // Permmet de retenter la détection si la carte SD a été retirée/remise
+                        }
                     }
                 }
             }

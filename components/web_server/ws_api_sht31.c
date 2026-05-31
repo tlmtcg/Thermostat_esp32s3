@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "i2c_manager.h"
 #include "sht31.h"
+#include "config_runtime.h"
 
 static const char *TAG = "WS_API_SHT31";
 
@@ -67,9 +68,9 @@ esp_err_t sht31_config_post_handler(httpd_req_t *req)
     // 4. Application de la nouvelle config en RAM
     sht31_set_config(&current_config);
 
-    // 5. [Optionnel mais recommandé] Sauvegarde immédiate du JSON sur SD 
-    // Pour que l'ESP32 s'en rappelle au prochain démarrage
-    // config_mgr_save_sht31_to_sd(&current_config); 
+    // 5. Sauvegarde immédiate en nvs
+    config_runtime_save();
+
 
     // 6. Réponse au client web
     httpd_resp_set_type(req, "application/json");

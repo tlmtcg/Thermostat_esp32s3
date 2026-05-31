@@ -126,9 +126,27 @@ void app_main(void)
     heating_init();
     i2c_manager_scan();
 
-    if (i2c_device_exists(i2c_manager_get_bus(), 0x44))
+    // Utilisation de l'adresse dynamique chargée depuis la NVS
+    uint8_t target_sht_addr = g_cfg.sht31_addr;
+
+    if (i2c_device_exists(i2c_manager_get_bus(), target_sht_addr))
     {
-        sht31_start(i2c_manager_get_bus(), 0x44);
+        ESP_LOGI(TAG, "Capteur SHT31 détecté à l'adresse 0x%02X", target_sht_addr);
+
+        // 1. On initialise le driver SHT31 avec le bus et l'adresse NVS
+        // (C'est ici que g_sht31.config prend l'intervalle et le flag SD !)
+        if (sht31_init(i2c_manager_get_bus(), target_sht_addr) == ESP_OK)
+        {
+            // 2. On démarre la tâche ou les services liés au SHT31
+            // Si ta fonction d'origine s'appelait sht31_start, ajuste son contenu
+            // pour qu'elle ne ré-initialise pas tout, ou remplace-la si nécessaire.
+            sht31_start(i2c_manager_get_bus(), target_sht_addr);
+        }
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Capteur SHT31 INTROUVABLE à l'adresse NVS: 0x%02X", target_sht_addr);
+        alert_add("Capteur SHT31 absent au boot");
     }
 
     tasks_init();

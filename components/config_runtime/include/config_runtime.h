@@ -19,6 +19,10 @@ typedef struct
     // --- Capteurs SHT31 ---
     float sht31_temp_calibration;
     float sht31_hum_calibration;
+    // --- Ajout : Configuration Matérielle & Runtime SHT31 ---
+    uint8_t sht31_addr;                          // Adresse I2C (uint8_t)
+    uint32_t sht31_read_interval_ms;             // Intervalle de lecture (uint32_t)
+    bool sht31_log_to_sd;                       // Booléen converti en u8 (0 ou 1)
 
     // --- Jeedom ---
     bool jeedom_enabled;
