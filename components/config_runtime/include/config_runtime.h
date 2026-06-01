@@ -24,6 +24,12 @@ typedef struct
     uint32_t sht31_read_interval_ms;             // Intervalle de lecture (uint32_t)
     bool sht31_log_to_sd;                       // Booléen converti en u8 (0 ou 1)
 
+    // --- CONFIGURATION DHT AJOUTÉE ---
+    int dht_gpio_pin;
+    int dht_sensor_type;
+    uint32_t dht_read_interval_ms;
+    bool dht_log_to_sd;
+
     // --- Jeedom ---
     bool jeedom_enabled;
     int32_t jeedom_id; // IMPORTANT : int32_t pour NVS

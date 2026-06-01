@@ -2,11 +2,36 @@
 #include "rom/ets_sys.h"
 #include "esp_timer.h"
 #include "esp_log.h"
-#include "dht_task.h"
+#include <stdio.h>
+#include <string.h>
 
-static const char *TAG = "DHT";
+static const char *TAG = "DHT_DRIVER";
 
-// Attendre que la broche change d'état avec un timeout en microsecondes
+// Variables globales internes pour maintenir l'état (Style SHT31)
+static dht_config_t active_config = {
+    .gpio_pin = GPIO_NUM_7,
+    .sensor_type = DHT_TYPE_DHT11,
+    .read_interval_ms = 2000,
+    .log_to_sd = false
+};
+
+static dht_runtime_t active_runtime = {
+    .temperature = 0.0f,
+    .humidity = 0.0f,
+    .valid = false,
+    .initialized = true,
+    .running = true,
+    .read_count = 0,
+    .error_count = 0,
+    .consecutive_error_count = 0,
+    .last_error_code = ESP_OK,
+    .last_error_at = 0,
+    .last_success_at = 0,
+    .last_update = 0,
+    .last_error = "Aucun"
+};
+
+// Attente de changement d'état d'une broche avec timeout microsecondes
 static inline esp_err_t dht_wait_level(gpio_num_t gpio_num, uint32_t timeout_us, uint32_t level, uint32_t *duration)
 {
     uint64_t start = esp_timer_get_time();
@@ -21,66 +46,129 @@ static inline esp_err_t dht_wait_level(gpio_num_t gpio_num, uint32_t timeout_us,
     return ESP_OK;
 }
 
-esp_err_t dht_read_data(gpio_num_t gpio_num, dht_type_t type, float *humidity, float *temperature)
+// Lecture brute du protocole Single-Wire du DHT
+esp_err_t dht_read_data(gpio_num_t gpio_num, dht_sensor_type_t type, float *humidity, float *temperature)
 {
     uint8_t data[5] = {0};
     uint32_t duration = 0;
 
-    // 1. Signal de Start envoyé par l'ESP32
-    gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT_OD); // Open-Drain avec pull-up externe requise
+    // 1. Signal de Start généré par l'ESP32
+    gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT_OD); 
     gpio_set_level(gpio_num, 0);
     
-    // Le DHT11 demande au moins 18ms, le DHT22 demande au moins 1ms
     ets_delay_us(type == DHT_TYPE_DHT11 ? 20000 : 2000);
     
     gpio_set_level(gpio_num, 1);
-    ets_delay_us(40); // Attente de la réponse du capteur
+    ets_delay_us(40); 
 
-    // 2. Passer la broche en entrée pour lire la réponse
+    // 2. Commutation de la broche en entrée
     gpio_set_direction(gpio_num, GPIO_MODE_INPUT);
 
-    // Réponse du DHT : L'état bas dure 80us, puis le haut dure 80us
-    if (dht_wait_level(gpio_num, 80, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; // Attente fin du 1 initial
-    if (dht_wait_level(gpio_num, 90, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; // Attente de la mise à bas
-    if (dht_wait_level(gpio_num, 90, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; // Attente de la mise à haut
+    // Poignée de main (Handshake) du DHT
+    if (dht_wait_level(gpio_num, 80, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+    if (dht_wait_level(gpio_num, 90, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+    if (dht_wait_level(gpio_num, 90, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
 
-    // 3. Lecture des 40 bits (5 octets) de données
+    // 3. Extraction des 40 bits
     for (int i = 0; i < 40; i++) {
-        // Chaque bit commence par un état bas de 50us
         if (dht_wait_level(gpio_num, 60, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT;
-
-        // L'état haut qui suit détermine la valeur du bit : 
-        // ~26-28us = '0' | ~70us = '1'
         if (dht_wait_level(gpio_num, 80, 1, &duration) != ESP_OK) return ESP_ERR_TIMEOUT;
 
         data[i / 8] <<= 1;
-        if (duration > 40) { // Si l'état haut a duré plus de 40us, c'est un '1'
+        if (duration > 40) { 
             data[i / 8] |= 1;
         }
     }
 
-    // 4. Vérification du Checksum (Somme de contrôle)
+    // 4. Validation du Checksum
     if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
-        ESP_LOGE(TAG, "Erreur de Checksum (CRC)");
         return ESP_ERR_INVALID_CRC;
     }
 
-    // 5. Conversion des données brutes selon le modèle
+    // 5. Interprétation des grandeurs physiques
     if (type == DHT_TYPE_DHT11) {
         *humidity = (float)data[0];
         *temperature = (float)data[2];
-        // Prise en compte de la partie décimale si supportée par certains clones de DHT11
         if (data[1] < 10) *humidity += (float)data[1] * 0.1f;
         if (data[3] < 10) *temperature += (float)data[3] * 0.1f;
-    } else { // DHT22 / AM2302
+    } else { 
         float h = (float)((data[0] << 8) | data[1]) * 0.1f;
         float t = (float)((data[2] & 0x7F) << 8 | data[3]) * 0.1f;
-        if (data[2] & 0x80) { // Bit de signe pour les températures négatives
-            t = -t;
-        }
+        if (data[2] & 0x80) t = -t; 
         *humidity = h;
         *temperature = t;
     }
 
     return ESP_OK;
+}
+
+// Getters et Setters pour la configuration (Appelés par l'API POST)
+esp_err_t dht_get_config(dht_config_t *out) {
+    if (!out) return ESP_ERR_INVALID_ARG;
+    memcpy(out, &active_config, sizeof(dht_config_t));
+    return ESP_OK;
+}
+
+esp_err_t dht_set_config(const dht_config_t *config) {
+    if (!config) return ESP_ERR_INVALID_ARG;
+    memcpy(&active_config, config, sizeof(dht_config_t));
+    return ESP_OK;
+}
+
+// Récupération de l'état runtime brut
+const dht_runtime_t *dht_get_runtime(void) {
+    return &active_runtime;
+}
+
+// Génération dynamique du JSON (Appelé par l'API GET)
+char *dht_get_json_status(void) {
+    char *buf = malloc(512);
+    if (!buf) return NULL;
+
+    // Synchronisation temporaire avec le timestamp actuel pour le JSON
+    time_t now = time(NULL);
+    active_runtime.last_update = now;
+
+    snprintf(buf, 512,
+        "{"
+            "\"runtime\":{"
+                "\"temperature\":%.1f,"
+                "\"humidity\":%.1f,"
+                "\"valid\":%s,"
+                "\"initialized\":%s,"
+                "\"running\":%s,"
+                "\"read_count\":%lu,"
+                "\"error_count\":%lu,"
+                "\"consecutive_error_count\":%lu,"
+                "\"last_error_code\":%d,"
+                "\"last_error_at\":%lld,"
+                "\"last_success_at\":%lld,"
+                "\"last_update\":%lld,"
+                "\"last_error\":\"%s\""
+            "},"
+            "\"config\":{"
+                "\"gpio_pin\":%d,"
+                "\"sensor_type\":%d,"
+                "\"read_interval_ms\":%lu,"
+                "\"log_to_sd\":%s"
+            "}"
+        "}",
+        active_runtime.temperature, active_runtime.humidity,
+        active_runtime.valid ? "true" : "false",
+        active_runtime.initialized ? "true" : "false",
+        active_runtime.running ? "true" : "false",
+        (unsigned long)active_runtime.read_count,
+        (unsigned long)active_runtime.error_count,
+        (unsigned long)active_runtime.consecutive_error_count,
+        active_runtime.last_error_code,
+        (long long)active_runtime.last_error_at,
+        (long long)active_runtime.last_success_at,
+        (long long)active_runtime.last_update,
+        active_runtime.last_error,
+        active_config.gpio_pin, active_config.sensor_type,
+        (unsigned long)active_config.read_interval_ms,
+        active_config.log_to_sd ? "true" : "false"
+    );
+
+    return buf;
 }

@@ -25,6 +25,7 @@
 #include "ws_api_prediction.h"
 #include "ws_api_history.h"
 #include "ws_api_config.h"
+#include "ws_api_dht.h"
 
 static const char *TAG = "WS_REGISTRY";
 
@@ -54,6 +55,7 @@ static ws_register_fn_t registry[] = {
     ws_register_prediction_api,
     ws_register_history_api,
     ws_register_config_api;
+    ws_register_dht_api;
 ws_register_static, // Le module statique est souvent le plus gourmand (12+ routes)
 }
 ;

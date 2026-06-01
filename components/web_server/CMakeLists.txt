@@ -25,6 +25,7 @@ idf_component_register(
         "ws_api_prediction.c"
         "ws_api_history.c"
         "ws_api_config.c"
+        "ws_api_dht.c"
 
     INCLUDE_DIRS 
         "include"
@@ -51,6 +52,7 @@ idf_component_register(
         thermostat
         prediction_engine
         config_runtime
+        dht
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -92,4 +94,5 @@ idf_component_register(
         www/config_sht31.html
         www/config_jeedom.html
         www/config.js
+        www/dht.html
 )

@@ -24,6 +24,7 @@
 #include "ws_api_prediction.h"
 #include "ws_api_history.h"
 #include "ws_api_config.h"
+#include "ws_api_dht.h"
 
 static const char *TAG = "WEB_SERVER";
 
@@ -113,6 +114,7 @@ httpd_handle_t start_webserver(void)
     register_module(server, "prediction", ws_register_prediction_api);
     register_module(server, "history", ws_register_history_api);
     register_module(server, "config", ws_register_config_api);
+    register_module(server, "dht", ws_register_dht_api);
 
     ESP_LOGI(TAG, "Serveur Web prêt.");
 
