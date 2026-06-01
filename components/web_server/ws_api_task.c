@@ -79,6 +79,10 @@ esp_err_t tasks_post_handler(httpd_req_t *req)
                     bit = BIT_STORAGE_EN;
                 else if (strcmp(task_name, "serial") == 0)
                     bit = BIT_SERIAL_EN;
+                else if (strcmp(task_name, "sht31") == 0)
+                    bit = BIT_SHT31_EN;
+                else if (strcmp(task_name, "dht") == 0)
+                    bit = BIT_DHT_EN;
 
                 if (bit != 0)
                 {

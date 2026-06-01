@@ -1,10 +1,10 @@
 #include "freebox_ftp.h"
 #include "esp_log.h"
 #include "lwip/sockets.h"
+#include "esp_heap_caps.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "esp_heap_caps.h"
 
 static const char *TAG = "FREEBOX_FTP";
 #define BUF_SIZE 1024
@@ -38,9 +38,12 @@ static int receive_response(int sock, char *res, size_t max_size)
 
 static int send_command(int sock, const char *cmd, const char *arg, char *res, size_t res_size)
 {
-    char *buf = malloc(BUF_SIZE);
+    char *buf = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!buf)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour la commande FTP", BUF_SIZE);
         return -1;
+    }
 
     int len = arg ? snprintf(buf, BUF_SIZE, "%s %s\r\n", cmd, arg)
                   : snprintf(buf, BUF_SIZE, "%s\r\n", cmd);
@@ -68,6 +71,12 @@ static int connect_data_port(char *pasv_res, struct timeval *tv)
     ESP_LOGI(TAG, "Ouverture socket DATA sur %d.%d.%d.%d:%d", a, b, c, d, port);
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0)
+    {
+        ESP_LOGE(TAG, "Impossible de créer le socket DATA");
+        return -1;
+    }
+
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
         .sin_port = htons(port),
@@ -90,7 +99,7 @@ static int ftp_connect_and_auth(char *res_buf, struct timeval *tv)
         return -1;
 
     ESP_LOGI(TAG, "Connexion au serveur %s:%d...", g_config.host, g_config.port);
-    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, tv, sizeof(*tv));
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, tv, sizeof(tv[0]));
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
@@ -128,9 +137,12 @@ fail:
 
 esp_err_t freebox_ftp_list(char *buffer, size_t buffer_size)
 {
-    char *res = malloc(BUF_SIZE);
+    char *res = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!res)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour 'res' (LIST)", BUF_SIZE);
         return ESP_ERR_NO_MEM;
+    }
 
     int sock = -1, d_sock = -1;
     esp_err_t ret = ESP_FAIL;
@@ -172,9 +184,12 @@ cleanup_res:
 
 esp_err_t freebox_ftp_delete(const char *filename)
 {
-    char *res = malloc(BUF_SIZE);
+    char *res = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!res)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour 'res' (DELE)", BUF_SIZE);
         return ESP_ERR_NO_MEM;
+    }
 
     int sock = -1;
     esp_err_t ret = ESP_FAIL;
@@ -201,9 +216,12 @@ cleanup_res:
 
 esp_err_t freebox_ftp_rename(const char *old_name, const char *new_name)
 {
-    char *res = malloc(BUF_SIZE);
+    char *res = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!res)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour 'res' (RNFR/RNTO)", BUF_SIZE);
         return ESP_ERR_NO_MEM;
+    }
 
     int sock = -1;
     esp_err_t ret = ESP_FAIL;
@@ -234,9 +252,12 @@ cleanup_res:
 
 esp_err_t freebox_ftp_upload(const char *filename, const char *data, size_t len)
 {
-    char *res = malloc(BUF_SIZE);
+    char *res = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!res)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour 'res' (STOR)", BUF_SIZE);
         return ESP_ERR_NO_MEM;
+    }
 
     int sock = -1, d_sock = -1;
     esp_err_t ret = ESP_FAIL;
@@ -251,7 +272,7 @@ esp_err_t freebox_ftp_upload(const char *filename, const char *data, size_t len)
     if (send_command(sock, "STOR", filename, res, BUF_SIZE) <= 0 || !strstr(res, "150"))
         goto cleanup;
 
-    if (send(d_sock, data, len, 0) == len)
+    if (send(d_sock, data, len, 0) == (int)len)
     {
         close(d_sock);
         d_sock = -1;
@@ -270,9 +291,12 @@ cleanup_res:
 
 esp_err_t freebox_ftp_download(const char *filename, char *buffer, size_t buffer_size, size_t *bytes_read)
 {
-    char *res = malloc(BUF_SIZE);
+    char *res = heap_caps_malloc(BUF_SIZE, MALLOC_CAP_SPIRAM);
     if (!res)
+    {
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour 'res' (RETR)", BUF_SIZE);
         return ESP_ERR_NO_MEM;
+    }
 
     int sock = -1, d_sock = -1;
     esp_err_t ret = ESP_FAIL;
@@ -328,58 +352,46 @@ void freebox_ftp_deinit(void) {}
  */
 esp_err_t freebox_ftp_edit(const char *filename, void (*edit_callback)(char *buffer, size_t *len))
 {
-    // Sécurité sur les arguments
     if (!filename || !edit_callback)
     {
         ESP_LOGE(TAG, "Arguments invalides pour freebox_ftp_edit");
         return ESP_ERR_INVALID_ARG;
     }
 
-    // CORRECTION : Augmentation du buffer à 64KB pour éviter la saturation du CSV quotidien
-    size_t buffer_size = 65536; 
+    size_t buffer_size = 32768; // 32 KB en PSRAM
     char *work_buffer = heap_caps_calloc(1, buffer_size, MALLOC_CAP_SPIRAM);
     if (!work_buffer)
     {
-        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour le buffer FTP", buffer_size);
+        ESP_LOGE(TAG, "Mémoire insuffisante pour allouer %u octets en PSRAM pour le buffer de travail FTP", buffer_size);
         return ESP_ERR_NO_MEM;
     }
 
     size_t bytes_read = 0;
     ESP_LOGI(TAG, "Édition du fichier '%s' : Étape 1/3 (Téléchargement)...", filename);
 
-    // 1. Téléchargement du fichier distant dans notre buffer de travail
     esp_err_t err = freebox_ftp_download(filename, work_buffer, buffer_size, &bytes_read);
     
     if (err != ESP_OK)
     {
-        /* * CORRECTION CRITIQUE : Interception du cas "Fichier inexistant" (Erreur FTP 550).
-         * Si le fichier n'existe pas sur la Freebox (par exemple le premier envoi de la journée),
-         * freebox_ftp_download renvoie une erreur mais bytes_read reste à 0.
-         * Ce n'est pas un problème critique, on décide donc de tolérer cette erreur pour créer le fichier.
-         */
         if (bytes_read == 0) 
         {
             ESP_LOGW(TAG, "Le fichier '%s' n'existe pas encore sur la Freebox. Il sera initialisé.", filename);
-            err = ESP_OK; // On efface l'erreur pour autoriser la suite du traitement
+            err = ESP_OK;
         }
         else 
         {
-            // C'est une vraie erreur (Ex: coupure Wi-Fi, serveur déconnecté...) -> On quitte
             ESP_LOGE(TAG, "Échec critique du téléchargement du fichier pour modification (Code: %d)", err);
             free(work_buffer);
             return err;
         }
     }
 
-    ESP_LOGI(TAG, "Fichier prêt en RAM (%d octets). Étape 2/3 (Modification)...", bytes_read);
+    ESP_LOGI(TAG, "Fichier prêt en RAM (%d octets). Étape 2/3 (Modification)...", (int)bytes_read);
 
-    // 2. Appel du callback utilisateur pour modifier ou initialiser le contenu du buffer
-    // Si bytes_read valait 0, le callback sait qu'il doit générer l'en-tête "Timestamp;Temperature..."
     edit_callback(work_buffer, &bytes_read);
 
-    ESP_LOGI(TAG, "Modification appliquée (Nouvelle taille : %d octets). Étape 3/3 (Téléversement)...", bytes_read);
+    ESP_LOGI(TAG, "Modification appliquée (Nouvelle taille : %d octets). Étape 3/3 (Téléversement)...", (int)bytes_read);
 
-    // 3. Renvoi du buffer modifié vers le serveur FTP (Crée ou écrase le fichier via la commande STOR)
     err = freebox_ftp_upload(filename, work_buffer, bytes_read);
     if (err != ESP_OK)
     {
@@ -390,7 +402,6 @@ esp_err_t freebox_ftp_edit(const char *filename, void (*edit_callback)(char *buf
         ESP_LOGI(TAG, "✅ Fichier '%s' mis à jour et sauvegardé sur la Freebox !", filename);
     }
 
-    // Libération de la mémoire de travail
     free(work_buffer);
     return err;
 }
