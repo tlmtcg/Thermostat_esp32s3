@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "esp_heap_caps.h"
 
 static const char *TAG = "FREEBOX_FTP";
 #define BUF_SIZE 1024
@@ -336,10 +337,10 @@ esp_err_t freebox_ftp_edit(const char *filename, void (*edit_callback)(char *buf
 
     // CORRECTION : Augmentation du buffer à 64KB pour éviter la saturation du CSV quotidien
     size_t buffer_size = 65536; 
-    char *work_buffer = calloc(1, buffer_size);
+    char *work_buffer = heap_caps_calloc(1, buffer_size, MALLOC_CAP_SPIRAM);
     if (!work_buffer)
     {
-        ESP_LOGE(TAG, "Mémoire insuffisante pour allouer le buffer de travail FTP");
+        ESP_LOGE(TAG, "Impossible d'allouer %d octets en PSRAM pour le buffer FTP", buffer_size);
         return ESP_ERR_NO_MEM;
     }
 

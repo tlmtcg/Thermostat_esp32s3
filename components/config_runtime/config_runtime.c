@@ -2,6 +2,8 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include <string.h>
+#include "esp_log.h"
+#include "sht31.h"
 
 runtime_config_t g_cfg = {0};
 
@@ -43,9 +45,12 @@ void config_runtime_load(void)
     uint32_t interval;
     if (nvs_get_u32(h, "sht_int", &interval) == ESP_OK) {
         g_cfg.sht31_read_interval_ms = interval;
+           ESP_LOGI("Config", "sht_int Interval %d", g_cfg.sht31_read_interval_ms);
     } else {
         g_cfg.sht31_read_interval_ms = 5000; // 5 secondes par défaut
     }
+    ESP_LOGI("Config", "Interval %d", g_cfg.sht31_read_interval_ms);
+
 
     if (nvs_get_u8(h, "sht_log_sd", &b) == ESP_OK) {
         g_cfg.sht31_log_to_sd = (b != 0);
@@ -68,6 +73,15 @@ void config_runtime_load(void)
         g_cfg.weather_lat = 50.75f;
         g_cfg.weather_lon = 3.12f;
     }
+
+    // --- 🔥 Application immédiate de la config SHT31 ---
+    sht31_config_t cfg = {
+        .addr = g_cfg.sht31_addr,
+        .read_interval_ms = g_cfg.sht31_read_interval_ms,
+        .log_to_sd = g_cfg.sht31_log_to_sd
+    };
+
+    sht31_set_config(&cfg);
 }
 
 void config_runtime_save(void)
@@ -93,6 +107,8 @@ void config_runtime_save(void)
     // --- Ajout : Configuration Matérielle & Runtime SHT31 ---
     nvs_set_u8(h, "sht_addr", g_cfg.sht31_addr);                       // Adresse I2C (uint8_t)
     nvs_set_u32(h, "sht_int", g_cfg.sht31_read_interval_ms);           // Intervalle de lecture (uint32_t)
+    ESP_LOGI("Config", "Interval %d", g_cfg.sht31_read_interval_ms);
+
     nvs_set_u8(h, "sht_log_sd", g_cfg.sht31_log_to_sd ? 1 : 0);        // Booléen converti en u8 (0 ou 1)
 
     // --- Configuration Domotique Jeedom ---

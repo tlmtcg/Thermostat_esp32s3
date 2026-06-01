@@ -67,6 +67,9 @@ esp_err_t sht31_config_post_handler(httpd_req_t *req)
 
     // 4. Application de la nouvelle config en RAM
     sht31_set_config(&current_config);
+    g_cfg.sht31_addr = current_config.addr;
+    g_cfg.sht31_read_interval_ms = current_config.read_interval_ms;
+    g_cfg.sht31_log_to_sd = current_config.log_to_sd;
 
     // 5. Sauvegarde immédiate en nvs
     config_runtime_save();

@@ -190,7 +190,6 @@ esp_err_t sht31_set_config(const sht31_config_t *config)
              g_sht31.config.addr,
              (unsigned)g_sht31.config.read_interval_ms,
              g_sht31.config.log_to_sd);
-
     return ESP_OK;
 }
 
