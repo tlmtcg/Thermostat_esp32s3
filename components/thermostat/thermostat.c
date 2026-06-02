@@ -155,7 +155,7 @@ void thermostat_update_current_consigne(void)
     // -------------------------
     // MODE HORS GEL
     // -------------------------
-    case THERMOSTAT_MODE_HORS_GEL:
+case THERMOSTAT_MODE_HORS_GEL:
     {
         const float SEUIL_GEL_EXT = 2.0f;
         const float SEUIL_VIGILANCE_INT = 7.0f;
@@ -166,35 +166,101 @@ void thermostat_update_current_consigne(void)
         float int_temp = g_thermostat_runtime.temperature;
         bool ext_temp_valide = true;
 
+        // Validation du capteur extérieur
         if (isnan(ext_temp) || ext_temp < -40.0f || ext_temp > 60.0f)
         {
             ext_temp_valide = false;
-            ext_temp = -10.0f;
+            ext_temp = -10.0f; // Valeur de sécurité si HS
         }
 
-        if (ext_temp <= SEUIL_GEL_EXT && int_temp <= SEUIL_VIGILANCE_INT)
-            g_thermostat_runtime.effective_consigne = CONSIGNE_BOOST_HG;
-        else
-            g_thermostat_runtime.effective_consigne = CONSIGNE_MIN_ECO;
+        // 1. Détection de la panne du capteur intérieur via son flag global de validité
+        // (Note : Ajustez avec g_thermostat_runtime.indoor_valid si vous avez ce booléen)
+        bool int_temp_valide = !isnan(int_temp) && (int_temp > -40.0f) && (int_temp < 80.0f);
 
-        static float last_applied_consigne = -100.0f;
-        if (last_mode != THERMOSTAT_MODE_HORS_GEL ||
-            g_thermostat_runtime.effective_consigne != last_applied_consigne)
+        if (!int_temp_valide)
         {
-            if (!ext_temp_valide)
-                ESP_LOGW(TAG, "ALERTE : Capteur Extérieur INDISPONIBLE ! Sécurité active. Int: %.1f°C -> Consigne: %.1f°C",
-                         int_temp, g_thermostat_runtime.effective_consigne);
-            else
-                ESP_LOGI(TAG, "HG AFINÉ - Ext: %.1f°C, Int: %.1f°C -> Consigne: %.1f°C",
-                         ext_temp, int_temp, g_thermostat_runtime.effective_consigne);
+            // --- MODE SÉCURITÉ ACTIVE (CAPTEUR INTÉRIEUR EN PANNE) ---
+            static uint32_t last_secu_log_time = 0;
+            uint32_t current_time_sec = (uint32_t)time(NULL);
 
-            last_applied_consigne = g_thermostat_runtime.effective_consigne;
+            // Définition de la période du cycle de secours (2 heures = 7200 secondes)
+            const uint32_t SECU_CYCLE_DURATION_SEC = 2 * 3600; 
+            uint32_t cycle_progress_sec = current_time_sec % SECU_CYCLE_DURATION_SEC;
+
+            float duty_cycle_percent = 0.0f;
+            float base_consigne = CONSIGNE_MIN_ECO;
+
+            if (ext_temp_valide)
+            {
+                // Calcul du % de chauffe indexé sur le froid extérieur
+                // Si ext_temp >= base_consigne -> 0%. Si ext_temp <= -10°C -> 100%
+                float ext_temp_extreme = -10.0f; 
+
+                if (ext_temp < base_consigne)
+                {
+                    duty_cycle_percent = ((base_consigne - ext_temp) / (base_consigne - ext_temp_extreme)) * 100.0f;
+                    if (duty_cycle_percent > 100.0f) duty_cycle_percent = 100.0f;
+                }
+            }
+            else
+            {
+                // Double panne (Intérieur + Extérieur) -> Mode dégradé fixe à 30%
+                duty_cycle_percent = 30.0f;
+            }
+
+            // Calcul du temps de marche effectif sur les 2 heures
+            uint32_t max_heating_time_sec = (uint32_t)((duty_cycle_percent / 100.0f) * SECU_CYCLE_DURATION_SEC);
+
+            // Application du relais en fonction de l'avancement dans le cycle
+            bool requiert_chauffage = (cycle_progress_sec < max_heating_time_sec) && (max_heating_time_sec > 0);
+            
+            // Appel de votre fonction matérielle de pilotage du chauffage
+            thermostat_control_relais(requiert_chauffage); 
+
+            // Log de sécurité espacé (toutes les 10 minutes ou au changement d'état)
+            if (current_time_sec - last_secu_log_time >= 600 || last_mode != THERMOSTAT_MODE_HORS_GEL)
+            {
+                ESP_LOGW(TAG, "SECURITE HG ACTIVE (Capteur Int HS) - Ext: %.1f°C -> Chauffe: %.0f%% (%s)",
+                         ext_temp, duty_cycle_percent, requiert_chauffage ? "ON" : "OFF");
+                last_secu_log_time = current_time_sec;
+            }
+
+            g_thermostat_runtime.effective_consigne = base_consigne; // Consigne par défaut pour l'affichage
+        }
+        else
+        {
+            // --- MODE HORS-GEL NORMAL (Capteur intérieur OK) ---
+            
+            // Logique d'affinage de la consigne
+            if (ext_temp <= SEUIL_GEL_EXT && int_temp <= SEUIL_VIGILANCE_INT)
+                g_thermostat_runtime.effective_consigne = CONSIGNE_BOOST_HG;
+            else
+                g_thermostat_runtime.effective_consigne = CONSIGNE_MIN_ECO;
+
+            // Gestion de l'affichage des logs au changement de consigne ou de mode
+            static float last_applied_consigne = -100.0f;
+            if (last_mode != THERMOSTAT_MODE_HORS_GEL ||
+                g_thermostat_runtime.effective_consigne != last_applied_consigne)
+            {
+                if (!ext_temp_valide)
+                    ESP_LOGW(TAG, "ALERTE : Capteur Extérieur INDISPONIBLE ! Sécurité active. Int: %.1f°C -> Consigne: %.1f°C",
+                             int_temp, g_thermostat_runtime.effective_consigne);
+                else
+                    ESP_LOGI(TAG, "HG AFINÉ - Ext: %.1f°C, Int: %.1f°C -> Consigne: %.1f°C",
+                             ext_temp, int_temp, g_thermostat_runtime.effective_consigne);
+
+                last_applied_consigne = g_thermostat_runtime.effective_consigne;
+            }
+
+            // Régulation classique ON/OFF (Hystérésis ou Tout-ou-Rien standard)
+            bool requiert_chauffage = (int_temp < g_thermostat_runtime.effective_consigne);
+            thermostat_control_relais(requiert_chauffage);
         }
 
         last_mode = THERMOSTAT_MODE_HORS_GEL;
         break;
     }
-
+    
     // -------------------------
     // MODE PAR DÉFAUT
     // -------------------------

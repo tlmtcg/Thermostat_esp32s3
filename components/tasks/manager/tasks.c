@@ -147,15 +147,23 @@ void ntp_monitor_task(void *pvParameters)
         else
         {
             ESP_LOGD(TAG, "Heure OK : %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-
-            // --- AJOUT : Vérification de la dérive / Resynchronisation périodique ---
-            // On lui passe le temps actuel officiel pour vérifier s'il y a une dérive
-            time_t last_sync = time_utils_get_last_sync();
-            if (last_sync > 0)
+            
+            // Vérification périodique du statut réseau d'Espressif
+            if (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET)
             {
-                // On force la vérification de la dérive (seuil 1 minute à l'intérieur)
-                time_utils_check_and_sync((uint64_t)last_sync);
+                ESP_LOGW(TAG, "Le système demande une resynchronisation horaire.");
+                
+                // --- AJOUT DE VOTRE LOGIQUE DE MÉMORISATION ---
+                time_utils_prepare_for_sync(); 
+
+                // Relance du service réseau pour forcer l'interrogation immédiate
+                if (esp_sntp_enabled())
+                {
+                    esp_sntp_stop();
+                }
+                esp_sntp_init();
             }
+
         }
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[2].delay_ms)); // Utilise le délai de la table

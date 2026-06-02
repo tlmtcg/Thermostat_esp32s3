@@ -54,6 +54,8 @@ extern "C"
 
     void time_utils_check_and_sync(uint64_t real_timestamp);
 
+    void time_utils_prepare_for_sync(void);
+    
 #ifdef __cplusplus
 }
 #endif

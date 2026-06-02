@@ -107,6 +107,9 @@ static void sht31_record_error(esp_err_t err)
                  (unsigned long)consecutive,
                  (unsigned long)g_sht31.runtime.error_count);
     }
+
+    // CORRECTION : Alerter immédiatement le thermostat du passage en valid = false
+    thermostat_update_indoor_data(g_sht31.runtime.temperature, g_sht31.runtime.humidity, false);
 }
 
 static esp_err_t sht31_write_cmd(uint16_t cmd)
@@ -237,40 +240,7 @@ const sht31_state_t *sht31_get_state(void)
     return &g_sht31.runtime;
 }
 
-// esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
-// {
-//     if (!bus)
-//         return ESP_ERR_INVALID_ARG;
-
-//     if (addr == 0)
-//         return ESP_ERR_INVALID_ARG;
-
-//     if (g_sht31.runtime.initialized)
-//     {
-//         ESP_LOGW(TAG, "SHT31 deja initialise");
-//         return ESP_OK;
-//     }
-
-//     g_sht31.bus = bus;
-//     g_sht31.config.addr = addr;
-    
-
-
-//     esp_err_t err = sht31_attach_device(g_sht31.config.addr);
-//     if (err != ESP_OK)
-//     {
-//         alert_add("Capteur SHT31 absent");
-//         sht31_record_error(err);
-//         ESP_LOGE(TAG, "Erreur add device: %s", esp_err_to_name(err));
-//         return err;
-//     }
-
-//     g_sht31.runtime.initialized = true;
-//     sht31_clear_error();
-
-//     ESP_LOGI(TAG, "SHT31 initialise @0x%02X", g_sht31.config.addr);
-//     return ESP_OK;
-// }
+// NETTOYAGE : Suppression du gros bloc de code mort commenté ici
 
 esp_err_t sht31_init(i2c_master_bus_handle_t bus, uint8_t addr)
 {
@@ -416,12 +386,13 @@ esp_err_t sht31_read(float *temp, float *hum)
     g_sht31.runtime.read_count++;
     sht31_clear_error();
 
-    // Envoi direct et transparent des données au composant thermostat
+    // Envoi transparent des données au thermostat (Valide = True)
     thermostat_update_indoor_data(g_sht31.runtime.temperature, g_sht31.runtime.humidity, g_sht31.runtime.valid);
 
     return ESP_OK;
 
 fail:
+    // Enregistre l'erreur et met à jour le thermostat en "non valide"
     sht31_record_error(err);
     return err;
 }

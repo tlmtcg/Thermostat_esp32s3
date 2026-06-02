@@ -68,57 +68,42 @@ void sht31_task(void *pvParameters)
 
             int64_t now = time_utils_get_timestamp();
 
+            // Vérification de l'intervalle de log SD
             if ((now - last_log_time) >= (LOG_INTERVAL_MS * 1000))
             {
                 last_log_time = now;
 
-#ifdef SHT31_DEBUG
-                ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
-#endif
-
+                // NETTOYAGE : Une seule vérification de la config et de l'autorisation d'écriture SD
                 if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
                 {
-                    time_utils_get_time_str(time_str, sizeof(time_str));
+                    static bool file_checked = false;
+                    const char *mode = "a";
 
-                    snprintf(log_buffer, sizeof(log_buffer),
-                             "%s,%.2f,%.2f\n",
-                             time_str, temperature, humidity);
-
-                    if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
+                    if (!file_checked)
                     {
-                        time_utils_get_time_str(time_str, sizeof(time_str));
-
-                        snprintf(log_buffer, sizeof(log_buffer),
-                                 "%s,%.2f,%.2f\n",
-                                 time_str, temperature, humidity);
-
-                        // Variable statique pour se souvenir si le fichier a été validé
-                        static bool file_checked = false;
-                        const char *mode = "a";
-
-                        if (!file_checked)
+                        // On vérifie si le fichier existe au premier démarrage
+                        FILE *test_f = fopen(SHT31_LOG_FILE_PATH, "r");
+                        if (test_f == NULL)
                         {
-                            // On vérifie si le fichier existe
-                            FILE *test_f = fopen(SHT31_LOG_FILE_PATH, "r");
-                            if (test_f == NULL)
-                            {
-                                // Absent ! On force le mode "w" pour ce premier coup
-                                mode = "w";
-                                ESP_LOGW(TAG, "Log SHT31 absent, utilisation du mode 'w' pour création.");
-                            }
-                            else
-                            {
-                                fclose(test_f);
-                            }
-                            file_checked = true; // Inutile de re-vérifier à chaque cycle de 10 min
+                            mode = "w"; // Absent ! On force le mode "w" pour ce premier coup
+                            ESP_LOGW(TAG, "Log SHT31 absent, utilisation du mode 'w' pour création.");
                         }
-
-                        // Écriture effective avec le mode adapté ("w" si absent au départ, "a" sinon)
-                        if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer, mode) != ESP_OK)
+                        else
                         {
-                            ESP_LOGE(TAG, "Erreur ecriture log SHT31");
-                            file_checked = false; // Permmet de retenter la détection si la carte SD a été retirée/remise
+                            fclose(test_f);
                         }
+                        file_checked = true; // Inutile de re-vérifier à chaque cycle
+                    }
+
+                    // NETTOYAGE : Formatage unique des données à écrire
+                    time_utils_get_time_str(time_str, sizeof(time_str));
+                    snprintf(log_buffer, sizeof(log_buffer), "%s,%.2f,%.2f\n", time_str, temperature, humidity);
+
+                    // Écriture effective sur la carte SD
+                    if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer, mode) != ESP_OK)
+                    {
+                        ESP_LOGE(TAG, "Erreur ecriture log SHT31");
+                        file_checked = false; // Permet de retenter la détection si la carte SD a été éjectée/remise
                     }
                 }
             }
@@ -127,6 +112,7 @@ void sht31_task(void *pvParameters)
         {
             const sht31_runtime_t *runtime = sht31_get_runtime();
 
+            // Pas de filtrage ici : affiche chaque log d'erreur comme demandé
             if (runtime->consecutive_error_count <= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS ||
                 (runtime->consecutive_error_count % 10) == 0)
             {

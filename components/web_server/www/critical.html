@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="common.css" />
+    <title>Mode Critique & Secours</title>
+    <style>
+      /* Ajustements spécifiques pour la page critique */
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 10px;
+        align-items: center;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 180px;
+      }
+      .form-group label {
+        font-size: 0.85rem;
+        color: #b3b3b3;
+      }
+      input, select {
+        background: #252526;
+        border: 1px solid #444;
+        color: white;
+        padding: 6px;
+        border-radius: 4px;
+        font-family: inherit;
+      }
+      button {
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--orange);
+        color: white;
+        font-weight: bold;
+        margin-top: auto; /* Aligne le bouton avec les inputs */
+      }
+      button:hover {
+        filter: brightness(1.1);
+      }
+      .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: bold;
+      }
+      .badge-ok { background-color: #2ea043; color: white; }
+      .badge-danger { background-color: #832a2a; color: white; }
+      .badge-warn { background-color: #b07e00; color: white; }
+    </style>
+  </head>
+  <body>
+    <div id="navbar"></div>
+
+    <h1 class="page-title">Configuration Mode Critique</h1>
+
+    <div class="box">
+      <h2>État Actuel des Capteurs</h2>
+      <div class="line" style="margin-top: 10px;">
+        <span class="label">Capteur Intérieur (SHT31)</span>
+        <span id="status-int" class="badge badge-ok">Initialisation...</span>
+      </div>
+      <div class="line">
+        <span class="label">Capteur Extérieur</span>
+        <span id="status-ext" class="badge badge-ok">Initialisation...</span>
+      </div>
+      <div class="line">
+        <span class="label">État du Thermostat</span>
+        <span id="status-thermostat" class="value">--</span>
+      </div>
+      <div class="line">
+        <span class="label">Dernière mise à jour</span>
+        <span id="status-time" class="value">--</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Paramètres du Cycle de Secours</h2>
+      <form id="critical-form" onsubmit="saveParameters(event)">
+        <div class="controls">
+          <div class="form-group">
+            <label for="cycle-duration">Durée du cycle (secondes)</label>
+            <input type="number" id="cycle-duration" min="60" required placeholder="Ex: 7200 (2h)">
+          </div>
+          
+          <div class="form-group">
+            <label for="fallback-duty">Chauffe Double Panne (%)</label>
+            <input type="number" id="fallback-duty" min="0" max="100" required placeholder="Ex: 30">
+          </div>
+
+          <div class="form-group">
+            <label for="extreme-ext">Seuil Froid Extrême (°C)</label>
+            <input type="number" id="extreme-ext" step="0.1" required placeholder="Ex: -10.0">
+          </div>
+
+          <button type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      async function fetchStatus() {
+        try {
+          // Appel API unifié pour récupérer l'état du thermostat et des capteurs
+          const response = await fetch('/api/thermostat/status');
+          const data = await response.json();
+
+          // Mise à jour de l'état du capteur intérieur
+          const statusInt = document.getElementById('status-int');
+          if (data.indoor_valid) {
+            statusInt.textContent = `OK (${data.indoor_temp.toFixed(1)}°C)`;
+            statusInt.className = "badge badge-ok";
+          } else {
+            statusInt.textContent = "PANNE (Mode Sécurité Actif)";
+            statusInt.className = "badge badge-danger";
+          }
+
+          // Mise à jour de l'état du capteur extérieur
+          const statusExt = document.getElementById('status-ext');
+          if (data.outdoor_valid) {
+            statusExt.textContent = `OK (${data.outdoor_temp.toFixed(1)}°C)`;
+            statusExt.className = "badge badge-ok";
+          } else {
+            statusExt.textContent = "INDISPONIBLE";
+            statusExt.className = "badge badge-warn";
+          }
+
+          // Infos générales
+          document.getElementById('status-thermostat').textContent = data.mode_text || data.mode;
+          document.getElementById('status-time').textContent = new Date().toLocaleTimeString();
+
+          // Remplissage initial des champs de configuration (uniquement si vides)
+          if (!document.getElementById('cycle-duration').value) {
+            document.getElementById('cycle-duration').value = data.secu_cycle_duration_sec || 7200;
+            document.getElementById('fallback-duty').value = data.fallback_duty_percent || 30;
+            document.getElementById('extreme-ext').value = data.extreme_ext_temp || -10.0;
+          }
+
+        } catch (err) {
+          console.error("Erreur fetch status:", err);
+        }
+      }
+
+      async function saveParameters(event) {
+        event.preventDefault();
+
+        const payload = {
+          secu_cycle_duration_sec: parseInt(document.getElementById('cycle-duration').value),
+          fallback_duty_percent: parseInt(document.getElementById('fallback-duty').value),
+          extreme_ext_temp: parseFloat(document.getElementById('extreme-ext').value)
+        };
+
+        try {
+          const response = await fetch('/api/thermostat/config/critical', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            alert("Paramètres de secours enregistrés avec succès !");
+            fetchStatus();
+          } else {
+            alert("Erreur lors de la sauvegarde des paramètres.");
+          }
+        } catch (err) {
+          console.error("Erreur post config:", err);
+          alert("Erreur réseau.");
+        }
+      }
+
+      // Initialisation et rafraîchissement automatique toutes les 5 secondes
+      fetchStatus();
+      setInterval(fetchStatus, 5000);
+    </script>
+    <script src="index.js"></script>
+  </body>
+</html>

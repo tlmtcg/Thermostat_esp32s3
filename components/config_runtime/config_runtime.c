@@ -4,6 +4,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "sht31.h"
+#include "dht.h"
 
 runtime_config_t g_cfg = {0};
 

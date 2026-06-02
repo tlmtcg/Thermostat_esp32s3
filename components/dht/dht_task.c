@@ -69,32 +69,27 @@ void dht_task(void *pvParameters)
 
     dht_task_config_t *task_config = (dht_task_config_t *)pvParameters;
     gpio_reset_pin(DHT_GPIO_PIN);
-    gpio_set_pull_mode(DHT_GPIO_PIN, GPIO_PULLUP_ONLY); // <-- AJOUTEZ CECI pour stabiliser la ligne de données
+    gpio_set_pull_mode(DHT_GPIO_PIN, GPIO_PULLUP_ONLY); 
     ESP_LOGI(TAG, "DHT initialisé avec succès sur GPIO %d avec Pull-Up", DHT_GPIO_PIN);
 
     while (1)
     {
-        // En attente du bit d'activation de l'Event Group global
         xEventGroupWaitBits(task_config->event_group, task_config->event_bit, pdFALSE, pdTRUE, portMAX_DELAY);
 
         float current_temp = NAN;
         float current_hum = NAN;
 
-        // Récupération du pointeur non-const de la structure pour mettre à jour l'API Web
         dht_runtime_t *runtime = (dht_runtime_t *)dht_get_runtime();
-        runtime->read_count++; // Incrémentation du nombre total de tentatives
+        runtime->read_count++; 
 
-        // Lancement de la session de mesure (avec ses 3 essais internes)
         esp_err_t ret = dht_perform_measurement(&current_temp, &current_hum);
 
         if (ret == ESP_OK && current_temp > -15 && current_temp < 65)
         {
-            // --- TRAITEMENT EN CAS DE SUCCÈS ---
             last_temp = current_temp;
             last_hum = current_hum;
             consecutive_errors = 0;
 
-            // Mise à jour du statut runtime pour le JSON
             runtime->temperature = current_temp;
             runtime->humidity = current_hum;
             runtime->valid = true;
@@ -106,17 +101,14 @@ void dht_task(void *pvParameters)
         }
         else
         {
-            // --- TRAITEMENT EN CAS D'ÉCHEC ---
             consecutive_errors++;
 
-            // Mise à jour du statut d'erreur runtime pour le JSON
             runtime->valid = false;
             runtime->error_count++;
             runtime->consecutive_error_count = consecutive_errors;
             runtime->last_error_code = ret;
             runtime->last_error_at = time(NULL);
 
-            // Formatage du libellé d'erreur lisible par le web
             if (ret == ESP_ERR_TIMEOUT)
             {
                 strncpy(runtime->last_error, "TIMEOUT", sizeof(runtime->last_error));
@@ -133,21 +125,16 @@ void dht_task(void *pvParameters)
             ESP_LOGW(TAG, "Erreur lecture DHT: %s, fallback utilisé (consécutives: %lu)",
                      runtime->last_error, (unsigned long)consecutive_errors);
 
-            // Déclaration de la panne si le seuil d'échecs successifs est dépassé
             if (consecutive_errors >= DHT_PANNE_SEUIL_CONSECUTIF)
             {
                 alert_add("Capteur DHT en panne");
-
-                // Forcer une réinitialisation électrique logicielle de la broche
                 gpio_reset_pin(DHT_GPIO_PIN);
             }
         }
 
-        // Publication dans l'objet de contexte global (Fallback sécurisé à 0.0 si NAN)
         g_ctx.temperature = isnan(last_temp) ? 0.0f : last_temp;
         g_ctx.humidity = isnan(last_hum) ? 0.0f : last_hum;
 
-        // Archivage sur la carte mémoire SD
         if (!isnan(last_temp))
         {
             int64_t now = time_utils_get_timestamp();
@@ -162,24 +149,28 @@ void dht_task(void *pvParameters)
             }
         }
 
-// 1. Priorité à la configuration globale (mise à jour par le POST)
+        // --- CORRECTION GESTION DE L'INTERVALLE ---
+        
+        // 1. On donne la priorité absolue à la configuration globale runtime (mise à jour par le serveur Web)
         uint32_t configured_delay = g_cfg.dht_read_int_ms;
 
-        // 2. Surcharge locale via task_config uniquement si elle est spécifiquement définie et valide
-        if (task_config && task_config->delay_ms && *task_config->delay_ms >= 2000)
+        // 2. CORRECTION : On met également à jour la structure du gestionnaire de tâche de manière à synchroniser les deux mondes
+        if (task_config && task_config->delay_ms)
         {
-            configured_delay = *task_config->delay_ms;
+            *task_config->delay_ms = configured_delay;
         }
 
         // 3. Sécurité matérielle stricte (le protocole DHT impose minimum 2 secondes)
         if (configured_delay < 2000)
         {
             configured_delay = 2000;
+            if (task_config && task_config->delay_ms) {
+                *task_config->delay_ms = 2000;
+            }
         }
 
-        // Application de la temporisation dynamique
+        // Application de la temporisation dynamique correctement synchronisée
         vTaskDelay(pdMS_TO_TICKS(configured_delay));
     }
-
 #endif
 }

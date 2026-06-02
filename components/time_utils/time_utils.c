@@ -9,6 +9,7 @@
 
 static const char *TAG = "TIME_UTILS";
 static time_t s_last_sync = 0;
+static time_t s_board_time_before_sync = 0; // Mémorise le temps de la carte juste avant la requête
 
 time_utils_config_t cfg;
 // Variable statique privée au fichier
@@ -28,7 +29,21 @@ void time_utils_get_status(time_status_t *dest)
 static void time_sync_notification_cb(struct timeval *tv)
 {
     s_last_sync = tv->tv_sec;
-    ESP_LOGI(TAG, "Synchronisation SNTP réussie");
+    s_time_status.last_sync_time = (uint32_t)tv->tv_sec;
+
+    // Calcul de l'écart réel si on a mémorisé l'heure avant l'interrogation
+    if (s_board_time_before_sync > 0)
+    {
+        int32_t drift = (int32_t)(tv->tv_sec - s_board_time_before_sync);
+        ESP_LOGW(TAG, "Synchronisation SNTP réussie. Écart réel mesuré : %ld secondes", drift);
+        s_board_time_before_sync = 0; // Réinitialisation
+        alert_remove("Panne NTP");
+        alert_remove("Attente NTP");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Synchronisation SNTP réussie");
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -67,6 +82,9 @@ esp_err_t time_utils_init(void)
     s_time_status.is_syncing = true;
     alert_add("Attente NTP");
     bool synced = false;
+
+    // Mémorisation de l'heure système brute avant de commencer la boucle d'attente
+    s_board_time_before_sync = time(NULL);
 
     for (int retry = 0; retry < cfg.ntp_max_retry; retry++)
     {
@@ -130,13 +148,13 @@ void time_utils_get_time_str(char *dest, size_t max_size)
 void time_utils_get_complete_time_str(char *dest, size_t max_size)
 {
     // Récupération du temps local (remplacez par votre fonction réelle si nécessaire)
-    struct tm info = time_utils_get_local_time(); 
-    
+    struct tm info = time_utils_get_local_time();
+
     char date_time_part[32];
-    
+
     // 1. On génère le reste de la date et l'heure (ex: "02/06/2026 10:45:00")
     strftime(date_time_part, sizeof(date_time_part), "%d/%m/%Y %H:%M:%S", &info);
-    
+
     // 2. On combine le jour en français (via info.tm_wday qui va de 0 à 6) avec le reste
     // info.tm_wday : 0 = Dimanche, 1 = Lundi, etc.
     snprintf(dest, max_size, "%s %s", JOURS_FR[info.tm_wday], date_time_part);
@@ -184,8 +202,8 @@ struct tm time_utils_localtime_from_ts(int64_t ts)
 
 /**
  * @brief Vérifie l'écart entre la carte et le temps réel. Réaligne si l'écart dépasse 1 minute.
- * @param real_timestamp Le timestamp Unix issu de votre API météo ou d'une source web fiable
- */
+ * @param real_timestamp
+ *  */
 void time_utils_check_and_sync(uint64_t real_timestamp)
 {
     uint64_t board_time = (uint64_t)time(NULL);
@@ -195,12 +213,11 @@ void time_utils_check_and_sync(uint64_t real_timestamp)
     if (abs(drift) >= 60)
     {
         ESP_LOGW(TAG, "Dérive importante détectée (%ld sec). Resynchronisation forcée...", drift);
-        
+
         struct timeval tv = {
             .tv_sec = (time_t)real_timestamp,
-            .tv_usec = 0
-        };
-        
+            .tv_usec = 0};
+
         if (settimeofday(&tv, NULL) == 0)
         {
             s_last_sync = tv.tv_sec;
@@ -214,3 +231,13 @@ void time_utils_check_and_sync(uint64_t real_timestamp)
     }
 }
 
+/**
+ * @brief Prépare le système à enregistrer la dérive en sauvegardant l'heure courante de la carte avant la synchro.
+ */
+void time_utils_prepare_for_sync(void)
+{
+    // On enregistre le timestamp Unix actuel de la carte (qui peut être décalé)
+    s_board_time_before_sync = time(NULL);
+
+    ESP_LOGD("TIME_UTILS", "Heure de la carte mémorisée avant synchro : %ld", s_board_time_before_sync);
+}

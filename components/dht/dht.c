@@ -4,6 +4,8 @@
 #include "esp_log.h"
 #include <stdio.h>
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "DHT_DRIVER";
 
@@ -47,10 +49,74 @@ static inline esp_err_t dht_wait_level(gpio_num_t gpio_num, uint32_t timeout_us,
 }
 
 // Lecture brute du protocole Single-Wire du DHT
+// esp_err_t dht_read_data(gpio_num_t gpio_num, dht_sensor_type_t type, float *humidity, float *temperature)
+// {
+//     uint8_t data[5] = {0};
+//     uint32_t duration = 0;
+
+//     // 1. Signal de Start généré par l'ESP32
+//     gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT_OD); 
+//     gpio_set_level(gpio_num, 0);
+    
+//     ets_delay_us(type == DHT_TYPE_DHT11 ? 20000 : 2000);
+    
+//     gpio_set_level(gpio_num, 1);
+//     ets_delay_us(40); 
+
+//     // 2. Commutation de la broche en entrée
+//     gpio_set_direction(gpio_num, GPIO_MODE_INPUT);
+
+//     // Poignée de main (Handshake) du DHT
+//     if (dht_wait_level(gpio_num, 80, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+//     if (dht_wait_level(gpio_num, 90, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+//     if (dht_wait_level(gpio_num, 90, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+
+//     // 3. Extraction des 40 bits
+//     for (int i = 0; i < 40; i++) {
+//         if (dht_wait_level(gpio_num, 60, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT;
+//         if (dht_wait_level(gpio_num, 80, 1, &duration) != ESP_OK) return ESP_ERR_TIMEOUT;
+
+//         data[i / 8] <<= 1;
+//         if (duration > 40) { 
+//             data[i / 8] |= 1;
+//         }
+//     }
+
+//     // 4. Validation du Checksum
+//     if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
+//         return ESP_ERR_INVALID_CRC;
+//     }
+
+//     // 5. Interprétation des grandeurs physiques
+//     if (type == DHT_TYPE_DHT11) {
+//         *humidity = (float)data[0];
+//         *temperature = (float)data[2];
+//         if (data[1] < 10) *humidity += (float)data[1] * 0.1f;
+//         if (data[3] < 10) *temperature += (float)data[3] * 0.1f;
+//     } else { 
+//         float h = (float)((data[0] << 8) | data[1]) * 0.1f;
+//         float t = (float)((data[2] & 0x7F) << 8 | data[3]) * 0.1f;
+//         if (data[2] & 0x80) t = -t; 
+//         *humidity = h;
+//         *temperature = t;
+//     }
+
+//     return ESP_OK;
+// }
+
 esp_err_t dht_read_data(gpio_num_t gpio_num, dht_sensor_type_t type, float *humidity, float *temperature)
 {
+    // Sécurité pointeurs
+    if (!humidity || !temperature) return ESP_ERR_INVALID_ARG;
+
     uint8_t data[5] = {0};
     uint32_t duration = 0;
+
+    // --- ENTRÉE EN ZONE CRITIQUE DE TIMING ---
+    // Mémorisation de la priorité actuelle de la tâche appelante
+    UBaseType_t old_prio = uxTaskPriorityGet(NULL);
+    // Forçage de la priorité au maximum pour figer le scheduler FreeRTOS
+    vTaskPrioritySet(NULL, configMAX_PRIORITIES - 1);
 
     // 1. Signal de Start généré par l'ESP32
     gpio_set_direction(gpio_num, GPIO_MODE_OUTPUT_OD); 
@@ -65,20 +131,39 @@ esp_err_t dht_read_data(gpio_num_t gpio_num, dht_sensor_type_t type, float *humi
     gpio_set_direction(gpio_num, GPIO_MODE_INPUT);
 
     // Poignée de main (Handshake) du DHT
-    if (dht_wait_level(gpio_num, 80, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
-    if (dht_wait_level(gpio_num, 90, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
-    if (dht_wait_level(gpio_num, 90, 1, NULL) != ESP_OK) return ESP_ERR_TIMEOUT; 
+    if (dht_wait_level(gpio_num, 80, 1, NULL) != ESP_OK) {
+        vTaskPrioritySet(NULL, old_prio); // <--- Toujours restaurer avant de quitter en erreur
+        return ESP_ERR_TIMEOUT; 
+    }
+    if (dht_wait_level(gpio_num, 90, 0, NULL) != ESP_OK) {
+        vTaskPrioritySet(NULL, old_prio);
+        return ESP_ERR_TIMEOUT; 
+    }
+    if (dht_wait_level(gpio_num, 90, 1, NULL) != ESP_OK) {
+        vTaskPrioritySet(NULL, old_prio);
+        return ESP_ERR_TIMEOUT; 
+    }
 
     // 3. Extraction des 40 bits
     for (int i = 0; i < 40; i++) {
-        if (dht_wait_level(gpio_num, 60, 0, NULL) != ESP_OK) return ESP_ERR_TIMEOUT;
-        if (dht_wait_level(gpio_num, 80, 1, &duration) != ESP_OK) return ESP_ERR_TIMEOUT;
+        if (dht_wait_level(gpio_num, 60, 0, NULL) != ESP_OK) {
+            vTaskPrioritySet(NULL, old_prio);
+            return ESP_ERR_TIMEOUT;
+        }
+        if (dht_wait_level(gpio_num, 80, 1, &duration) != ESP_OK) {
+            vTaskPrioritySet(NULL, old_prio);
+            return ESP_ERR_TIMEOUT;
+        }
 
         data[i / 8] <<= 1;
         if (duration > 40) { 
             data[i / 8] |= 1;
         }
     }
+
+    // --- SORTIE DE ZONE CRITIQUE ---
+    // Les phases critiques temporelles sont finies, le calcul peut être interrompu sans danger
+    vTaskPrioritySet(NULL, old_prio);
 
     // 4. Validation du Checksum
     if (data[4] != ((data[0] + data[1] + data[2] + data[3]) & 0xFF)) {
@@ -111,7 +196,29 @@ esp_err_t dht_get_config(dht_config_t *out) {
 
 esp_err_t dht_set_config(const dht_config_t *config) {
     if (!config) return ESP_ERR_INVALID_ARG;
-    memcpy(&active_config, config, sizeof(dht_config_t));
+    
+    // Sécurité : évite une broche invalide (0 est souvent utilisé pour GPIO_NUM_0, 
+    // mais si vous l'utilisez comme indicateur d'erreur, on garde la condition)
+    if (config->gpio_pin == 0)
+        return ESP_ERR_INVALID_ARG;
+
+    // 1. On crée une copie locale de travail
+    dht_config_t new_config = *config;
+
+    // 2. CORRECTION : Si l'intervalle est à 0, on applique une valeur par défaut cohérente (ex: 2000 ms)
+    if (new_config.read_interval_ms == 0) {
+        new_config.read_interval_ms = 2000; 
+    }
+
+    // 3. CORRECTION : On copie la structure modifiée (new_config) dans la config active
+    memcpy(&active_config, &new_config, sizeof(dht_config_t));
+
+    ESP_LOGI(TAG,
+             "Config appliquee (gpio_pin=0x%02X, interval=%u ms, log_to_sd=%d)",
+             active_config.gpio_pin,
+             (unsigned)active_config.read_interval_ms,
+             active_config.log_to_sd);
+    
     return ESP_OK;
 }
 

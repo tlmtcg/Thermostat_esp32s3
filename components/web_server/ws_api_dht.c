@@ -27,22 +27,32 @@ static esp_err_t dht_handler(httpd_req_t *req)
 // Handler POST pour mettre à jour la configuration du DHT
 esp_err_t dht_config_post_handler(httpd_req_t *req)
 {
-    char buf[150];
-    int ret, remaining = req->content_len;
+    // CORRECTION 1 : Augmenter légèrement la taille à 256 car le JSON brut de configuration 
+    // + les structures HTTP peuvent vite saturer un buffer trop petit.
+    char buf[256];
+    int remaining = req->content_len;
 
-    // 1. Sécurité de taille du tampon
+    // CORRECTION 2 : Sécurité stricte du buffer. On garde 1 octet pour le '\0'.
     if (remaining >= sizeof(buf)) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON trop grand");
         return ESP_FAIL;
     }
 
-    // 2. Lecture du contenu du POST
-    ret = httpd_req_recv(req, buf, remaining);
-    if (ret <= 0) {
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur réception");
-        return ESP_FAIL;
+    // CORRECTION 3 : Boucle de réception obligatoire pour garantir la lecture totale du flux HTTP
+    int received = 0;
+    while (remaining > 0) {
+        int ret = httpd_req_recv(req, buf + received, remaining);
+        if (ret <= 0) {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
+                continue; // Timeout temporaire, on réessaie
+            }
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur réception");
+            return ESP_FAIL;
+        }
+        received += ret;
+        remaining -= ret;
     }
-    buf[ret] = '\0'; // Fin de chaîne pour le parseur
+    buf[received] = '\0'; // Fin de chaîne sécurisée pour cJSON
 
     // 3. Parsing du JSON reçu
     cJSON *root = cJSON_Parse(buf);
@@ -89,7 +99,6 @@ esp_err_t dht_config_post_handler(httpd_req_t *req)
 // Fonction d'enregistrement publique de l'API
 esp_err_t ws_register_dht_api(httpd_handle_t server)
 {
-    // 1. URI GET pour la lecture des données dynamiques
     httpd_uri_t uri_get = {
         .uri      = "/api/sensors/dht",
         .method   = HTTP_GET,
@@ -97,7 +106,6 @@ esp_err_t ws_register_dht_api(httpd_handle_t server)
         .user_ctx = NULL
     };
 
-    // 2. URI POST pour modifier la configuration
     httpd_uri_t uri_post = {
         .uri      = "/api/config/dht",
         .method   = HTTP_POST,
@@ -105,14 +113,12 @@ esp_err_t ws_register_dht_api(httpd_handle_t server)
         .user_ctx = NULL
     };
 
-    // Enregistrement de la route GET
     esp_err_t err = httpd_register_uri_handler(server, &uri_get);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Échec enregistrement GET DHT: %s", esp_err_to_name(err));
         return err;
     }
 
-    // Enregistrement de la route POST
     err = httpd_register_uri_handler(server, &uri_post);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Échec enregistrement POST DHT: %s", esp_err_to_name(err));
