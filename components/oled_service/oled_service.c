@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h> 
 
 #include "alert_manager.h"
 #include "app_context.h"
@@ -12,11 +13,14 @@
 #include "time_utils.h"
 #include "weather.h"
 #include "weather_store.h"
+#include "thermostat.h"
 
 static const char *TAG = "OLED_SERVICE";
 
 ssd1306_t oled;
+thermostat_config_t thermostat_config;
 
+/* Définitions matérielles et dimensionnelles de l'écran */
 #define OLED_I2C_ADDR 0x3C
 #define OLED_TASK_STACK_SIZE 4096
 #define OLED_TASK_PRIORITY 5
@@ -31,16 +35,25 @@ ssd1306_t oled;
 #define OLED_GRAPH_LEFT_X 16
 #define OLED_GRAPH_RIGHT_X 127
 
+/* Grille logique basée sur la police 5x7 (chaque caractère occupe 6x8 pixels avec l'espace) */
+#define GLYPH_WIDTH 6
+#define GLYPH_HEIGHT 8
+
 static oled_graph_data_t graph_data = {0};
 static oled_page_t current_page = OLED_PAGE_MAIN;
 static TickType_t last_switch = 0;
 static TickType_t last_history_sample = 0;
 static TaskHandle_t display_task_handle = NULL;
 
+/* Prototypes des fonctions locales */
 static bool oled_is_ready(void);
 static void oled_draw_error(const char *msg);
 static void oled_task(void *arg);
 static void draw_centered_string(uint8_t y, const char *str);
+static void draw_common_header(const char *title);
+
+/* Nouvelle fonction utilitaire basée sur la grille (Lignes / Colonnes) */
+static void draw_grid_labeled_box(uint8_t start_col, uint8_t line, uint8_t num_cols, uint8_t num_lines, const char *label, const char *format, ...);
 
 static void maybe_sample_history(void);
 static void draw_main_page(void);
@@ -88,7 +101,7 @@ static void draw_centered_string(uint8_t y, const char *str)
     }
 
     int len = (int)strlen(str);
-    int x = (SSD1306_WIDTH - (len * 6)) / 2;
+    int x = (SSD1306_WIDTH - (len * GLYPH_WIDTH)) / 2;
     if (x < 0)
     {
         x = 0;
@@ -97,16 +110,65 @@ static void draw_centered_string(uint8_t y, const char *str)
     ssd1306_draw_string(&oled, (uint8_t)x, y, str);
 }
 
+static void draw_common_header(const char *title)
+{
+    draw_centered_string(4, title);
+    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+}
+
+/**
+ * @brief Crée un encadrement et centre automatiquement un texte (Label + Valeur) en raisonnant en Lignes/Colonnes.
+ * * @param start_col Colonne de départ (0 à 21, indexée sur la largeur d'un caractère de 6px)
+ * @param line      Ligne de départ (0 à 7, indexée sur la hauteur d'une ligne de 8px)
+ * @param num_cols  Largeur de la boîte exprimée en nombre de colonnes de texte
+ * @param num_lines Hauteur de la boîte exprimée en nombre de lignes de texte
+ * @param label     Le texte fixe du bloc (ex: "TEMP ")
+ * @param format    Le spécificateur de format pour la variable (ex: "%.1f C")
+ */
+static void draw_grid_labeled_box(uint8_t start_col, uint8_t line, uint8_t num_cols, uint8_t num_lines,
+                                  const char *label, const char *format, ...)
+{
+    char val_buffer[OLED_LINE_BUFFER_SIZE] = {0};
+    char full_buffer[OLED_LINE_BUFFER_SIZE] = {0};
+
+    // 1. Extraction et formatage de la partie variable (...)
+    va_list args;
+    va_start(args, format);
+    vsnprintf(val_buffer, sizeof(val_buffer), format, args);
+    va_end(args);
+
+    // 2. Concaténation automatique du label fixe et de sa valeur
+    snprintf(full_buffer, sizeof(full_buffer), "%s%s", label, val_buffer);
+
+    // 3. Conversion mathématique des coordonnées logiques (Grille) en Pixels réels
+    uint8_t x = start_col * GLYPH_WIDTH;
+    uint8_t y = line * GLYPH_HEIGHT;
+    uint8_t w = num_cols * GLYPH_WIDTH;
+    uint8_t h = num_lines * GLYPH_HEIGHT;
+
+    // 4. Dessin de la boîte extérieure sur l'écran
+    draw_box(x, y, w, h);
+
+    // 5. Calcul automatique du centrage horizontal et vertical du texte combiné dans le rectangle
+    int text_len = (int)strlen(full_buffer);
+    int text_w = text_len * GLYPH_WIDTH;
+    
+    int text_x = x + ((w - text_w) / 2);
+    int text_y = y + (h / 2) - 3; // Soustraction de 3px pour l'alignement de la police de 7px de haut
+
+    if (text_x < x) {
+        text_x = x; // Sécurité anti-débordement à gauche
+    }
+
+    // 6. Injection de la chaîne sur le buffer de l'OLED
+    ssd1306_draw_string(&oled, (uint8_t)text_x, (uint8_t)text_y, full_buffer);
+}
+
 void history_add_sample(float temp, float hum)
 {
-    memmove(&g_ctx.temp_history[0], &g_ctx.temp_history[1],
-            (HISTORY_SIZE - 1) * sizeof(float));
-
-    memmove(&g_ctx.hum_history[0], &g_ctx.hum_history[1],
-            (HISTORY_SIZE - 1) * sizeof(float));
-
-    memmove(&g_ctx.ts_history[0], &g_ctx.ts_history[1],
-            (HISTORY_SIZE - 1) * sizeof(uint64_t));
+    memmove(&g_ctx.temp_history[0], &g_ctx.temp_history[1], (HISTORY_SIZE - 1) * sizeof(float));
+    memmove(&g_ctx.hum_history[0], &g_ctx.hum_history[1], (HISTORY_SIZE - 1) * sizeof(float));
+    memmove(&g_ctx.ts_history[0], &g_ctx.ts_history[1], (HISTORY_SIZE - 1) * sizeof(uint64_t));
 
     g_ctx.temp_history[HISTORY_SIZE - 1] = temp;
     g_ctx.hum_history[HISTORY_SIZE - 1] = hum;
@@ -117,10 +179,9 @@ static void maybe_sample_history(void)
 {
     TickType_t now = xTaskGetTickCount();
 
-    if (last_history_sample == 0 ||
-        (now - last_history_sample) >= pdMS_TO_TICKS(OLED_HISTORY_SAMPLE_MS))
+    if (last_history_sample == 0 || (now - last_history_sample) >= pdMS_TO_TICKS(OLED_HISTORY_SAMPLE_MS))
     {
-        history_add_sample(g_ctx.temperature,g_ctx.humidity);
+        history_add_sample(g_ctx.temperature, g_ctx.humidity);
         last_history_sample = now;
     }
 }
@@ -139,46 +200,43 @@ static void draw_main_page(void)
 {
     char line[OLED_LINE_BUFFER_SIZE];
     char time_buffer[16];
+    char status_buffer[OLED_LINE_BUFFER_SIZE]; // Buffer pour stocker le texte du mode
     bool relay_on = get_relay_state();
 
+    // --- EN-TÊTE (Lignes 0 & 1 | Y: 0 à 15) ---
     time_utils_get_hour_str(time_buffer, sizeof(time_buffer));
+    draw_common_header(time_buffer); 
 
-    draw_centered_string(4, time_buffer);
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+    // --- RANGÉE 1 (Lignes 2 & 3 | Y: 16 à 31) ---
+    // TEMP : Commence col 0, prend 13 col de large
+    draw_grid_labeled_box(0, 2, 13, 2, "TEMP ", "%.1f C", g_ctx.temperature);
+    // SET : Commence col 13, prend 8 col de large
+    draw_grid_labeled_box(13, 2, 8, 2, "SET ", "%.1f", g_ctx.setpoint);
 
-    draw_box(0, 18, 76, 18);
-    ssd1306_draw_string(&oled, 4, 21, "TEMP");
-    snprintf(line, sizeof(line), "%.1f C", g_ctx.temperature);
-    ssd1306_draw_string(&oled, 28, 21, line);
+    // --- RANGÉE 2 (Lignes 4 & 5 | Y: 32 à 47) ---
+    // HUM : Commence col 0, prend 10 col de large
+    draw_grid_labeled_box(0, 4, 10, 2, "HUM ", "%.0f%%", g_ctx.humidity);
 
-    draw_box(80, 18, 48, 18);
-    ssd1306_draw_string(&oled, 84, 21, "SET");
-    snprintf(line, sizeof(line), "%.1f", g_ctx.setpoint);
-    ssd1306_draw_string(&oled, 102, 21, line);
+    // 1. Génération de la chaîne du mode (ex: "AUTO 20.5C")
+    thermostat_get_mode_status_str(status_buffer, sizeof(status_buffer));
 
-    draw_box(0, 40, 62, 12);
-    ssd1306_draw_string(&oled, 4, 42, "HUM");
-    snprintf(line, sizeof(line), "%.0f%%", g_ctx.humidity);
-    ssd1306_draw_string(&oled, 30, 42, line);
+    // 2. Affichage sur la grille à côté de l'humidité
+    // Commence col 10 (X=60), prend 11 col de large (jusqu'à X=126) et 2 lignes de haut
+    draw_grid_labeled_box(10, 4, 11, 2, "", "%s", status_buffer);
 
-    draw_box(66, 40, 62, 12);
-    draw_status_dot(72, 44, g_ctx.wifi_connected);
-    ssd1306_draw_string(&oled, 79, 42, "WF");
-    ssd1306_draw_string(&oled, 91, 42, g_ctx.wifi_connected ? "ON" : "OFF");
-
-    draw_box(0, 54, 128, 10);
-    draw_status_dot(4, 57, relay_on);
-    ssd1306_draw_string(&oled, 12, 56, "RELAIS");
-    ssd1306_draw_string(&oled, 48, 56, relay_on ? "ON" : "OFF");
-    snprintf(line, sizeof(line), "IP %.*s", 11, g_ctx.wifi_connected ? g_ctx.wifi_ip : "-");
-    ssd1306_draw_string(&oled, 72, 56, line);
+    // --- RANGÉE 3 (Lignes 6 & 7 | Y: 48 à 63) ---
+    // Cadre global du bas (hauteur 16px)
+    draw_box(0, 48, 128, 16);
+    
+    // Éléments du bas centrés verticalement (Y=52)
+    draw_status_dot(4, 54, relay_on);
+    ssd1306_draw_string(&oled, 12, 52, relay_on ? "MARCHE" : "ARRET");
 }
 
 static void draw_wifi_page(void)
 {
     char line[OLED_LINE_BUFFER_SIZE];
-    draw_centered_string(4, "Etat WiFi");
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+    draw_common_header("Etat WiFi");
 
     if (!g_ctx.wifi_connected)
     {
@@ -203,8 +261,7 @@ static void draw_history_page(void)
 
     history_stats(&min_temp, &max_temp, &latest_temp);
 
-    draw_centered_string(4, "Courbe Temp");
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+    draw_common_header("Courbe Temp");
     snprintf(line, sizeof(line), "Now %.1fC", latest_temp);
     ssd1306_draw_string(&oled, 0, 18, line);
     snprintf(line, sizeof(line), "Lo %.1f Hi %.1f", min_temp, max_temp);
@@ -214,12 +271,24 @@ static void draw_history_page(void)
 
 static void draw_time_page(void)
 {
-    char time_buffer[OLED_LINE_BUFFER_SIZE];
-    time_utils_get_time_str(time_buffer, sizeof(time_buffer));
-    draw_centered_string(4, "Horloge");
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
-    draw_box(4, 24, 120, 20);
-    draw_centered_string(31, time_buffer);
+    char date_buffer[OLED_LINE_BUFFER_SIZE];
+    char hour_buffer[OLED_LINE_BUFFER_SIZE];
+    struct tm info = time_utils_get_local_time();
+    
+    static const char *JOURS_FR[] = {
+        "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"
+    };
+
+    // Formatage manuel des deux lignes pour contourner l'absence de locale sur ESP32
+    snprintf(date_buffer, sizeof(date_buffer), "%s %02d/%02d/%04d", 
+             JOURS_FR[info.tm_wday], info.tm_mday, info.tm_mon + 1, info.tm_year + 1900);
+    strftime(hour_buffer, sizeof(hour_buffer), "%H:%M:%S", &info);
+    
+    draw_common_header("Horloge");
+    draw_box(0, 20, 128, 38); // Cadre multi-lignes étendu
+    
+    draw_centered_string(25, date_buffer);
+    draw_centered_string(42, hour_buffer);
 }
 
 static void draw_weather_page(void)
@@ -233,27 +302,20 @@ static void draw_weather_page(void)
     desc = weather_code_short_description(weather.current.weather_code);
     delta_48h = weather.forecast_48h.temperature - weather.current.temperature;
 
-    draw_centered_string(4, "Meteo");
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+    draw_common_header("Meteo");
 
     draw_box(0, 18, 128, 14);
     draw_centered_string(22, desc);
 
-    draw_box(0, 35, 62, 14);
-    ssd1306_draw_string(&oled, 4, 39, "EXT");
-    snprintf(line, sizeof(line), "%.1fC", weather.current.temperature);
-    ssd1306_draw_string(&oled, 28, 39, line);
-
-    draw_box(66, 35, 62, 14);
-    ssd1306_draw_string(&oled, 70, 39, "HUM");
-    snprintf(line, sizeof(line), "%.0f%%", weather.current.humidity);
-    ssd1306_draw_string(&oled, 94, 39, line);
+    // Utilisation de la fonction de Grille automatique en RANGÉE intermédiaire
+    // EXT (Extérieur) : Colonne 0, Ligne 4, Largeur 10 col, Hauteur 2 lignes (16px)
+    draw_grid_labeled_box(0, 4, 10, 2, "EXT ", "%.1fC", weather.current.temperature);
+    
+    // HUM (Humidité) : Colonne 11, Ligne 4, Largeur 10 col, Hauteur 2 lignes (16px)
+    draw_grid_labeled_box(11, 4, 10, 2, "HUM ", "%.0f%%", weather.current.humidity);
 
     draw_box(0, 52, 128, 12);
-    snprintf(
-        line,
-        sizeof(line),
-        "48h %.1fC %s%.1f",
+    snprintf(line, sizeof(line), "48h %.1fC %s%.1f",
         weather.forecast_48h.temperature,
         delta_48h >= 0.0f ? "+" : "",
         delta_48h);
@@ -267,8 +329,7 @@ static void draw_alert_page(void)
     int y = 18;
     int shown = 0;
 
-    draw_centered_string(4, "Alertes");
-    draw_box(0, 0, SSD1306_WIDTH, OLED_HEADER_HEIGHT);
+    draw_common_header("Alertes");
 
     for (int i = 0; i < count && shown < 4; i++)
     {
@@ -278,12 +339,7 @@ static void draw_alert_page(void)
         }
 
         char display_name[22] = {0};
-        snprintf(
-            display_name,
-            sizeof(display_name),
-            "%.*s",
-            (int)sizeof(display_name) - 1,
-            active_alerts[i].name);
+        snprintf(display_name, sizeof(display_name), "%.*s", (int)sizeof(display_name) - 1, active_alerts[i].name);
 
         draw_box(2, (uint8_t)y, 124, 10);
         ssd1306_draw_string(&oled, 6, (uint8_t)(y + 2), display_name);
@@ -339,14 +395,8 @@ static void draw_status_dot(uint8_t x, uint8_t y, bool enabled)
 
 static uint8_t clamp_u8_int(int value, int min_value, int max_value)
 {
-    if (value < min_value)
-    {
-        return (uint8_t)min_value;
-    }
-    if (value > max_value)
-    {
-        return (uint8_t)max_value;
-    }
+    if (value < min_value)  return (uint8_t)min_value;
+    if (value > max_value)  return (uint8_t)max_value;
     return (uint8_t)value;
 }
 
@@ -354,54 +404,38 @@ static const char *weather_code_short_description(int code)
 {
     switch (code)
     {
-    case 0:
-        return "Clair";
-    case 1:
-        return "Peu nuageux";
-    case 2:
-        return "Nuages";
-    case 3:
-        return "Couvert";
+    case 0:  return "Clair";
+    case 1:  return "Peu nuageux";
+    case 2:  return "Nuages";
+    case 3:  return "Couvert";
     case 45:
-    case 48:
-        return "Brouillard";
+    case 48: return "Brouillard";
     case 51:
     case 53:
-    case 55:
-        return "Bruine";
+    case 55: return "Bruine";
     case 61:
     case 63:
-    case 65:
-        return "Pluie";
+    case 65: return "Pluie";
     case 71:
     case 73:
-    case 75:
-        return "Neige";
+    case 75: return "Neige";
     case 80:
     case 81:
-    case 82:
-        return "Averses";
+    case 82: return "Averses";
     case 95:
     case 96:
-    case 99:
-        return "Orage";
-    default:
-        return "Inconnu";
+    case 99: return "Orage";
+    default: return "Inconnu";
     }
 }
 
 static size_t get_history_point_count(void)
 {
     size_t count = 0;
-
     for (size_t i = 0; i < HISTORY_SIZE; i++)
     {
-        if (g_ctx.temp_history[i] > 0.0f)
-        {
-            count++;
-        }
+        if (g_ctx.temp_history[i] > 0.0f) count++;
     }
-
     return count;
 }
 
@@ -415,10 +449,7 @@ static void history_stats(float *out_min, float *out_max, float *out_latest)
     for (size_t i = 0; i < HISTORY_SIZE; i++)
     {
         float value = g_ctx.temp_history[i];
-        if (value <= 0.0f)
-        {
-            continue;
-        }
+        if (value <= 0.0f) continue;
 
         if (!found)
         {
@@ -427,30 +458,14 @@ static void history_stats(float *out_min, float *out_max, float *out_latest)
             found = true;
         }
 
-        if (value < min_temp)
-        {
-            min_temp = value;
-        }
-        if (value > max_temp)
-        {
-            max_temp = value;
-        }
-
+        if (value < min_temp)  min_temp = value;
+        if (value > max_temp)  max_temp = value;
         latest_temp = value;
     }
 
-    if (out_min)
-    {
-        *out_min = min_temp;
-    }
-    if (out_max)
-    {
-        *out_max = max_temp;
-    }
-    if (out_latest)
-    {
-        *out_latest = latest_temp;
-    }
+    if (out_min)    *out_min = min_temp;
+    if (out_max)    *out_max = max_temp;
+    if (out_latest) *out_latest = latest_temp;
 }
 
 static void draw_temp_graph_area(uint8_t origin_y)
@@ -555,26 +570,13 @@ static void oled_task(void *arg)
 
         switch (current_page)
         {
-        case OLED_PAGE_MAIN:
-            draw_main_page();
-            break;
-        case OLED_PAGE_HISTORY:
-            draw_history_page();
-            break;
-        case OLED_PAGE_WIFI:
-            draw_wifi_page();
-            break;
-        case OLED_PAGE_TIME:
-            draw_time_page();
-            break;
-        case OLED_PAGE_WEATHER:
-            draw_weather_page();
-            break;
-        case OLED_PAGE_ALERTS:
-            draw_alert_page();
-            break;
-        default:
-            break;
+        case OLED_PAGE_MAIN:    draw_main_page(); break;
+        case OLED_PAGE_HISTORY: draw_history_page(); break;
+        case OLED_PAGE_WIFI:    draw_wifi_page(); break;
+        case OLED_PAGE_TIME:    draw_time_page(); break;
+        case OLED_PAGE_WEATHER: draw_weather_page(); break;
+        case OLED_PAGE_ALERTS:  draw_alert_page(); break;
+        default: break;
         }
 
         if (ssd1306_update(&oled) != ESP_OK)
@@ -648,7 +650,7 @@ void oled_service_show_boot(void)
     }
 
     ssd1306_clear(&oled);
-    draw_centered_string(8, "THERMOSTAT");
+    draw_common_header("THERMOSTAT");
     draw_centered_string(24, "Starting...");
     ssd1306_update(&oled);
 }
@@ -667,18 +669,9 @@ void oled_service_show_text(const char *line1, const char *line2, const char *li
 
     ssd1306_clear(&oled);
 
-    if (line1)
-    {
-        ssd1306_draw_string(&oled, 0, 0, line1);
-    }
-    if (line2)
-    {
-        ssd1306_draw_string(&oled, 0, 16, line2);
-    }
-    if (line3)
-    {
-        ssd1306_draw_string(&oled, 0, 32, line3);
-    }
+    if (line1) ssd1306_draw_string(&oled, 0, 0, line1);
+    if (line2) ssd1306_draw_string(&oled, 0, 16, line2);
+    if (line3) ssd1306_draw_string(&oled, 0, 32, line3);
 
     ssd1306_update(&oled);
 }
@@ -697,7 +690,7 @@ void oled_service_show_temp_hum(float temp, float hum)
     snprintf(line2, sizeof(line2), "Hum: %.1f %%", hum);
 
     ssd1306_clear(&oled);
-    ssd1306_draw_string(&oled, 0, 0, "THERMOSTAT");
+    draw_common_header("THERMOSTAT");
     ssd1306_draw_string(&oled, 0, 16, line1);
     ssd1306_draw_string(&oled, 0, 32, line2);
 

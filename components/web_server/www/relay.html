@@ -50,7 +50,8 @@
         margin-bottom: 15px;
       }
 
-      input, select {
+      input,
+      select {
         background: #3c3c3c;
         border: 1px solid #555;
         color: white;
@@ -98,11 +99,13 @@
       }
     </style>
   </head>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relais</title>
+  <link rel="stylesheet" href="common.css" />
   <body>
-        <div id="navbar"></div>
+    <div id="navbar"></div>
     <div class="container">
-
       <!-- CARD 1 : CONTROLE -->
       <div class="card">
         <h3>Contrôle du relais</h3>
@@ -138,9 +141,20 @@
             <option value="OFF">Forcer OFF</option>
           </select>
 
-          <input type="number" id="cfg-delay" placeholder="Délai minimum (sec)" min="0" />
+          <input
+            type="number"
+            id="cfg-delay"
+            placeholder="Délai minimum (sec)"
+            min="0"
+          />
 
-          <input type="number" id="cfg-gpio" placeholder="GPIO (0-48)" min="0" max="48" />
+          <input
+            type="number"
+            id="cfg-gpio"
+            placeholder="GPIO (0-48)"
+            min="0"
+            max="48"
+          />
 
           <select id="cfg-inverted">
             <option value="KEEP">Inversion : Ne pas changer</option>
@@ -158,7 +172,6 @@
         <h3>Données JSON détaillées</h3>
         <pre id="json-raw">// En attente...</pre>
       </div>
-
     </div>
 
     <script>
@@ -182,77 +195,89 @@
 
       async function fetchRelay() {
         try {
-          const res = await fetch('/api/relay');
+          const res = await fetch("/api/relay");
           const data = await res.json();
 
           const isOn = data.runtime.state;
-          document.getElementById('relay-state').textContent = isOn ? "ON" : "OFF";
-          document.getElementById('relay-state').className = isOn ? "success" : "error";
-          document.getElementById('relay-icon').textContent = isOn ? "🟢" : "⚫";
+          document.getElementById("relay-state").textContent = isOn
+            ? "ON"
+            : "OFF";
+          document.getElementById("relay-state").className = isOn
+            ? "success"
+            : "error";
+          document.getElementById("relay-icon").textContent = isOn
+            ? "🟢"
+            : "⚫";
 
-          document.getElementById('relay-gpio').textContent = data.config.gpio;
-          document.getElementById('relay-inverted').textContent =
-            data.config.inverted ? "Inversé" : "Normal";
-          document.getElementById('relay-gpio-level').textContent =
+          document.getElementById("relay-gpio").textContent = data.config.gpio;
+          document.getElementById("relay-inverted").textContent = data.config
+            .inverted
+            ? "Inversé"
+            : "Normal";
+          document.getElementById("relay-gpio-level").textContent =
             data.runtime.gpio_level;
-          document.getElementById('relay-total-heating').textContent =
+          document.getElementById("relay-total-heating").textContent =
             formatDuration(data.runtime.total_live_s ?? data.runtime.total_s);
-          document.getElementById('relay-current-heating').textContent =
+          document.getElementById("relay-current-heating").textContent =
             formatDuration(data.runtime.current_s);
-          document.getElementById('relay-delay').textContent =
+          document.getElementById("relay-delay").textContent =
             data.config.min_delay_s + " sec";
-          document.getElementById('relay-remaining').textContent =
+          document.getElementById("relay-remaining").textContent =
             data.runtime.remaining_s + " sec";
-          document.getElementById('relay-error').textContent =
+          document.getElementById("relay-error").textContent =
             data.runtime.last_error || "Aucune";
 
-          document.getElementById('json-raw').textContent =
-            JSON.stringify(data, null, 4);
+          document.getElementById("json-raw").textContent = JSON.stringify(
+            data,
+            null,
+            4,
+          );
 
-          document.getElementById('cfg-delay').placeholder =
+          document.getElementById("cfg-delay").placeholder =
             data.config.min_delay_s + " (actuel)";
-          document.getElementById('cfg-gpio').placeholder =
+          document.getElementById("cfg-gpio").placeholder =
             data.config.gpio + " (actuel)";
         } catch (err) {
-          document.getElementById('json-raw').textContent = "Erreur GET /api/relay";
+          document.getElementById("json-raw").textContent =
+            "Erreur GET /api/relay";
         }
       }
 
       async function relayOn() {
-        await fetch('/api/relay/on', { method: 'POST' });
+        await fetch("/api/relay/on", { method: "POST" });
         fetchRelay();
       }
 
       async function relayOff() {
-        await fetch('/api/relay/off', { method: 'POST' });
+        await fetch("/api/relay/off", { method: "POST" });
         fetchRelay();
       }
 
       async function applyConfig() {
         const payload = {};
-        const resultEl = document.getElementById('apply-result');
+        const resultEl = document.getElementById("apply-result");
         resultEl.textContent = "";
         resultEl.className = "";
 
-        const st = document.getElementById('cfg-state').value;
-        if (st === "ON")  payload.state = true;
+        const st = document.getElementById("cfg-state").value;
+        if (st === "ON") payload.state = true;
         if (st === "OFF") payload.state = false;
 
-        const delay = document.getElementById('cfg-delay').value.trim();
+        const delay = document.getElementById("cfg-delay").value.trim();
         if (delay !== "") payload.min_delay = parseInt(delay);
 
-        const gpio = document.getElementById('cfg-gpio').value.trim();
+        const gpio = document.getElementById("cfg-gpio").value.trim();
         if (gpio !== "") payload.gpio = parseInt(gpio);
 
-        const inv = document.getElementById('cfg-inverted').value;
-        if (inv === "true")  payload.inverted = true;
+        const inv = document.getElementById("cfg-inverted").value;
+        if (inv === "true") payload.inverted = true;
         if (inv === "false") payload.inverted = false;
 
         try {
-          const res = await fetch('/api/relay', {
-            method: 'POST',
+          const res = await fetch("/api/relay", {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
           });
 
           const data = await res.json();
@@ -276,4 +301,3 @@
     <script src="index.js"></script>
   </body>
 </html>
-

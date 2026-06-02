@@ -12,6 +12,7 @@ idf_component_register(
         sht31
         app_context
         alert_manager
+        thermostat
         time_utils
         relay
         weather_store

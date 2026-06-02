@@ -122,7 +122,7 @@ const dht_runtime_t *dht_get_runtime(void) {
 
 // Génération dynamique du JSON (Appelé par l'API GET)
 char *dht_get_json_status(void) {
-    char *buf = malloc(512);
+    char *buf = malloc(768);
     if (!buf) return NULL;
 
     // Synchronisation temporaire avec le timestamp actuel pour le JSON

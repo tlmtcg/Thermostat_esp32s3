@@ -3,7 +3,7 @@ menu "Relais Configuration"
     config RELAY_GPIO_PIN
         int "Relay GPIO Pin"
         range 0 48
-        default 18
+        default 20
         help
             Le numero du GPIO sur lequel est branche le relais de commande de la chaudiere.
 

@@ -74,7 +74,7 @@ esp_err_t dht_config_post_handler(httpd_req_t *req)
     // Mises à jour des variables globales de ton stockage de configuration g_cfg
     g_cfg.dht_gpio_pin = current_config.gpio_pin;
     g_cfg.dht_sensor_type = current_config.sensor_type;
-    g_cfg.dht_read_interval_ms = current_config.read_interval_ms;
+    g_cfg.dht_read_int_ms = current_config.read_interval_ms;
     g_cfg.dht_log_to_sd = current_config.log_to_sd;
 
     // 5. Sauvegarde immédiate dans la mémoire NVS

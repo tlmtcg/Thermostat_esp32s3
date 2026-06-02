@@ -8,6 +8,10 @@ extern "C"
 {
 #endif
 
+    // Tableau de traduction des jours de la semaine
+    static const char *JOURS_FR[] = {
+        "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
+
     typedef struct
     {
         int current_retry;       // L'essai en cours
@@ -45,6 +49,8 @@ extern "C"
     uint64_t time_utils_get_timestamp(void);
 
     struct tm time_utils_localtime_from_ts(int64_t ts);
+
+    void time_utils_get_complete_time_str(char *dest, size_t max_size);
 
 #ifdef __cplusplus
 }

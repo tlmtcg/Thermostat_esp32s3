@@ -27,7 +27,7 @@ typedef struct
     // --- CONFIGURATION DHT AJOUTÉE ---
     int dht_gpio_pin;
     int dht_sensor_type;
-    uint32_t dht_read_interval_ms;
+    uint32_t dht_read_int_ms;
     bool dht_log_to_sd;
 
     // --- Jeedom ---

@@ -90,4 +90,6 @@ extern thermostat_runtime_t g_thermostat_runtime;
 
 float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating);
 
+void thermostat_get_mode_status_str(char *dest, size_t max_size);
+
 void must_heat();

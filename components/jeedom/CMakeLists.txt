@@ -5,12 +5,15 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
+        app_context
         cjson
         esp_http_client
         esp_http_server
         esp_timer
         esp_wifi
         freertos
+        config_runtime
+        thermostat
         time_utils
         weather
 )

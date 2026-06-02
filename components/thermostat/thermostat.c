@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "cJSON.h"
+#include <stdbool.h>
 
 #include "alert_manager.h"
 #include "esp_log.h"
@@ -447,3 +448,52 @@ float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
     return Ta;
 }
 
+/**
+ * @brief Convertit le mode du thermostat en chaîne de caractères en français.
+ * * @param mode        Le mode à décoder (thermostat_mode_t)
+ * @param short_version Si true, renvoie une version abrégée (ex: "MANU"), sinon la version complète
+ * @return const char* Pointeur vers la chaîne statique correspondante
+ */
+const char* thermostat_mode_to_str(thermostat_mode_t mode, bool short_version)
+{
+    switch (mode)
+    {
+        case THERMOSTAT_MODE_MANUAL:
+            return short_version ? "MANU" : "MANUEL";
+            
+        case THERMOSTAT_MODE_AUTO:
+            return short_version ? "AUTO" : "AUTOMATIQUE";
+            
+        case THERMOSTAT_MODE_ABSENT:
+            return short_version ? "ABS" : "ABSENT";
+            
+        case THERMOSTAT_MODE_HORS_GEL:
+            return short_version ? "H.GEL" : "HORS GEL";
+            
+        default:
+            return short_version ? "INCO" : "INCONNU";
+    }
+}
+
+/**
+ * @brief Remplit un buffer avec le nom du mode actuel et sa consigne.
+ * * @param dest     Pointeur vers le buffer de destination (tableau de char)
+ * @param max_size Taille maximale allouée pour ce buffer (ex: sizeof(buffer))
+ */
+void thermostat_get_mode_status_str(char *dest, size_t max_size)
+{
+    // 1. Sécurité : On vérifie que le pointeur de destination est valide
+    if (dest == NULL || max_size == 0)
+    {
+        return;
+    }
+
+    // 2. Récupération du nom court du mode actuel via la fonction de décodage
+    const char *mode_str = thermostat_mode_to_str(g_thermostat_config.mode, true);
+
+    // 3. Remplissage sécurisé du buffer (Exemple final : "MANU 20.5C")
+    // Utilisez "%.1f" pour afficher un seul chiffre après la virgule, idéal pour l'OLED
+    snprintf(dest, max_size, "%s %.1fC", 
+             mode_str, 
+             g_thermostat_runtime.effective_consigne);
+}

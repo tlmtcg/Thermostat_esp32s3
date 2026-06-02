@@ -11,6 +11,9 @@
 #include "esp_http_server.h"
 #include <time.h>
 #include "time_utils.h"
+#include "app_context.h"
+#include "config_runtime.h"
+#include "thermostat.h"
 
 static const char *TAG = "JEEDOM";
 
@@ -51,6 +54,7 @@ bool SendStatusJeedom()
 #endif
 
     bool success = false;
+    
 
     // 2. Préparation du JSON
     cJSON *root = cJSON_CreateObject();
@@ -58,11 +62,11 @@ bool SendStatusJeedom()
         return false;
 
     // Remplissage des données
-    cJSON_AddNumberToObject(root, "temperature", 20.6);
-    cJSON_AddNumberToObject(root, "humidity", 45.2);
-    cJSON_AddNumberToObject(root, "setpoint", 19.5);
+    cJSON_AddNumberToObject(root, "temperature", g_ctx.temperature);
+    cJSON_AddNumberToObject(root, "humidity", g_ctx.humidity);
+    cJSON_AddNumberToObject(root, "setpoint", g_ctx.setpoint);
     cJSON_AddNumberToObject(root, "lowCons", 17.0);
-    cJSON_AddNumberToObject(root, "hysteresis", 0.5);
+    cJSON_AddNumberToObject(root, "hysteresis", g_cfg.thermostat_hysteresis);
     cJSON_AddNumberToObject(root, "mode", 1);
     cJSON_AddNumberToObject(root, "relay_state", 0);
 

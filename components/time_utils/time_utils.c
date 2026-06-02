@@ -127,6 +127,21 @@ void time_utils_get_time_str(char *dest, size_t max_size)
     strftime(dest, max_size, "%d/%m/%Y %H:%M:%S", &info);
 }
 
+void time_utils_get_complete_time_str(char *dest, size_t max_size)
+{
+    // Récupération du temps local (remplacez par votre fonction réelle si nécessaire)
+    struct tm info = time_utils_get_local_time(); 
+    
+    char date_time_part[32];
+    
+    // 1. On génère le reste de la date et l'heure (ex: "02/06/2026 10:45:00")
+    strftime(date_time_part, sizeof(date_time_part), "%d/%m/%Y %H:%M:%S", &info);
+    
+    // 2. On combine le jour en français (via info.tm_wday qui va de 0 à 6) avec le reste
+    // info.tm_wday : 0 = Dimanche, 1 = Lundi, etc.
+    snprintf(dest, max_size, "%s %s", JOURS_FR[info.tm_wday], date_time_part);
+}
+
 time_t time_utils_get_last_sync(void)
 {
     return s_last_sync;
