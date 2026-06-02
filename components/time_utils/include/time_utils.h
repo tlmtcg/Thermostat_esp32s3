@@ -52,6 +52,8 @@ extern "C"
 
     void time_utils_get_complete_time_str(char *dest, size_t max_size);
 
+    void time_utils_check_and_sync(uint64_t real_timestamp);
+
 #ifdef __cplusplus
 }
 #endif

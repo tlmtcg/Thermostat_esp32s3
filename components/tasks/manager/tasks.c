@@ -18,6 +18,7 @@
 #include "thermostat.h"
 #include "prediction_engine.h"
 #include "thermal_engine.h"
+#include "time_utils.h"
 
 // Inclusion obligatoire pour accéder à la variable d'instance "dht_task_config"
 #include "dht_task.h"
@@ -146,6 +147,15 @@ void ntp_monitor_task(void *pvParameters)
         else
         {
             ESP_LOGD(TAG, "Heure OK : %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
+
+            // --- AJOUT : Vérification de la dérive / Resynchronisation périodique ---
+            // On lui passe le temps actuel officiel pour vérifier s'il y a une dérive
+            time_t last_sync = time_utils_get_last_sync();
+            if (last_sync > 0)
+            {
+                // On force la vérification de la dérive (seuil 1 minute à l'intérieur)
+                time_utils_check_and_sync((uint64_t)last_sync);
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[2].delay_ms)); // Utilise le délai de la table
@@ -326,13 +336,13 @@ cJSON *tasks_get_all_info_json(void)
 
             if (st != eDeleted && st != eInvalid)
             {
-                // CORRECTION CRUCIALE : On passe 'pdFALSE' pour interdire le calcul dynamique de la stack 
+                // CORRECTION CRUCIALE : On passe 'pdFALSE' pour interdire le calcul dynamique de la stack
                 // par FreeRTOS, évitant ainsi le saut mémoire fatal (LoadProhibited)
                 vTaskGetInfo(h, &details, pdFALSE, eInvalid);
 
                 // Ajout des données dynamiques basiques lues de manière sécurisée
                 cJSON_AddNumberToObject(item, "prio_curr", details.uxCurrentPriority);
-                
+
                 // On met 0 ou une valeur par défaut pour la stack pour garantir la stabilité absolue du serveur web
                 cJSON_AddNumberToObject(item, "stack_min_ever", 0);
 

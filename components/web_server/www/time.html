@@ -8,7 +8,7 @@
     <style>
       /* Style rapide pour les onglets */
       .tabs {
-        display: flex;
+        display: inline-flex; /* Au lieu de 'flex' */
         margin-bottom: 20px;
         border-bottom: 1px solid #444;
       }
@@ -45,7 +45,6 @@
         color: white;
         border-radius: 4px;
         cursor: pointer;
-        width: 100%;
       }
       button:hover {
         opacity: 0.8;
@@ -156,7 +155,6 @@
         ></p>
       </div>
     </div>
-    <script src="index.js"></script>
 
     <script>
       // Gestion des onglets
@@ -235,5 +233,6 @@
       setInterval(updateData, 1000);
       updateData();
     </script>
+    <script src="index.js"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h> 
+#include <stdarg.h>
 
 #include "alert_manager.h"
 #include "app_context.h"
@@ -152,11 +152,12 @@ static void draw_grid_labeled_box(uint8_t start_col, uint8_t line, uint8_t num_c
     // 5. Calcul automatique du centrage horizontal et vertical du texte combiné dans le rectangle
     int text_len = (int)strlen(full_buffer);
     int text_w = text_len * GLYPH_WIDTH;
-    
+
     int text_x = x + ((w - text_w) / 2);
     int text_y = y + (h / 2) - 3; // Soustraction de 3px pour l'alignement de la police de 7px de haut
 
-    if (text_x < x) {
+    if (text_x < x)
+    {
         text_x = x; // Sécurité anti-débordement à gauche
     }
 
@@ -205,7 +206,7 @@ static void draw_main_page(void)
 
     // --- EN-TÊTE (Lignes 0 & 1 | Y: 0 à 15) ---
     time_utils_get_hour_str(time_buffer, sizeof(time_buffer));
-    draw_common_header(time_buffer); 
+    draw_common_header(time_buffer);
 
     // --- RANGÉE 1 (Lignes 2 & 3 | Y: 16 à 31) ---
     // TEMP : Commence col 0, prend 13 col de large
@@ -227,7 +228,7 @@ static void draw_main_page(void)
     // --- RANGÉE 3 (Lignes 6 & 7 | Y: 48 à 63) ---
     // Cadre global du bas (hauteur 16px)
     draw_box(0, 48, 128, 16);
-    
+
     // Éléments du bas centrés verticalement (Y=52)
     draw_status_dot(4, 54, relay_on);
     ssd1306_draw_string(&oled, 12, 52, relay_on ? "MARCHE" : "ARRET");
@@ -274,19 +275,18 @@ static void draw_time_page(void)
     char date_buffer[OLED_LINE_BUFFER_SIZE];
     char hour_buffer[OLED_LINE_BUFFER_SIZE];
     struct tm info = time_utils_get_local_time();
-    
+
     static const char *JOURS_FR[] = {
-        "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"
-    };
+        "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
 
     // Formatage manuel des deux lignes pour contourner l'absence de locale sur ESP32
-    snprintf(date_buffer, sizeof(date_buffer), "%s %02d/%02d/%04d", 
+    snprintf(date_buffer, sizeof(date_buffer), "%s %02d/%02d/%04d",
              JOURS_FR[info.tm_wday], info.tm_mday, info.tm_mon + 1, info.tm_year + 1900);
     strftime(hour_buffer, sizeof(hour_buffer), "%H:%M:%S", &info);
-    
+
     draw_common_header("Horloge");
     draw_box(0, 20, 128, 38); // Cadre multi-lignes étendu
-    
+
     draw_centered_string(25, date_buffer);
     draw_centered_string(42, hour_buffer);
 }
@@ -296,11 +296,18 @@ static void draw_weather_page(void)
     weather_data_t weather = {0};
     char line[OLED_LINE_BUFFER_SIZE];
     const char *desc;
-    float delta_48h;
 
+    float future_temp = 0.0f;
+    float delta_1h = 0.0f;
+    int heures_cible = 1; // On veut la température dans 1 heure
     weather_store_get_all(&weather);
+
+    if (weather_get_temp_in_x_hours(&g_weather_data, heures_cible, &future_temp) == ESP_OK)
+    {
+        delta_1h = weather.current.temperature - future_temp;
+    }
+
     desc = weather_code_short_description(weather.current.weather_code);
-    delta_48h = weather.forecast_48h.temperature - weather.current.temperature;
 
     draw_common_header("Meteo");
 
@@ -310,15 +317,15 @@ static void draw_weather_page(void)
     // Utilisation de la fonction de Grille automatique en RANGÉE intermédiaire
     // EXT (Extérieur) : Colonne 0, Ligne 4, Largeur 10 col, Hauteur 2 lignes (16px)
     draw_grid_labeled_box(0, 4, 10, 2, "EXT ", "%.1fC", weather.current.temperature);
-    
+
     // HUM (Humidité) : Colonne 11, Ligne 4, Largeur 10 col, Hauteur 2 lignes (16px)
     draw_grid_labeled_box(11, 4, 10, 2, "HUM ", "%.0f%%", weather.current.humidity);
 
     draw_box(0, 52, 128, 12);
-    snprintf(line, sizeof(line), "48h %.1fC %s%.1f",
-        weather.forecast_48h.temperature,
-        delta_48h >= 0.0f ? "+" : "",
-        delta_48h);
+    snprintf(line, sizeof(line), "1h %.1fC %s%.1f",
+             future_temp,
+             delta_1h >= 0.0f ? "+" : "",
+             delta_1h);
     ssd1306_draw_string(&oled, 4, 55, line);
 }
 
@@ -395,8 +402,10 @@ static void draw_status_dot(uint8_t x, uint8_t y, bool enabled)
 
 static uint8_t clamp_u8_int(int value, int min_value, int max_value)
 {
-    if (value < min_value)  return (uint8_t)min_value;
-    if (value > max_value)  return (uint8_t)max_value;
+    if (value < min_value)
+        return (uint8_t)min_value;
+    if (value > max_value)
+        return (uint8_t)max_value;
     return (uint8_t)value;
 }
 
@@ -404,28 +413,39 @@ static const char *weather_code_short_description(int code)
 {
     switch (code)
     {
-    case 0:  return "Clair";
-    case 1:  return "Peu nuageux";
-    case 2:  return "Nuages";
-    case 3:  return "Couvert";
+    case 0:
+        return "Clair";
+    case 1:
+        return "Peu nuageux";
+    case 2:
+        return "Nuages";
+    case 3:
+        return "Couvert";
     case 45:
-    case 48: return "Brouillard";
+    case 48:
+        return "Brouillard";
     case 51:
     case 53:
-    case 55: return "Bruine";
+    case 55:
+        return "Bruine";
     case 61:
     case 63:
-    case 65: return "Pluie";
+    case 65:
+        return "Pluie";
     case 71:
     case 73:
-    case 75: return "Neige";
+    case 75:
+        return "Neige";
     case 80:
     case 81:
-    case 82: return "Averses";
+    case 82:
+        return "Averses";
     case 95:
     case 96:
-    case 99: return "Orage";
-    default: return "Inconnu";
+    case 99:
+        return "Orage";
+    default:
+        return "Inconnu";
     }
 }
 
@@ -434,7 +454,8 @@ static size_t get_history_point_count(void)
     size_t count = 0;
     for (size_t i = 0; i < HISTORY_SIZE; i++)
     {
-        if (g_ctx.temp_history[i] > 0.0f) count++;
+        if (g_ctx.temp_history[i] > 0.0f)
+            count++;
     }
     return count;
 }
@@ -449,7 +470,8 @@ static void history_stats(float *out_min, float *out_max, float *out_latest)
     for (size_t i = 0; i < HISTORY_SIZE; i++)
     {
         float value = g_ctx.temp_history[i];
-        if (value <= 0.0f) continue;
+        if (value <= 0.0f)
+            continue;
 
         if (!found)
         {
@@ -458,14 +480,19 @@ static void history_stats(float *out_min, float *out_max, float *out_latest)
             found = true;
         }
 
-        if (value < min_temp)  min_temp = value;
-        if (value > max_temp)  max_temp = value;
+        if (value < min_temp)
+            min_temp = value;
+        if (value > max_temp)
+            max_temp = value;
         latest_temp = value;
     }
 
-    if (out_min)    *out_min = min_temp;
-    if (out_max)    *out_max = max_temp;
-    if (out_latest) *out_latest = latest_temp;
+    if (out_min)
+        *out_min = min_temp;
+    if (out_max)
+        *out_max = max_temp;
+    if (out_latest)
+        *out_latest = latest_temp;
 }
 
 static void draw_temp_graph_area(uint8_t origin_y)
@@ -508,14 +535,24 @@ static void draw_temp_graph_area(uint8_t origin_y)
     snprintf(label, sizeof(label), "%.0f", scale_min);
     ssd1306_draw_string(&oled, 0, (uint8_t)(graph_bottom - 7), label);
 
+    // Dessin du cadre extérieur
     draw_box((uint8_t)graph_left, (uint8_t)graph_top, (uint8_t)(graph_width + 1), (uint8_t)(graph_height + 1));
-    draw_hline((uint8_t)(graph_top + graph_height / 2), (uint8_t)graph_left, (uint8_t)graph_right);
+    
+    // --- CORRECTION : Tracé des pointillés avec ssd1306_draw_line (ultra-compatible) ---
+    int mid_y = graph_top + graph_height / 2;
+    for (int x = graph_left + 2; x < graph_right; x += 4) 
+    {
+        // Trace un segment de 2 pixels de large (de x à x+1), puis saute 2 pixels (x += 4)
+        ssd1306_draw_line(&oled, (uint8_t)x, (uint8_t)mid_y, (uint8_t)(x + 1), (uint8_t)mid_y, 1);
+    }
 
+    // Grille verticale
     for (int x = graph_left + 16; x < graph_right; x += 16)
     {
         draw_vline((uint8_t)x, (uint8_t)graph_top, (uint8_t)graph_bottom);
     }
 
+    // Tracé de la courbe historique
     int prev_x = -1;
     int prev_y = -1;
     size_t first_index = HISTORY_SIZE - point_count;
@@ -537,6 +574,7 @@ static void draw_temp_graph_area(uint8_t origin_y)
         prev_y = y;
     }
 
+    // Carré marquant le dernier point
     draw_box(
         clamp_u8_int(prev_x - 1, graph_left, graph_right - 2),
         clamp_u8_int(prev_y - 1, graph_top, graph_bottom - 2),
@@ -570,13 +608,26 @@ static void oled_task(void *arg)
 
         switch (current_page)
         {
-        case OLED_PAGE_MAIN:    draw_main_page(); break;
-        case OLED_PAGE_HISTORY: draw_history_page(); break;
-        case OLED_PAGE_WIFI:    draw_wifi_page(); break;
-        case OLED_PAGE_TIME:    draw_time_page(); break;
-        case OLED_PAGE_WEATHER: draw_weather_page(); break;
-        case OLED_PAGE_ALERTS:  draw_alert_page(); break;
-        default: break;
+        case OLED_PAGE_MAIN:
+            draw_main_page();
+            break;
+        case OLED_PAGE_HISTORY:
+            draw_history_page();
+            break;
+        case OLED_PAGE_WIFI:
+            draw_wifi_page();
+            break;
+        case OLED_PAGE_TIME:
+            draw_time_page();
+            break;
+        case OLED_PAGE_WEATHER:
+            draw_weather_page();
+            break;
+        case OLED_PAGE_ALERTS:
+            draw_alert_page();
+            break;
+        default:
+            break;
         }
 
         if (ssd1306_update(&oled) != ESP_OK)
@@ -669,9 +720,12 @@ void oled_service_show_text(const char *line1, const char *line2, const char *li
 
     ssd1306_clear(&oled);
 
-    if (line1) ssd1306_draw_string(&oled, 0, 0, line1);
-    if (line2) ssd1306_draw_string(&oled, 0, 16, line2);
-    if (line3) ssd1306_draw_string(&oled, 0, 32, line3);
+    if (line1)
+        ssd1306_draw_string(&oled, 0, 0, line1);
+    if (line2)
+        ssd1306_draw_string(&oled, 0, 16, line2);
+    if (line3)
+        ssd1306_draw_string(&oled, 0, 32, line3);
 
     ssd1306_update(&oled);
 }

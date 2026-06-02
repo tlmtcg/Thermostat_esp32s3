@@ -5,19 +5,20 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     REQUIRES
+        alert_manager
+        cjson
+        config_storage
+        dht
+        freebox_report
+        jeedom
+        led_ctrl
+        prediction_engine
+        serial_manager
+        sht31
+        thermal_engine
+        thermostat
+        time_utils
         weather
         weather_store
-        alert_manager
-        jeedom
-        cjson
-        led_ctrl
-        serial_manager
         wifi
-        config_storage
-        sht31
-        thermostat
-        dht
-        prediction_engine
-        thermal_engine
-        freebox_report
 )

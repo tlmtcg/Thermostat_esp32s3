@@ -454,3 +454,30 @@ void weather_update_task_manually(void *arg)
 
     vTaskDelete(NULL);
 }
+/**
+ * @brief Récupère la température prévue dans X heures à partir des données stockées.
+ * @param data Pointeur vers la structure des données météo actuelles
+ * @param hours_from_now Nombre d'heures dans le futur (de 0 à 47)
+ * @param out_temp Pointeur destiné à recevoir la température trouvée
+ * @return esp_err_t ESP_OK si succès, ESP_ERR_INVALID_ARG ou ESP_ERR_NOT_FOUND sinon
+ */
+esp_err_t weather_get_temp_in_x_hours(const weather_data_t *data, int hours_from_now, float *out_temp)
+{
+    // Sécurité : Vérification des pointeurs indispensables
+    if (!data || !out_temp) {
+        ESP_LOGE("WEATHER", "Argument invalide, pointeur out_temp null");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Sécurité : On demande un index valide compris dans le tableau horaire (0h à 47h max)
+    if (hours_from_now < 0 || hours_from_now >= 48) {
+        ESP_LOGW("WEATHER", "Demande hors limite : %d heures (Maximum 47h)", hours_from_now);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Récupération de la valeur depuis le tableau rempli par weather_update
+    *out_temp = (float)data->forecast_48h_temp[hours_from_now];
+
+    ESP_LOGD("WEATHER", "Température estimée dans %d h : %.1f°C", hours_from_now, *out_temp);
+    return ESP_OK;
+}

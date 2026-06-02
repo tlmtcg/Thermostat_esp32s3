@@ -61,6 +61,8 @@ extern "C"
 
     extern weather_data_t g_weather_data;
 
+    esp_err_t weather_get_temp_in_x_hours(const weather_data_t *data, int hours_from_now, float *out_temp);
+
 #ifdef __cplusplus
 }
 #endif

@@ -181,3 +181,36 @@ struct tm time_utils_localtime_from_ts(int64_t ts)
     localtime_r(&t, &info);
     return info;
 }
+
+/**
+ * @brief Vérifie l'écart entre la carte et le temps réel. Réaligne si l'écart dépasse 1 minute.
+ * @param real_timestamp Le timestamp Unix issu de votre API météo ou d'une source web fiable
+ */
+void time_utils_check_and_sync(uint64_t real_timestamp)
+{
+    uint64_t board_time = (uint64_t)time(NULL);
+    int32_t drift = (int32_t)(real_timestamp - board_time);
+
+    // Si la carte avance ou retarde de plus de 60 secondes (1 minute)
+    if (abs(drift) >= 60)
+    {
+        ESP_LOGW(TAG, "Dérive importante détectée (%ld sec). Resynchronisation forcée...", drift);
+        
+        struct timeval tv = {
+            .tv_sec = (time_t)real_timestamp,
+            .tv_usec = 0
+        };
+        
+        if (settimeofday(&tv, NULL) == 0)
+        {
+            s_last_sync = tv.tv_sec;
+            s_time_status.last_sync_time = (uint32_t)tv.tv_sec;
+            ESP_LOGI(TAG, "Horloge recalée avec succès.");
+        }
+    }
+    else
+    {
+        ESP_LOGD(TAG, "Écart temporel négligeable (%ld sec). Pas de réalignement nécessaire.", drift);
+    }
+}
+
