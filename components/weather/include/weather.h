@@ -12,6 +12,7 @@ extern "C"
         long timestamp;
         float temperature;
         float humidity;
+        float pressure;
         int weather_code;
         float jee_temp;
     } weather_entry_t;

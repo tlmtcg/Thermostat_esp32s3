@@ -151,17 +151,14 @@ esp_err_t weather_update(weather_data_t *data)
     if (!data)
         return ESP_ERR_INVALID_ARG;
 
-    // URL optimisée pour un seul appel.
-    // current : température, humidité, code météo
-    // hourly : mêmes données sur 48h
-    // daily : météo sur 7 jours
-    // URL optimisée pour un seul appel
+    // Augmentation de la taille de l'URL pour éviter tout débordement avec les nouveaux paramètres
     char url[512];
 
     snprintf(url, sizeof(url),
              "https://api.open-meteo.com/v1/forecast?"
              "latitude=%.5f&longitude=%.5f"
-             "&current=temperature_2m,relative_humidity_2m,weather_code"
+             // AJOUT : "surface_pressure" ajouté à la fin du paramètre current
+             "&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure"
              "&hourly=temperature_2m,relative_humidity_2m,weather_code&forecast_hours=48"
              "&daily=weather_code,temperature_2m_max,relative_humidity_2m_max"
              "&timezone=auto&timeformat=unixtime",
@@ -178,7 +175,7 @@ esp_err_t weather_update(weather_data_t *data)
     if (!root)
     {
         ESP_LOGE(TAG, "Erreur de parsing JSON");
-        err = ESP_FAIL;
+        return ESP_FAIL;
     }
 
     // 1. Parsing du bloc CURRENT
@@ -189,7 +186,16 @@ esp_err_t weather_update(weather_data_t *data)
         data->current.temperature = cJSON_GetObjectItem(cur, "temperature_2m")->valuedouble;
         data->current.humidity = cJSON_GetObjectItem(cur, "relative_humidity_2m")->valuedouble;
         data->current.weather_code = cJSON_GetObjectItem(cur, "weather_code")->valueint;
-        ESP_LOGI(TAG, "Parsing 'current' réussi");
+        
+        // AJOUT : Extraction sécurisée de la pression de surface (hPa)
+        cJSON *press_item = cJSON_GetObjectItem(cur, "surface_pressure");
+        if (press_item) {
+            data->current.pressure = (float)press_item->valuedouble;
+        } else {
+            data->current.pressure = 0.0f; // Valeur par défaut si manquante
+        }
+        
+        ESP_LOGI(TAG, "Parsing 'current' réussi. Pression: %.1f hPa", data->current.pressure);
     }
     else
     {
@@ -218,6 +224,7 @@ esp_err_t weather_update(weather_data_t *data)
                 float temp_ext = (float)current_temp_item->valuedouble;
                 float hum_ext = (float)current_hum_item->valuedouble;
                 float temp_1h = (float)temp_1h_item->valuedouble;
+                
                 // Mise à jour du thermostat température dans une heure
                 thermostat_update_forecast_data(temp_1h);
 
@@ -239,7 +246,7 @@ esp_err_t weather_update(weather_data_t *data)
             data->forecast_48h.humidity = cJSON_GetArrayItem(hum_arr, 47)->valuedouble;
             data->forecast_48h.weather_code = cJSON_GetArrayItem(code_arr, 47)->valueint;
 
-            // 2. NOUVEAU : On remplit les tableaux complets pour le graphique API
+            // 2. On remplit les tableaux complets pour le graphique API
             for (int i = 0; i < 48; i++)
             {
                 data->forecast_48h_temp[i] = cJSON_GetArrayItem(temp_arr, i)->valuedouble;
@@ -265,7 +272,6 @@ esp_err_t weather_update(weather_data_t *data)
     {
         cJSON *t_arr = cJSON_GetObjectItem(daily, "time");
         cJSON *temp_arr = cJSON_GetObjectItem(daily, "temperature_2m_max");
-        cJSON *hum_arr = cJSON_GetObjectItem(daily, "relative_humidity_2m_max");
         cJSON *code_arr = cJSON_GetObjectItem(daily, "weather_code");
 
         for (int i = 0; i < 7; i++)
@@ -276,12 +282,13 @@ esp_err_t weather_update(weather_data_t *data)
         }
     }
 
-    // Nettoyage JSON
+    // Nettoyage JSON et mémoire tampon HTTP
     cJSON_Delete(root);
     free(response_data);
     response_data = NULL;
     weather_response_len = 0;
 
+    // Sauvegarde dans le magasin de stockage local
     weather_store_set_all(data);
 
     return ESP_OK;

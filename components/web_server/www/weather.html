@@ -35,7 +35,7 @@
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       }
 
-      /* Style UNIQUE pour les températures */
+      /* Style UNIQUE pour les températures et pressions */
       .temp-main {
         font-size: 2.5rem;
         font-weight: bold;
@@ -61,14 +61,12 @@
     <div id="navbar"></div>
 
     <div class="columns-container">
-      <!-- Colonne 1 : Jeedom -->
       <div class="card">
-        <h3>Jeedom</h3>
-        <div class="temp-main" id="jee_temp">--°C</div>
-        <div style="color: #7f8c8d">Sonde Extérieure</div>
+        <h3>Pression</h3>
+        <div class="temp-main" id="pressure">-- hPa</div>
+        <div style="color: #7f8c8d">Niveau de la mer</div>
       </div>
 
-      <!-- Colonne 2 : Extérieur -->
       <div class="card">
         <h3 id="desc">Chargement...</h3>
         <div class="temp-main" id="temp">--°C</div>
@@ -95,9 +93,15 @@
               data.now.temp.toFixed(1) + "°C";
             document.getElementById("hum").innerText =
               "Humidité: " + data.now.hum + "%";
-            // Affichage de la température Jeedom
-            document.getElementById("jee_temp").innerText =
-              data.now.jee_temp + " °C";
+            
+            // CORRECTION : Extraction et affichage de la pression atmosphérique
+            if (data.now.pres) {
+              document.getElementById("pressure").innerText =
+                data.now.pres.toFixed(1) + " hPa";
+            } else {
+              document.getElementById("pressure").innerText = "-- hPa";
+            }
+
             // Maj Graphique
             const ctx = document
               .getElementById("weatherChart")

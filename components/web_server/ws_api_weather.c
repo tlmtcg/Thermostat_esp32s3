@@ -219,13 +219,14 @@ static esp_err_t meteo_api_handler(httpd_req_t *req)
 
     const char *d_now = get_weather_description(data.current.weather_code);
 
-    int offset = snprintf(json_buf, buf_size,
-                          "{\"now\":{\"temp\":%.1f,\"hum\":%.0f,\"desc\":\"%s\",\"time\":%ld,\"jee_temp\":%.1f},\"f48_temps\":[",
+int offset = snprintf(json_buf, buf_size,
+                          "{\"now\":{\"temp\":%.1f,\"hum\":%.0f,\"desc\":\"%s\",\"time\":%ld,\"jee_temp\":%.1f,\"pres\":%.1f},\"f48_temps\":[",
                           data.current.temperature,
                           data.current.humidity,
                           d_now ? d_now : "Inconnu",
                           data.current.timestamp,
-                          data.current.jee_temp);
+                          data.current.jee_temp,
+                          data.current.pressure);
 
     for (int i = 0; i < 48; i++)
     {
