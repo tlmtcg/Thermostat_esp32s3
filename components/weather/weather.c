@@ -186,15 +186,18 @@ esp_err_t weather_update(weather_data_t *data)
         data->current.temperature = cJSON_GetObjectItem(cur, "temperature_2m")->valuedouble;
         data->current.humidity = cJSON_GetObjectItem(cur, "relative_humidity_2m")->valuedouble;
         data->current.weather_code = cJSON_GetObjectItem(cur, "weather_code")->valueint;
-        
+
         // AJOUT : Extraction sécurisée de la pression de surface (hPa)
         cJSON *press_item = cJSON_GetObjectItem(cur, "surface_pressure");
-        if (press_item) {
+        if (press_item)
+        {
             data->current.pressure = (float)press_item->valuedouble;
-        } else {
+        }
+        else
+        {
             data->current.pressure = 0.0f; // Valeur par défaut si manquante
         }
-        
+
         ESP_LOGI(TAG, "Parsing 'current' réussi. Pression: %.1f hPa", data->current.pressure);
     }
     else
@@ -224,7 +227,7 @@ esp_err_t weather_update(weather_data_t *data)
                 float temp_ext = (float)current_temp_item->valuedouble;
                 float hum_ext = (float)current_hum_item->valuedouble;
                 float temp_1h = (float)temp_1h_item->valuedouble;
-                
+
                 // Mise à jour du thermostat température dans une heure
                 thermostat_update_forecast_data(temp_1h);
 
@@ -336,6 +339,16 @@ esp_err_t jeedom_temp_update(weather_data_t *data)
 float temperature_get_outdoor()
 {
     return latest_weather.current.jee_temp;
+}
+
+bool temperature_get_valid()
+{
+    return latest_weather.current.meteo_valid;
+}
+
+void temperature_set_valid(bool result)
+{
+    latest_weather.current.meteo_valid = result;
 }
 
 weather_data_t g_weather_data = {0};
@@ -464,13 +477,15 @@ void weather_update_task_manually(void *arg)
 esp_err_t weather_get_temp_in_x_hours(const weather_data_t *data, int hours_from_now, float *out_temp)
 {
     // Sécurité : Vérification des pointeurs indispensables
-    if (!data || !out_temp) {
+    if (!data || !out_temp)
+    {
         ESP_LOGE("WEATHER", "Argument invalide, pointeur out_temp null");
         return ESP_ERR_INVALID_ARG;
     }
 
     // Sécurité : On demande un index valide compris dans le tableau horaire (0h à 47h max)
-    if (hours_from_now < 0 || hours_from_now >= 48) {
+    if (hours_from_now < 0 || hours_from_now >= 48)
+    {
         ESP_LOGW("WEATHER", "Demande hors limite : %d heures (Maximum 47h)", hours_from_now);
         return ESP_ERR_INVALID_ARG;
     }

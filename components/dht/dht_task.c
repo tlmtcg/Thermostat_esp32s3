@@ -58,7 +58,7 @@ esp_err_t dht_perform_measurement(float *out_temp, float *out_hum)
 void dht_task(void *pvParameters)
 {
 #if !USE_DHT_SENSOR
-    ESP_LOGW(TAG, "Capteur DHT désactivé globalement -> Destruction de la tâche.");
+    ESP_LOGW(TAG, "Capteur DHT désactivé globalement à la compilation -> Destruction de la tâche.");
     vTaskDelete(NULL);
 #else
     if (pvParameters == NULL)
@@ -74,6 +74,25 @@ void dht_task(void *pvParameters)
 
     while (1)
     {
+        // --- 1. VERIFICATION DE LA DESACTIVATION RUNTIME (WEB) ---
+        // Si l'intervalle est à 0 ou qu'un flag explicite est faux, on coupe proprement
+        if (g_cfg.dht_read_int_ms == 0) 
+        {
+            ESP_LOGW(TAG, "DHT désactivé depuis la configuration Web -> Arrêt propre de la tâche.");
+            
+            // On invalide le runtime pour l'interface web
+            dht_runtime_t *runtime = (dht_runtime_t *)dht_get_runtime();
+            if (runtime) {
+                runtime->valid = false;
+            }
+            
+            // Libération éventuelle du GPIO pour éviter les conflits
+            gpio_reset_pin(DHT_GPIO_PIN);
+            
+            // Destruction définitive de cette tâche
+            vTaskDelete(NULL);
+        }
+
         xEventGroupWaitBits(task_config->event_group, task_config->event_bit, pdFALSE, pdTRUE, portMAX_DELAY);
 
         float current_temp = NAN;
@@ -149,27 +168,22 @@ void dht_task(void *pvParameters)
             }
         }
 
-        // --- CORRECTION GESTION DE L'INTERVALLE ---
-        
-        // 1. On donne la priorité absolue à la configuration globale runtime (mise à jour par le serveur Web)
+        // --- GESTION DE L'INTERVALLE ET SYNCHRONISATION ---
         uint32_t configured_delay = g_cfg.dht_read_int_ms;
 
-        // 2. CORRECTION : On met également à jour la structure du gestionnaire de tâche de manière à synchroniser les deux mondes
+        // Sécurité matérielle (Le protocole DHT exige au moins 2 secondes entre les lectures)
+        if (configured_delay < 2000)
+        {
+            configured_delay = 2000;
+        }
+
+        // Synchronisation sécurisée avec la structure de configuration de tâche
         if (task_config && task_config->delay_ms)
         {
             *task_config->delay_ms = configured_delay;
         }
 
-        // 3. Sécurité matérielle stricte (le protocole DHT impose minimum 2 secondes)
-        if (configured_delay < 2000)
-        {
-            configured_delay = 2000;
-            if (task_config && task_config->delay_ms) {
-                *task_config->delay_ms = 2000;
-            }
-        }
-
-        // Application de la temporisation dynamique correctement synchronisée
+        // Application de la temporisation
         vTaskDelay(pdMS_TO_TICKS(configured_delay));
     }
 #endif

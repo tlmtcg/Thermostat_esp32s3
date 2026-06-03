@@ -23,8 +23,8 @@ static thermostat_config_t g_thermostat_config;
 
 thermostat_runtime_t g_thermostat_runtime = {
     .last_error = "",
-    .enable_2r2c=true,
-    .initialized=false,
+    .enable_2r2c = true,
+    .initialized = false,
 };
 
 static thermostat_config_t thermostat_default_config(void)
@@ -152,10 +152,10 @@ void thermostat_update_current_consigne(void)
         last_mode = THERMOSTAT_MODE_ABSENT;
         break;
 
-    // -------------------------
-    // MODE HORS GEL
-    // -------------------------
-case THERMOSTAT_MODE_HORS_GEL:
+        // -------------------------
+        // MODE HORS GEL
+        // -------------------------
+    case THERMOSTAT_MODE_HORS_GEL:
     {
         const float SEUIL_GEL_EXT = 2.0f;
         const float SEUIL_VIGILANCE_INT = 7.0f;
@@ -164,103 +164,40 @@ case THERMOSTAT_MODE_HORS_GEL:
 
         float ext_temp = temperature_get_outdoor();
         float int_temp = g_thermostat_runtime.temperature;
-        bool ext_temp_valide = true;
+        bool ext_temp_valide = (!isnan(ext_temp) && ext_temp > -40.0f && ext_temp < 60.0f);
 
-        // Validation du capteur extérieur
-        if (isnan(ext_temp) || ext_temp < -40.0f || ext_temp > 60.0f)
+        // 1. Calcul de la consigne cible (seulement si le capteur intérieur est OK)
+        // Si le capteur intérieur est HS, must_heat() écrasera de toute façon le comportement.
+        if (ext_temp_valide && ext_temp <= SEUIL_GEL_EXT && int_temp <= SEUIL_VIGILANCE_INT)
         {
-            ext_temp_valide = false;
-            ext_temp = -10.0f; // Valeur de sécurité si HS
-        }
-
-        // 1. Détection de la panne du capteur intérieur via son flag global de validité
-        // (Note : Ajustez avec g_thermostat_runtime.indoor_valid si vous avez ce booléen)
-        bool int_temp_valide = !isnan(int_temp) && (int_temp > -40.0f) && (int_temp < 80.0f);
-
-        if (!int_temp_valide)
-        {
-            // --- MODE SÉCURITÉ ACTIVE (CAPTEUR INTÉRIEUR EN PANNE) ---
-            static uint32_t last_secu_log_time = 0;
-            uint32_t current_time_sec = (uint32_t)time(NULL);
-
-            // Définition de la période du cycle de secours (2 heures = 7200 secondes)
-            const uint32_t SECU_CYCLE_DURATION_SEC = 2 * 3600; 
-            uint32_t cycle_progress_sec = current_time_sec % SECU_CYCLE_DURATION_SEC;
-
-            float duty_cycle_percent = 0.0f;
-            float base_consigne = CONSIGNE_MIN_ECO;
-
-            if (ext_temp_valide)
-            {
-                // Calcul du % de chauffe indexé sur le froid extérieur
-                // Si ext_temp >= base_consigne -> 0%. Si ext_temp <= -10°C -> 100%
-                float ext_temp_extreme = -10.0f; 
-
-                if (ext_temp < base_consigne)
-                {
-                    duty_cycle_percent = ((base_consigne - ext_temp) / (base_consigne - ext_temp_extreme)) * 100.0f;
-                    if (duty_cycle_percent > 100.0f) duty_cycle_percent = 100.0f;
-                }
-            }
-            else
-            {
-                // Double panne (Intérieur + Extérieur) -> Mode dégradé fixe à 30%
-                duty_cycle_percent = 30.0f;
-            }
-
-            // Calcul du temps de marche effectif sur les 2 heures
-            uint32_t max_heating_time_sec = (uint32_t)((duty_cycle_percent / 100.0f) * SECU_CYCLE_DURATION_SEC);
-
-            // Application du relais en fonction de l'avancement dans le cycle
-            bool requiert_chauffage = (cycle_progress_sec < max_heating_time_sec) && (max_heating_time_sec > 0);
-            
-            // Appel de votre fonction matérielle de pilotage du chauffage
-            thermostat_control_relais(requiert_chauffage); 
-
-            // Log de sécurité espacé (toutes les 10 minutes ou au changement d'état)
-            if (current_time_sec - last_secu_log_time >= 600 || last_mode != THERMOSTAT_MODE_HORS_GEL)
-            {
-                ESP_LOGW(TAG, "SECURITE HG ACTIVE (Capteur Int HS) - Ext: %.1f°C -> Chauffe: %.0f%% (%s)",
-                         ext_temp, duty_cycle_percent, requiert_chauffage ? "ON" : "OFF");
-                last_secu_log_time = current_time_sec;
-            }
-
-            g_thermostat_runtime.effective_consigne = base_consigne; // Consigne par défaut pour l'affichage
+            g_thermostat_runtime.effective_consigne = CONSIGNE_BOOST_HG;
         }
         else
         {
-            // --- MODE HORS-GEL NORMAL (Capteur intérieur OK) ---
-            
-            // Logique d'affinage de la consigne
-            if (ext_temp <= SEUIL_GEL_EXT && int_temp <= SEUIL_VIGILANCE_INT)
-                g_thermostat_runtime.effective_consigne = CONSIGNE_BOOST_HG;
-            else
-                g_thermostat_runtime.effective_consigne = CONSIGNE_MIN_ECO;
+            g_thermostat_runtime.effective_consigne = CONSIGNE_MIN_ECO;
+        }
 
-            // Gestion de l'affichage des logs au changement de consigne ou de mode
-            static float last_applied_consigne = -100.0f;
-            if (last_mode != THERMOSTAT_MODE_HORS_GEL ||
-                g_thermostat_runtime.effective_consigne != last_applied_consigne)
+        // 2. Affichage des logs uniquement en cas de changement pour éviter de polluer la console
+        static float last_applied_consigne = -100.0f;
+        if (last_mode != THERMOSTAT_MODE_HORS_GEL || g_thermostat_runtime.effective_consigne != last_applied_consigne)
+        {
+            if (!ext_temp_valide)
             {
-                if (!ext_temp_valide)
-                    ESP_LOGW(TAG, "ALERTE : Capteur Extérieur INDISPONIBLE ! Sécurité active. Int: %.1f°C -> Consigne: %.1f°C",
-                             int_temp, g_thermostat_runtime.effective_consigne);
-                else
-                    ESP_LOGI(TAG, "HG AFINÉ - Ext: %.1f°C, Int: %.1f°C -> Consigne: %.1f°C",
-                             ext_temp, int_temp, g_thermostat_runtime.effective_consigne);
-
-                last_applied_consigne = g_thermostat_runtime.effective_consigne;
+                ESP_LOGW(TAG, "HG - Capteur Extérieur INDISPONIBLE (Repli Consigne: %.1f°C)",
+                         g_thermostat_runtime.effective_consigne);
             }
-
-            // Régulation classique ON/OFF (Hystérésis ou Tout-ou-Rien standard)
-            bool requiert_chauffage = (int_temp < g_thermostat_runtime.effective_consigne);
-            thermostat_control_relais(requiert_chauffage);
+            else
+            {
+                ESP_LOGI(TAG, "HG AFFINÉ - Ext: %.1f°C, Int: %.1f°C -> Consigne appliquée: %.1f°C",
+                         ext_temp, int_temp, g_thermostat_runtime.effective_consigne);
+            }
+            last_applied_consigne = g_thermostat_runtime.effective_consigne;
         }
 
         last_mode = THERMOSTAT_MODE_HORS_GEL;
         break;
     }
-    
+
     // -------------------------
     // MODE PAR DÉFAUT
     // -------------------------
@@ -276,7 +213,7 @@ case THERMOSTAT_MODE_HORS_GEL:
 
 static void thermostat_sync_alerts(void)
 {
-    
+
     if (g_thermostat_config.mode == THERMOSTAT_MODE_HORS_GEL ||
         g_thermostat_config.frost_mode)
     {
@@ -492,18 +429,16 @@ float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
     float Rm = g_thermal_runtime.Rm;
     float Ca = g_thermal_runtime.Ca;
     float Cm = g_thermal_runtime.Cm;
-    float P  = g_thermal_runtime.P;
+    float P = g_thermal_runtime.P;
 
     float u = heating ? 1.0f : 0.0f;
 
-    float dt = 0.5f;  // dt fin pour la simulation
+    float dt = 0.5f; // dt fin pour la simulation
     int steps = (int)(horizon_sec / dt);
 
     for (int i = 0; i < steps; i++)
     {
-        float dTa = ((Text - Ta) / (Ra * Ca))
-                  + ((Tm - Ta) / (Rm * Ca))
-                  + (u * P / Ca);
+        float dTa = ((Text - Ta) / (Ra * Ca)) + ((Tm - Ta) / (Rm * Ca)) + (u * P / Ca);
 
         float dTm = ((Ta - Tm) / (Rm * Cm));
 
@@ -520,24 +455,24 @@ float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating)
  * @param short_version Si true, renvoie une version abrégée (ex: "MANU"), sinon la version complète
  * @return const char* Pointeur vers la chaîne statique correspondante
  */
-const char* thermostat_mode_to_str(thermostat_mode_t mode, bool short_version)
+const char *thermostat_mode_to_str(thermostat_mode_t mode, bool short_version)
 {
     switch (mode)
     {
-        case THERMOSTAT_MODE_MANUAL:
-            return short_version ? "MANU" : "MANUEL";
-            
-        case THERMOSTAT_MODE_AUTO:
-            return short_version ? "AUTO" : "AUTOMATIQUE";
-            
-        case THERMOSTAT_MODE_ABSENT:
-            return short_version ? "ABS" : "ABSENT";
-            
-        case THERMOSTAT_MODE_HORS_GEL:
-            return short_version ? "H.GEL" : "HORS GEL";
-            
-        default:
-            return short_version ? "INCO" : "INCONNU";
+    case THERMOSTAT_MODE_MANUAL:
+        return short_version ? "MANU" : "MANUEL";
+
+    case THERMOSTAT_MODE_AUTO:
+        return short_version ? "AUTO" : "AUTOMATIQUE";
+
+    case THERMOSTAT_MODE_ABSENT:
+        return short_version ? "ABS" : "ABSENT";
+
+    case THERMOSTAT_MODE_HORS_GEL:
+        return short_version ? "H.GEL" : "HORS GEL";
+
+    default:
+        return short_version ? "INCO" : "INCONNU";
     }
 }
 
@@ -559,7 +494,7 @@ void thermostat_get_mode_status_str(char *dest, size_t max_size)
 
     // 3. Remplissage sécurisé du buffer (Exemple final : "MANU 20.5C")
     // Utilisez "%.1f" pour afficher un seul chiffre après la virgule, idéal pour l'OLED
-    snprintf(dest, max_size, "%s %.1fC", 
-             mode_str, 
+    snprintf(dest, max_size, "%s %.1fC",
+             mode_str,
              g_thermostat_runtime.effective_consigne);
 }

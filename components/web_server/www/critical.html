@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
@@ -24,7 +24,8 @@
         font-size: 0.85rem;
         color: #b3b3b3;
       }
-      input, select {
+      input,
+      select {
         background: #252526;
         border: 1px solid #444;
         color: white;
@@ -37,7 +38,7 @@
         padding: 8px 16px;
         border-radius: 4px;
         border: none;
-        background-color: var(--orange);
+        background-color: var(--orange, #ff9800);
         color: white;
         font-weight: bold;
         margin-top: auto; /* Aligne le bouton avec les inputs */
@@ -51,9 +52,44 @@
         font-size: 0.85rem;
         font-weight: bold;
       }
-      .badge-ok { background-color: #2ea043; color: white; }
-      .badge-danger { background-color: #832a2a; color: white; }
-      .badge-warn { background-color: #b07e00; color: white; }
+      .badge-ok {
+        background-color: #2ea043;
+        color: white;
+      }
+      .badge-danger {
+        background-color: #832a2a;
+        color: white;
+      }
+      .badge-warn {
+        background-color: #b07e00;
+        color: white;
+      }
+
+      /* Styles dédiés au Bargraph temporel */
+      .progress-container {
+        display: flex;
+        width: 100%;
+        height: 30px;
+        border-radius: 6px;
+        overflow: hidden;
+        background-color: #333;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+        margin-top: 8px;
+      }
+      .bar {
+        color: white;
+        text-align: center;
+        line-height: 30px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        transition: width 0.5s ease;
+      }
+      .bar-heat {
+        background: linear-gradient(90deg, #ff5722, #f44336);
+      }
+      .bar-cool {
+        background: linear-gradient(90deg, #4caf50, #2e7d32);
+      }
     </style>
   </head>
   <body>
@@ -63,7 +99,7 @@
 
     <div class="box">
       <h2>État Actuel des Capteurs</h2>
-      <div class="line" style="margin-top: 10px;">
+      <div class="line" style="margin-top: 10px">
         <span class="label">Capteur Intérieur (SHT31)</span>
         <span id="status-int" class="badge badge-ok">Initialisation...</span>
       </div>
@@ -76,8 +112,144 @@
         <span id="status-thermostat" class="value">--</span>
       </div>
       <div class="line">
+        <span class="label">Relais Chauffage Physique</span>
+        <span id="status-relais" class="badge badge-warn">--</span>
+      </div>
+      <div class="line">
         <span class="label">Dernière mise à jour</span>
         <span id="status-time" class="value">--</span>
+      </div>
+    </div>
+
+    <div
+      class="box"
+      id="critical-card"
+      style="
+        display: none;
+        border: 1px solid #f44336;
+        background-color: #2d1f1f;
+        padding: 20px;
+      "
+    >
+      <h2 style="color: #ff5722; margin-bottom: 5px">
+        📊 Chronogramme de Répartition (Sous-cycle de 2h)
+      </h2>
+      <p style="font-size: 0.85rem; margin: 0 0 15px 0; color: #b3b3b3">
+        Le graphique ci-dessous illustre le comportement du chauffage lissé en
+        temps réel sur une fenêtre de 2 heures pour préserver le brûleur de la chaudière.
+      </p>
+
+      <div style="position: relative; margin: 20px 0 35px 0">
+        <div
+          style="
+            width: 100%;
+            height: 45px;
+            background-color: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+          "
+        >
+          <div
+            id="timeline-heat-zone"
+            style="
+              width: 0%;
+              height: 100%;
+              background: repeating-linear-gradient(
+                45deg,
+                #d32f2f,
+                #d32f2f 10px,
+                #f44336 10px,
+                #f44336 20px
+              );
+              transition: width 0.5s ease;
+              position: absolute;
+              left: 0;
+              top: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 0.85rem;
+              text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            "
+          >
+            <span id="timeline-heat-label"></span>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            position: absolute;
+            bottom: -22px;
+            font-size: 0.75rem;
+            color: #888;
+            font-family: monospace;
+          "
+        >
+          <span>0 min</span>
+          <span>20 min</span>
+          <span>40 min</span>
+          <span>60 min (1h)</span>
+          <span>80 min</span>
+          <span>100 min</span>
+          <span>120 min (2h)</span>
+        </div>
+      </div>
+
+      <div
+        class="line"
+        style="border-top: 1px solid #444; padding-top: 10px; font-size: 0.9rem"
+      >
+        <span
+          class="label"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span
+            style="
+              width: 10px;
+              height: 10px;
+              background-color: #f44336;
+              border-radius: 2px;
+            "
+          ></span>
+          Durée de l'impulsion (Chauffe active / Relais ON) :
+        </span>
+        <span
+          id="txt-heating-duration"
+          class="value"
+          style="color: #ff5722; font-weight: bold"
+          >-- min</span
+        >
+      </div>
+
+      <div class="line" style="margin-top: 5px; font-size: 0.9rem">
+        <span
+          class="label"
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <span
+            style="
+              width: 10px;
+              height: 10px;
+              background-color: #1e1e1e;
+              border: 1px solid #444;
+              border-radius: 2px;
+            "
+          ></span>
+          Durée de repos (Relais OFF) :
+        </span>
+        <span
+          id="txt-cooling-duration"
+          class="value"
+          style="color: #4caf50; font-weight: bold"
+          >-- min</span
+        >
       </div>
     </div>
 
@@ -86,18 +258,37 @@
       <form id="critical-form" onsubmit="saveParameters(event)">
         <div class="controls">
           <div class="form-group">
-            <label for="cycle-duration">Durée du cycle (secondes)</label>
-            <input type="number" id="cycle-duration" min="60" required placeholder="Ex: 7200 (2h)">
+            <label for="cycle-duration">Durée du cycle global (secondes)</label>
+            <input
+              type="number"
+              id="cycle-duration"
+              min="60"
+              required
+              placeholder="Ex: 7200 (2h)"
+            />
           </div>
-          
+
           <div class="form-group">
             <label for="fallback-duty">Chauffe Double Panne (%)</label>
-            <input type="number" id="fallback-duty" min="0" max="100" required placeholder="Ex: 30">
+            <input
+              type="number"
+              id="fallback-duty"
+              min="0"
+              max="100"
+              required
+              placeholder="Ex: 30"
+            />
           </div>
 
           <div class="form-group">
             <label for="extreme-ext">Seuil Froid Extrême (°C)</label>
-            <input type="number" id="extreme-ext" step="0.1" required placeholder="Ex: -10.0">
+            <input
+              type="number"
+              id="extreme-ext"
+              step="0.1"
+              required
+              placeholder="Ex: -10.0"
+            />
           </div>
 
           <button type="submit">Enregistrer</button>
@@ -106,43 +297,113 @@
     </div>
 
     <script>
+      let initialLoadDone = false;
+
       async function fetchStatus() {
         try {
-          // Appel API unifié pour récupérer l'état du thermostat et des capteurs
-          const response = await fetch('/api/thermostat/status');
+          const response = await fetch("/api/thermostat/status");
           const data = await response.json();
 
-          // Mise à jour de l'état du capteur intérieur
-          const statusInt = document.getElementById('status-int');
-          if (data.indoor_valid) {
-            statusInt.textContent = `OK (${data.indoor_temp.toFixed(1)}°C)`;
-            statusInt.className = "badge badge-ok";
-          } else {
-            statusInt.textContent = "PANNE (Mode Sécurité Actif)";
-            statusInt.className = "badge badge-danger";
+          // 1. Capteur intérieur
+          const statusInt = document.getElementById("status-int");
+          if (statusInt) {
+            if (data.indoor_valid) {
+              statusInt.textContent = `OK (${data.indoor_temp.toFixed(1)}°C)`;
+              statusInt.className = "badge badge-ok";
+            } else {
+              statusInt.textContent = "PANNE (Mode Sécurité Actif)";
+              statusInt.className = "badge badge-danger";
+            }
           }
 
-          // Mise à jour de l'état du capteur extérieur
-          const statusExt = document.getElementById('status-ext');
-          if (data.outdoor_valid) {
-            statusExt.textContent = `OK (${data.outdoor_temp.toFixed(1)}°C)`;
-            statusExt.className = "badge badge-ok";
-          } else {
-            statusExt.textContent = "INDISPONIBLE";
-            statusExt.className = "badge badge-warn";
+          // 2. Capteur extérieur
+          const statusExt = document.getElementById("status-ext");
+          if (statusExt) {
+            if (data.outdoor_valid) {
+              statusExt.textContent = `OK (${data.outdoor_temp.toFixed(1)}°C)`;
+              statusExt.className = "badge badge-ok";
+            } else {
+              statusExt.textContent = "INDISPONIBLE";
+              statusExt.className = "badge badge-warn";
+            }
           }
 
-          // Infos générales
-          document.getElementById('status-thermostat').textContent = data.mode_text || data.mode;
-          document.getElementById('status-time').textContent = new Date().toLocaleTimeString();
-
-          // Remplissage initial des champs de configuration (uniquement si vides)
-          if (!document.getElementById('cycle-duration').value) {
-            document.getElementById('cycle-duration').value = data.secu_cycle_duration_sec || 7200;
-            document.getElementById('fallback-duty').value = data.fallback_duty_percent || 30;
-            document.getElementById('extreme-ext').value = data.extreme_ext_temp || -10.0;
+          // 3. Statut du Relais Physique
+          const statusRelais = document.getElementById("status-relais");
+          if (statusRelais) {
+            if (data.relay_status) {
+              statusRelais.textContent = "ACTIF (Chauffe)";
+              statusRelais.className = "badge badge-danger";
+            } else {
+              statusRelais.textContent = "INACTIF (Repos)";
+              statusRelais.className = "badge badge-ok";
+            }
           }
 
+          // 4. Mode du Thermostat et rafraîchissement horaire
+          const statusThermo = document.getElementById("status-thermostat");
+          if (statusThermo) {
+            statusThermo.textContent = data.mode_text || data.mode;
+          }
+          const statusTime = document.getElementById("status-time");
+          if (statusTime) {
+            statusTime.textContent = new Date().toLocaleTimeString();
+          }
+
+          // 5. Gestion dynamique du Chronogramme
+          const criticalCard = document.getElementById("critical-card");
+          if (criticalCard) {
+            if (data.critical_active || data.indoor_valid === false) {
+              criticalCard.style.display = "block";
+
+              const duty =
+                data.fallback_duty > 0
+                  ? data.fallback_duty
+                  : data.fallback_duty_percent || 30;
+
+              // CORRECTION : Calcul lissé basé sur 120 minutes (2h)
+              const minutesHeating = Math.round((duty / 100) * 120); 
+              const minutesCooling = 120 - minutesHeating;
+
+              // Rendu visuel du chronogramme
+              const heatZone = document.getElementById("timeline-heat-zone");
+              if (heatZone) {
+                heatZone.style.width = duty + "%";
+              }
+
+              const heatLabel = document.getElementById("timeline-heat-label");
+              if (heatLabel) {
+                heatLabel.textContent = duty > 15 ? `RELAIS ON (${duty}%)` : "";
+              }
+
+              // Remplissage des champs numériques
+              const txtHeating = document.getElementById("txt-heating-duration");
+              if (txtHeating) {
+                txtHeating.textContent = `${minutesHeating} min`;
+              }
+              const txtCooling = document.getElementById("txt-cooling-duration");
+              if (txtCooling) {
+                txtCooling.textContent = `${minutesCooling} min`;
+              }
+            } else {
+              criticalCard.style.display = "none";
+            }
+          }
+
+          // 6. Remplissage unique de la configuration
+          if (!initialLoadDone) {
+            const inputCycle = document.getElementById("cycle-duration");
+            const inputDuty = document.getElementById("fallback-duty");
+            const inputExtreme = document.getElementById("extreme-ext");
+
+            if (inputCycle)
+              inputCycle.value = data.secu_cycle_duration_sec ?? 7200;
+            if (inputDuty) inputDuty.value = data.fallback_duty_percent ?? 30;
+            if (inputExtreme)
+              inputExtreme.value = data.extreme_ext_temp ?? -10.0;
+
+            initialLoadDone = true;
+          }
         } catch (err) {
           console.error("Erreur fetch status:", err);
         }
@@ -152,16 +413,24 @@
         event.preventDefault();
 
         const payload = {
-          secu_cycle_duration_sec: parseInt(document.getElementById('cycle-duration').value),
-          fallback_duty_percent: parseInt(document.getElementById('fallback-duty').value),
-          extreme_ext_temp: parseFloat(document.getElementById('extreme-ext').value)
+          secu_cycle_duration_sec: parseInt(
+            document.getElementById("cycle-duration").value,
+            10,
+          ),
+          fallback_duty_percent: parseInt(
+            document.getElementById("fallback-duty").value,
+            10,
+          ),
+          extreme_ext_temp: parseFloat(
+            document.getElementById("extreme-ext").value,
+          ),
         };
 
         try {
-          const response = await fetch('/api/thermostat/config/critical', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+          const response = await fetch("/api/thermostat/config/critical", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
 
           if (response.ok) {
@@ -176,10 +445,11 @@
         }
       }
 
-      // Initialisation et rafraîchissement automatique toutes les 5 secondes
+      // Initialisation immédiate et routine cyclique 5 secondes
       fetchStatus();
       setInterval(fetchStatus, 5000);
     </script>
+
     <script src="index.js"></script>
   </body>
 </html>

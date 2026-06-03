@@ -15,6 +15,7 @@ extern "C"
         float pressure;
         int weather_code;
         float jee_temp;
+        bool meteo_valid;
     } weather_entry_t;
 
     typedef struct
@@ -62,6 +63,10 @@ extern "C"
     extern weather_data_t g_weather_data;
 
     esp_err_t weather_get_temp_in_x_hours(const weather_data_t *data, int hours_from_now, float *out_temp);
+
+    bool temperature_get_valid();
+
+    void temperature_set_valid(bool result);
 
 #ifdef __cplusplus
 }

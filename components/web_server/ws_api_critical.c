@@ -2,13 +2,19 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "esp_log.h"
 #include "cJSON.h"
 #include "thermostat.h"
 #include "sht31.h"
-#include "temperature.h"
 #include "config_runtime.h"
+
+// Déclaration de la structure de runtime globale (état réel du thermostat)
+extern thermostat_runtime_t g_thermostat_runtime;
+
+// Déclaration des variables partagées gérées par le thermostat
+extern bool g_critical_active;
 
 static const char *TAG = "WS_API_CRITICAL";
 
@@ -16,22 +22,60 @@ static const char *TAG = "WS_API_CRITICAL";
 static esp_err_t critical_status_handler(httpd_req_t *req)
 {
     cJSON *root = cJSON_CreateObject();
-    if (!root) return httpd_resp_send_500(req);
+    if (!root)
+        return httpd_resp_send_500(req);
 
-    // 1. Récupération des données du thermostat et des capteurs
+    // 1. Récupération directe des états issus des modules matériels et de configuration
     const sht31_runtime_t *sht_runtime = sht31_get_runtime();
-    float ext_temp = temperature_get_outdoor();
-    bool ext_valid = (!isnan(ext_temp) && ext_temp > -40.0f && ext_temp < 60.0f);
+    thermostat_config_t cfg;
+    thermostat_get_config(&cfg);
 
-    // Injection de l'état dynamique des capteurs
-    cJSON_AddBoolToObject(root, "indoor_valid", sht_runtime->valid);
-    cJSON_AddNumberToObject(root, "indoor_temp", sht_runtime->temperature);
+    // L'API extrait directement la validité calculée en amont par le driver du capteur
+    cJSON_AddBoolToObject(root,
+                          "indoor_valid",
+                          g_thermostat_runtime.temperature_valid);
+
+    cJSON_AddNumberToObject(root,
+                            "indoor_temp",
+                            g_thermostat_runtime.temperature);
+
+    // Pour l'extérieur, la validité dépend de la présence d'une valeur cohérente et non nulle
+    bool ext_valid = !isnan(g_thermostat_runtime.temp_ext) && (g_thermostat_runtime.temp_ext != 0.0f);
     cJSON_AddBoolToObject(root, "outdoor_valid", ext_valid);
-    cJSON_AddNumberToObject(root, "outdoor_temp", ext_valid ? ext_temp : 0.0f);
-    
-    // Mode textuel ou brut selon votre structure g_thermostat_runtime
-    cJSON_AddStringToObject(root, "mode", "HORS_GEL");
-    cJSON_AddStringToObject(root, "mode_text", "Mode Hors-Gel Actif");
+    cJSON_AddNumberToObject(root, "outdoor_temp", g_thermostat_runtime.temp_ext);
+
+    // Injection des variables de secours issues de la structure centrale du thermostat
+    cJSON_AddBoolToObject(root, "critical_active", g_critical_active || g_thermostat_runtime.critical_active);
+
+    // CORRECTION : Lecture directe depuis la structure partagée modifiée par must_heat()
+    cJSON_AddNumberToObject(root, "fallback_duty", (double)g_thermostat_runtime.fallback_duty);
+
+    cJSON_AddBoolToObject(root, "relay_status", g_thermostat_runtime.state);
+
+    // Gestion propre et dynamique des modes réels basés sur l'état système calculé par must_heat()
+    if (g_critical_active || g_thermostat_runtime.critical_active)
+    {
+        cJSON_AddStringToObject(root, "mode", "CRITICAL");
+        cJSON_AddStringToObject(root, "mode_text", "Sécurité : Mode Secours Actif");
+    }
+    else
+    {
+        switch (cfg.mode)
+        {
+        case THERMOSTAT_MODE_MANUAL:
+            cJSON_AddStringToObject(root, "mode", "MANUAL");
+            cJSON_AddStringToObject(root, "mode_text", "Mode Manuel");
+            break;
+        case THERMOSTAT_MODE_AUTO:
+            cJSON_AddStringToObject(root, "mode", "AUTO");
+            cJSON_AddStringToObject(root, "mode_text", "Mode Automatique");
+            break;
+        default:
+            cJSON_AddStringToObject(root, "mode", "UNKNOWN");
+            cJSON_AddStringToObject(root, "mode_text", "Mode Inconnu");
+            break;
+        }
+    }
 
     // 2. Injection de la configuration critique persistante actuelle (g_cfg)
     cJSON_AddNumberToObject(root, "secu_cycle_duration_sec", g_cfg.secu_cycle_duration_sec);
@@ -41,7 +85,8 @@ static esp_err_t critical_status_handler(httpd_req_t *req)
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
 
-    if (!json) return httpd_resp_send_500(req);
+    if (!json)
+        return httpd_resp_send_500(req);
 
     httpd_resp_set_type(req, "application/json");
     esp_err_t res = httpd_resp_send(req, json, strlen(json));
@@ -56,19 +101,21 @@ static esp_err_t critical_config_post_handler(httpd_req_t *req)
     char buf[256];
     int remaining = req->content_len;
 
-    // Sécurité stricte du buffer (conservation de 1 octet pour le terminal '\0')
-    if (remaining >= sizeof(buf)) {
+    if (remaining >= sizeof(buf))
+    {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "JSON trop grand");
         return ESP_FAIL;
     }
 
-    // Boucle de réception obligatoire pour garantir la lecture totale du flux HTTP
     int received = 0;
-    while (remaining > 0) {
+    while (remaining > 0)
+    {
         int ret = httpd_req_recv(req, buf + received, remaining);
-        if (ret <= 0) {
-            if (ret == HTTPD_SOCK_ERR_TIMEOUT) {
-                continue; // Timeout temporaire, on retente
+        if (ret <= 0)
+        {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
             }
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Erreur réception");
             return ESP_FAIL;
@@ -76,11 +123,11 @@ static esp_err_t critical_config_post_handler(httpd_req_t *req)
         received += ret;
         remaining -= ret;
     }
-    buf[received] = '\0'; // Fin de chaîne sécurisée pour cJSON
+    buf[received] = '\0';
 
-    // Extraction et Parsing du JSON
     cJSON *root = cJSON_Parse(buf);
-    if (root == NULL) {
+    if (root == NULL)
+    {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "JSON Invalide");
         return ESP_FAIL;
     }
@@ -89,22 +136,22 @@ static esp_err_t critical_config_post_handler(httpd_req_t *req)
     cJSON *duty = cJSON_GetObjectItem(root, "fallback_duty_percent");
     cJSON *extreme = cJSON_GetObjectItem(root, "extreme_ext_temp");
 
-    // Mise à jour sécurisée des variables globales de stockage (g_cfg)
-    if (cycle)   g_cfg.secu_cycle_duration_sec = (uint32_t)cycle->valueint;
-    if (duty)    g_cfg.fallback_duty_percent = (uint32_t)duty->valueint;
-    if (extreme) g_cfg.extreme_ext_temp = (float)extreme->valuedouble;
+    if (cycle)
+        g_cfg.secu_cycle_duration_sec = (uint32_t)cycle->valueint;
+    if (duty)
+        g_cfg.fallback_duty_percent = (uint32_t)duty->valueint;
+    if (extreme)
+        g_cfg.extreme_ext_temp = (float)extreme->valuedouble;
 
     cJSON_Delete(root);
 
-    // Sauvegarde immédiate dans la mémoire persistante NVS
     config_runtime_save();
 
-    ESP_LOGI(TAG, "Config Critique appliquee : Cycle=%lus, Duty=%lu%%, ExtExtreme=%.1f C",
-             (unsigned long)g_cfg.secu_cycle_duration_sec,
-             (unsigned long)g_cfg.fallback_duty_percent,
+    ESP_LOGI(TAG, "Config Critique appliquee : Cycle=%u s, Duty=%u%%, ExtExtreme=%.1f C",
+             g_cfg.secu_cycle_duration_sec,
+             g_cfg.fallback_duty_percent,
              g_cfg.extreme_ext_temp);
 
-    // Réponse de confirmation au client web
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"status\":\"OK\",\"message\":\"Configuration mode secours appliquée avec succès\"}");
     return ESP_OK;
@@ -114,27 +161,27 @@ static esp_err_t critical_config_post_handler(httpd_req_t *req)
 esp_err_t ws_register_critical_api(httpd_handle_t server)
 {
     httpd_uri_t uri_get = {
-        .uri      = "/api/thermostat/status",
-        .method   = HTTP_GET,
-        .handler  = critical_status_handler,
-        .user_ctx = NULL
-    };
+        .uri = "/api/thermostat/status",
+        .method = HTTP_GET,
+        .handler = critical_status_handler,
+        .user_ctx = NULL};
 
     httpd_uri_t uri_post = {
-        .uri      = "/api/thermostat/config/critical",
-        .method   = HTTP_POST,
-        .handler  = critical_config_post_handler,
-        .user_ctx = NULL
-    };
+        .uri = "/api/thermostat/config/critical",
+        .method = HTTP_POST,
+        .handler = critical_config_post_handler,
+        .user_ctx = NULL};
 
     esp_err_t err = httpd_register_uri_handler(server, &uri_get);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "Échec enregistrement GET Status Critique: %s", esp_err_to_name(err));
         return err;
     }
 
     err = httpd_register_uri_handler(server, &uri_post);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "Échec enregistrement POST Config Critique: %s", esp_err_to_name(err));
         return err;
     }

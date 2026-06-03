@@ -41,6 +41,8 @@ typedef struct
     int64_t next_consigne_ts; // Timestamp du prochain changement de consigne
     bool enable_2r2c;         // Enable le mode 2R2C
     saison_t saison;          // Saison détectée
+    bool critical_active;
+    uint32_t fallback_duty;
 } thermostat_runtime_t;
 
 /* Alias temporaire pour compatibilite avec le code existant. */
@@ -93,3 +95,8 @@ float thermal_2r2c_simulate_future(float horizon_sec, float Text, bool heating);
 void thermostat_get_mode_status_str(char *dest, size_t max_size);
 
 void must_heat();
+
+/**
+ * @brief Calcule et applique l'état du relais de chauffage en mode dégradé (PWM temporel)
+ */
+bool critical_compute_fallback_heating(float ext_temp, bool ext_temp_valide, float *out_duty_percent);

@@ -8,12 +8,13 @@ idf_component_register(
         "include"
 
     REQUIRES
-        nvs_flash
-        heating_program
-        relay
-        cjson
         alert_manager
         app_context
-        thermal_engine
+        cjson
+        heating_program
+        nvs_flash
         prediction_engine
+        relay
+        thermal_engine
+        weather
 )

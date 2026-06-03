@@ -183,14 +183,17 @@ void weather_update_task(void *pvParameters)
         }
         
         // Initialisation de la structure propre
+        
         memset(tmp_data, 0, sizeof(weather_data_t));
 
         // 1. Première étape : Mise à jour Open-Meteo
         esp_err_t ret = weather_update(tmp_data);
+        temperature_set_valid(false);
 
         if (ret == ESP_OK)
         {
             ESP_LOGI(TAG, "Meteo Open-Meteo mise a jour. Enchainement avec Jeedom...");
+            temperature_set_valid(true);
 
             // 2. Deuxième étape : Récupération des données Jeedom
             esp_err_t ret_jee = jeedom_temp_update(tmp_data);

@@ -64,9 +64,11 @@ extern const uint8_t config_thermo_html_start[] asm("_binary_config_thermo_html_
 extern const uint8_t config_thermo_html_end[] asm("_binary_config_thermo_html_end");
 extern const uint8_t config_sht31_html_start[] asm("_binary_config_sht31_html_start");
 extern const uint8_t config_sht31_html_end[] asm("_binary_config_sht31_html_end");
+extern const uint8_t critical_html_start[] asm("_binary_critical_html_start");
+extern const uint8_t critical_html_end[] asm("_binary_critical_html_end");
 
 extern const uint8_t dht_html_start[] asm("_binary_dht_html_start");
-extern const uint8_t dht_html_end[]   asm("_binary_dht_html_end");
+extern const uint8_t dht_html_end[] asm("_binary_dht_html_end");
 
 extern const uint8_t config_jeedom_html_start[] asm("_binary_config_jeedom_html_start");
 extern const uint8_t config_jeedom_html_end[] asm("_binary_config_jeedom_html_end");
@@ -257,6 +259,14 @@ static esp_err_t get_dht(httpd_req_t *req)
                               "text/html");
 }
 
+static esp_err_t get_critical(httpd_req_t *req)
+{
+    return send_embedded_file(req,
+                              critical_html_start,
+                              critical_html_end,
+                              "text/html");
+}
+
 static esp_err_t get_config_jeedom(httpd_req_t *req)
 {
     return send_embedded_file(req,
@@ -311,6 +321,7 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_uri_t uri_config_sht31 = {.uri = "/config_sht31.html", .method = HTTP_GET, .handler = get_config_sht31};
     httpd_uri_t uri_config_jeedom = {.uri = "/config_jeedom.html", .method = HTTP_GET, .handler = get_config_jeedom};
     httpd_uri_t uri_config_js = {.uri = "/config.js", .method = HTTP_GET, .handler = get_config_js};
+    httpd_uri_t uri_critical = {.uri = "/critical", .method = HTTP_GET, .handler = get_critical};
 
     // Enregistrement effectif auprès du serveur HTTP
     httpd_register_uri_handler(server, &uri_index);
@@ -342,7 +353,8 @@ esp_err_t ws_register_static(httpd_handle_t server)
     httpd_register_uri_handler(server, &uri_config_sht31);
     httpd_register_uri_handler(server, &uri_config_jeedom);
     httpd_register_uri_handler(server, &uri_config_js);
-     httpd_register_uri_handler(server, &uri_dht); 
+    httpd_register_uri_handler(server, &uri_dht);
+    httpd_register_uri_handler(server, &uri_critical);
 
     ESP_LOGI(TAG, "Handlers statiques enregistrés avec succès");
     return ESP_OK;

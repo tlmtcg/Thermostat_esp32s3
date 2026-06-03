@@ -114,6 +114,23 @@ void config_runtime_load(void)
     };
 
     sht31_set_config(&cfg);
+
+    // Chargement des paramètres du mode critique (avec fallback si absent de la NVS)
+    if (nvs_get_u32(h, "crit_cycle", &g_cfg.secu_cycle_duration_sec) != ESP_OK) {
+        g_cfg.secu_cycle_duration_sec = 7200;
+    }
+    if (nvs_get_u32(h, "crit_duty", &g_cfg.fallback_duty_percent) != ESP_OK) {
+        g_cfg.fallback_duty_percent = 30;
+    }
+    
+    // Le type float nécessite de passer par un blob ou d'être converti/stocké en int (ex: multiplié par 10)
+    int32_t ext_temp_scaled = 0;
+    if (nvs_get_i32(h, "crit_ext", &ext_temp_scaled) == ESP_OK) {
+        g_cfg.extreme_ext_temp = (float)ext_temp_scaled / 10.0f;
+    } else {
+        g_cfg.extreme_ext_temp = g_cfg.extreme_ext_temp;
+    }
+
 }
 
 void config_runtime_save(void)
@@ -153,6 +170,14 @@ void config_runtime_save(void)
     // --- Configuration Domotique Jeedom ---
     nvs_set_u8(h, "jee_en", g_cfg.jeedom_enabled);
     nvs_set_i32(h, "jee_id", g_cfg.jeedom_id);
+
+    // Sauvegarde des paramètres du mode critique
+    nvs_set_u32(h, "crit_cycle", g_cfg.secu_cycle_duration_sec);
+    nvs_set_u32(h, "crit_duty", g_cfg.fallback_duty_percent);
+
+    // Stockage du float sous forme d'entier avec précision à 0.1°C (ex: -10.5°C -> -105)
+    int32_t ext_temp_scaled = (int32_t)(g_cfg.extreme_ext_temp * 10.0f);
+    nvs_set_i32(h, "crit_ext", ext_temp_scaled);
 
     // Enregistrement effectif et fermeture
     nvs_commit(h);

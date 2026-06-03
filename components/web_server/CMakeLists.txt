@@ -26,6 +26,7 @@ idf_component_register(
         "ws_api_history.c"
         "ws_api_config.c"
         "ws_api_dht.c"
+        "ws_api_critical.c"
 
     INCLUDE_DIRS 
         "include"
@@ -34,25 +35,25 @@ idf_component_register(
 
     # Visible depuis les headers
     REQUIRES 
-        esp_http_server
-        wifi
-        time_utils
-        led_ctrl
-        weather
-        weather_store
-        freebox_ftp
-        heating_program
-        jeedom
-        relay
-        sd_card
-        tasks
-        i2c_manager
-        sht31
-        ssd1306
-        thermostat
-        prediction_engine
         config_runtime
         dht
+        esp_http_server
+        freebox_ftp
+        heating_program
+        i2c_manager
+        jeedom
+        led_ctrl
+        prediction_engine
+        relay
+        sd_card
+        sht31
+        ssd1306
+        tasks
+        thermostat
+        time_utils
+        weather
+        weather_store
+        wifi
 
     # Visible uniquement dans les .c
     PRIV_REQUIRES 
@@ -95,4 +96,5 @@ idf_component_register(
         www/config_jeedom.html
         www/config.js
         www/dht.html
+        www/critical.html
 )

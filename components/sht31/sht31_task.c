@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "sd_card.h"
 #include "time_utils.h"
+#include <math.h>
 
 // =========================================================================
 // CONFIGURATION : METTRE À 0 SI LE CAPTEUR SHT31 N'EST PAS CÂBLÉ PHYSIQUEMENT
@@ -111,8 +112,13 @@ void sht31_task(void *pvParameters)
         else
         {
             const sht31_runtime_t *runtime = sht31_get_runtime();
+            if (!runtime) // Vérification ajoutée
+            {
+                ESP_LOGE(TAG, "sht31_get_runtime() a retourné NULL");
+                vTaskDelay(pdMS_TO_TICKS(25));
+                continue;
+            }
 
-            // Pas de filtrage ici : affiche chaque log d'erreur comme demandé
             if (runtime->consecutive_error_count <= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS ||
                 (runtime->consecutive_error_count % 10) == 0)
             {
@@ -120,6 +126,12 @@ void sht31_task(void *pvParameters)
                          "Erreur SHT31: %s (consecutives=%lu)",
                          esp_err_to_name(ret),
                          (unsigned long)runtime->consecutive_error_count);
+            }
+
+            if (runtime->consecutive_error_count >= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS)
+            {
+                g_ctx.temperature = NAN;
+                g_ctx.humidity = NAN;
             }
 
             if (runtime->consecutive_error_count >= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS &&
