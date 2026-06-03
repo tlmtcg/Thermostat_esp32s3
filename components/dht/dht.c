@@ -279,3 +279,11 @@ char *dht_get_json_status(void) {
 
     return buf;
 }
+
+esp_err_t dht_init(gpio_num_t gpio, dht_sensor_type_t type) {
+    active_config.gpio_pin = gpio;
+    active_config.sensor_type = type;
+    gpio_reset_pin(gpio);
+    gpio_set_pull_mode(gpio, GPIO_PULLUP_ONLY);
+    return ESP_OK;
+}

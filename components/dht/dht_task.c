@@ -11,6 +11,8 @@
 #include "time_utils.h"
 #include "alert_manager.h"
 #include <config_runtime.h>
+#include "sht31.h"
+#include "thermostat.h"
 
 // =========================================================================
 // CONFIGURATION ACTIVE VIA MARQUEUR
@@ -69,26 +71,27 @@ void dht_task(void *pvParameters)
 
     dht_task_config_t *task_config = (dht_task_config_t *)pvParameters;
     gpio_reset_pin(DHT_GPIO_PIN);
-    gpio_set_pull_mode(DHT_GPIO_PIN, GPIO_PULLUP_ONLY); 
+    gpio_set_pull_mode(DHT_GPIO_PIN, GPIO_PULLUP_ONLY);
     ESP_LOGI(TAG, "DHT initialisé avec succès sur GPIO %d avec Pull-Up", DHT_GPIO_PIN);
 
     while (1)
     {
         // --- 1. VERIFICATION DE LA DESACTIVATION RUNTIME (WEB) ---
         // Si l'intervalle est à 0 ou qu'un flag explicite est faux, on coupe proprement
-        if (g_cfg.dht_read_int_ms == 0) 
+        if (g_cfg.dht_read_int_ms == 0)
         {
             ESP_LOGW(TAG, "DHT désactivé depuis la configuration Web -> Arrêt propre de la tâche.");
-            
+
             // On invalide le runtime pour l'interface web
             dht_runtime_t *runtime = (dht_runtime_t *)dht_get_runtime();
-            if (runtime) {
+            if (runtime)
+            {
                 runtime->valid = false;
             }
-            
+
             // Libération éventuelle du GPIO pour éviter les conflits
             gpio_reset_pin(DHT_GPIO_PIN);
-            
+
             // Destruction définitive de cette tâche
             vTaskDelete(NULL);
         }
@@ -99,7 +102,7 @@ void dht_task(void *pvParameters)
         float current_hum = NAN;
 
         dht_runtime_t *runtime = (dht_runtime_t *)dht_get_runtime();
-        runtime->read_count++; 
+        runtime->read_count++;
 
         esp_err_t ret = dht_perform_measurement(&current_temp, &current_hum);
 
@@ -117,6 +120,10 @@ void dht_task(void *pvParameters)
 
             alert_remove("Capteur DHT en panne");
             ESP_LOGI(TAG, "DHT: %.1f C, %.1f%%", last_temp, last_hum);
+            if (!sht31_get_runtime()->valid)
+            {
+                thermostat_update_indoor_data(current_temp, current_hum, false);
+            }
         }
         else
         {

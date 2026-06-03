@@ -53,13 +53,16 @@ static void tasks_apply_kconfig(void)
         xEventGroupSetBits(s_task_event_group, BIT_SERIAL_EN);
     if (CONFIG_BIT_FTP_SYNC_EN)
         xEventGroupSetBits(s_task_event_group, BIT_FTP_SYNC_EN);
+    if (CONFIG_BIT_SHT31_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_SHT31_EN);
+    if (CONFIG_BIT_DHT_EN)
+        xEventGroupSetBits(s_task_event_group, BIT_DHT_EN);
 
     // SÉCURITÉ MATÉRIELLE : On force l'activation des tâches indispensables
     // pour garantir leur fonctionnement, même en mode dégradé (ex: panne SD)
     xEventGroupSetBits(s_task_event_group, BIT_STORAGE_EN);
-    xEventGroupSetBits(s_task_event_group, BIT_SHT31_EN);
     xEventGroupSetBits(s_task_event_group, BIT_THERMO_EN);
-    xEventGroupSetBits(s_task_event_group, BIT_DHT_EN); // <-- Activation forcée du DHT
+
 }
 
 /**
@@ -147,14 +150,14 @@ void ntp_monitor_task(void *pvParameters)
         else
         {
             ESP_LOGD(TAG, "Heure OK : %02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
-            
+
             // Vérification périodique du statut réseau d'Espressif
             if (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET)
             {
                 ESP_LOGW(TAG, "Le système demande une resynchronisation horaire.");
-                
+
                 // --- AJOUT DE VOTRE LOGIQUE DE MÉMORISATION ---
-                time_utils_prepare_for_sync(); 
+                time_utils_prepare_for_sync();
 
                 // Relance du service réseau pour forcer l'interrogation immédiate
                 if (esp_sntp_enabled())
@@ -163,7 +166,6 @@ void ntp_monitor_task(void *pvParameters)
                 }
                 esp_sntp_init();
             }
-
         }
 
         vTaskDelay(pdMS_TO_TICKS(my_tasks[2].delay_ms)); // Utilise le délai de la table

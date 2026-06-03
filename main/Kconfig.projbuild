@@ -14,6 +14,8 @@ menu "Configuration Thermostat"
     rsource "../components/sd_card/Kconfig.sd"
     rsource "../components/i2c_manager/Kconfig.i2c"
     rsource "../components/config_storage/Kconfig.storage"
+    rsource "../components/sht31/Kconfig.sht31"
+    rsource "../components/dht/Kconfig.dht"
     endmenu
     
     menu "Expert"

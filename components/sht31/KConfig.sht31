@@ -1,0 +1,6 @@
+menu "Sensor SHT31"
+
+    config BIT_DHT_EN
+        bool "Enable SHT31"
+        default y
+    endmenu

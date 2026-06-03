@@ -39,4 +39,6 @@ esp_err_t sd_remove_dir(const char *path);
 
 void deinit_sd_card(void);
 
+bool sd_card_is_mounted(void);
+
 #endif
