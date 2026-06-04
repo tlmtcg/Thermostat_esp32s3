@@ -110,7 +110,7 @@ void sht31_task(void *pvParameters)
 
 // Log de débogage
 #ifdef SHT31_DEBUG
-            ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
+            ESP_LOGD(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
 #endif
 
             // --- Gestion des logs sur carte SD ---

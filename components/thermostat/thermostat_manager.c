@@ -44,8 +44,8 @@ void must_heat(void)
 
     thermostat_config_t cfg;
     thermostat_get_config(&cfg);
-
-    ESP_LOGI(TAG, "=== must_heat() | In: %.2f°C | Ext: %.2f°C | Mode: %d ===", rt->temperature, rt->temp_ext, cfg.mode);
+  
+    // ESP_LOGI(TAG, "=== must_heat() | In: %.2f°C | Ext: %.2f°C | Mode: %d ===", rt->temperature, rt->temp_ext, cfg.mode);
 
     // =========================================================
     // PRIORITY 1. GESTION DU MODE CRITIQUE (Capteur Intérieur HS)
@@ -53,12 +53,12 @@ void must_heat(void)
 
     bool int_temp_valide = sht31_get_runtime()->valid;
 
-    ESP_LOGI(TAG,
-             "TempValid=%d | Temp=%.2f | Ext=%.2f | Critical=%d",
-             sht31_get_runtime()->valid,
-             rt->temperature,
-             rt->temp_ext,
-             rt->critical_active);
+    // ESP_LOGI(TAG,
+    //          "TempValid=%d | Temp=%.2f | Ext=%.2f | Critical=%d",
+    //          sht31_get_runtime()->valid,
+    //          rt->temperature,
+    //          rt->temp_ext,
+    //          rt->critical_active);
 
     if (!int_temp_valide)
     {
