@@ -73,11 +73,8 @@ void thermostat_update_current_consigne(void)
     static thermostat_mode_t last_mode = (thermostat_mode_t)-1;
 
     // Mise à jour runtime
-    g_thermostat_runtime.temperature = round_float(g_ctx.temperature, 2);
     g_thermostat_runtime.state = get_relay_state();
-
     float consigne_auto = heating_get_temp_current();
-
     switch (g_thermostat_config.mode)
     {
     // -------------------------
@@ -337,8 +334,6 @@ void thermostat_update_indoor_data(float temp, float hum, bool valid_temp)
     g_thermostat_runtime.temperature = round_float(temp, 2);
     g_thermostat_runtime.humidity = round_float(hum, 2);
     g_thermostat_runtime.temperature_valid = valid_temp;
-
-    // Met également à jour le contexte global si ton application l'utilise ailleurs
     g_ctx.temperature = g_thermostat_runtime.temperature;
 }
 
@@ -359,6 +354,13 @@ void thermostat_update_forecast_data(float temp_1h)
 
 char *thermostat_get_json_status(void)
 {
+
+    ESP_LOGE("JSON",
+         "temp=%f hum=%f Ta=%f Tm=%f",
+         g_thermostat_runtime.temperature,
+         g_thermostat_runtime.humidity,
+         g_thermal_runtime.Ta,
+         g_thermal_runtime.Tm);
 
     cJSON *root = cJSON_CreateObject();
 

@@ -35,6 +35,7 @@ static void thermal_watchdog(void)
 // ============================================================
 void must_heat(void)
 {
+
     thermal_watchdog();
 
     // Récupération directe via le pointeur de la structure globale originale

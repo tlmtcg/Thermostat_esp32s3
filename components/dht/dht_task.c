@@ -120,10 +120,6 @@ void dht_task(void *pvParameters)
 
             alert_remove("Capteur DHT en panne");
             ESP_LOGI(TAG, "DHT: %.1f C, %.1f%%", last_temp, last_hum);
-            if (!sht31_get_runtime()->valid)
-            {
-                thermostat_update_indoor_data(current_temp, current_hum, false);
-            }
         }
         else
         {
@@ -173,6 +169,12 @@ void dht_task(void *pvParameters)
                 snprintf(log_buf, sizeof(log_buf), "%s,%.1f,%.1f\n", time_str, g_ctx.temperature, g_ctx.humidity);
                 sd_write_file(DHT_LOG_FILE_PATH, log_buf, "a");
             }
+        }
+
+        // 10. Redondance avec SHT31
+        if (sht31_get_runtime() == NULL || !sht31_get_runtime()->valid)
+        {
+            thermostat_update_indoor_data(g_ctx.temperature, g_ctx.humidity, true);
         }
 
         // --- GESTION DE L'INTERVALLE ET SYNCHRONISATION ---

@@ -13,9 +13,10 @@
 #include "freertos/task.h"
 #include "sd_card.h"
 #include "time_utils.h"
-#include <math.h>
+#include "math.h"
 
- // =========================================================================
+
+// =========================================================================
 // CONFIGURATION
 // =========================================================================
 /** @brief Active/désactive l'utilisation du capteur SHT31. */
@@ -69,10 +70,10 @@ void sht31_task(void *pvParameters)
 #else
     // --- Initialisation ---
     sht31_task_config_t *task_config = (sht31_task_config_t *)pvParameters;
-    bool was_active = false;  // Indique si la tâche était active précédemment
+    bool was_active = false; // Indique si la tâche était active précédemment
 
-    // Valeur par défaut pour le délai (en ms)
-    #define SHT31_DEFAULT_DELAY_MS 5000
+// Valeur par défaut pour le délai (en ms)
+#define SHT31_DEFAULT_DELAY_MS 5000
 
     while (1)
     {
@@ -80,10 +81,9 @@ void sht31_task(void *pvParameters)
         xEventGroupWaitBits(
             task_config->event_group,
             task_config->event_bit,
-            pdFALSE,  // Ne pas effacer le bit automatiquement
-            pdTRUE,   // Attendre que tous les bits soient positionnés
-            portMAX_DELAY
-        );
+            pdFALSE, // Ne pas effacer le bit automatiquement
+            pdTRUE,  // Attendre que tous les bits soient positionnés
+            portMAX_DELAY);
 
         // --- Mise à jour de l'état "running" ---
         if (!was_active)
@@ -108,10 +108,10 @@ void sht31_task(void *pvParameters)
             g_ctx.temperature = temperature;
             g_ctx.humidity = humidity;
 
-            // Log de débogage
-            #ifdef SHT31_DEBUG
+// Log de débogage
+#ifdef SHT31_DEBUG
             ESP_LOGI(TAG, "SHT31: %.2f C, %.2f%%", temperature, humidity);
-            #endif
+#endif
 
             // --- Gestion des logs sur carte SD ---
             int64_t now = time_utils_get_timestamp();
@@ -121,107 +121,96 @@ void sht31_task(void *pvParameters)
             {
                 last_log_time = now;
 
-                // Vérifier que la carte SD est montée
-                if (!sd_card_is_mounted())
-                {
-                    ESP_LOGW(TAG, "Carte SD non montée, log SHT31 ignoré");
-                    goto skip_sd_log;
-                }
-
                 // Vérifier la configuration et l'autorisation d'écriture SD
+                sht31_config_t config;
                 if (sht31_get_config(&config) == ESP_OK && config.log_to_sd)
                 {
-                    static bool file_checked = false;
-                    const char *mode = "a";  // Mode append par défaut
-
-                    // Vérifier si le fichier existe (une seule fois)
-                    if (!file_checked)
-                    {
-                        FILE *test_f = fopen(SHT31_LOG_FILE_PATH, "r");
-                        if (test_f == NULL)
-                        {
-                            mode = "w";  // Créer le fichier s'il n'existe pas
-                            ESP_LOGW(TAG, "Log SHT31 absent, utilisation du mode 'w' pour création.");
-                        }
-                        else
-                        {
-                            fclose(test_f);
-                        }
-                        file_checked = true;
-                    }
-
                     // Formater les données à écrire
+                    char time_str[24];
                     time_utils_get_time_str(time_str, sizeof(time_str));
+                    char log_buffer[128];
                     snprintf(
                         log_buffer,
                         sizeof(log_buffer),
                         "%s,%.2f,%.2f\n",
                         time_str,
                         temperature,
-                        humidity
-                    );
+                        humidity);
 
-                    // Écrire sur la carte SD
-                    if (sd_write_file(SHT31_LOG_FILE_PATH, log_buffer, mode) != ESP_OK)
+                    // Écrire sur la carte SD avec ton composant
+                    if (sd_write_file("/sdcard/sht31_data.csv", log_buffer, "a") != ESP_OK)
                     {
-                        ESP_LOGE(TAG, "Erreur écriture log SHT31");
-                        file_checked = false;  // Réessayer plus tard
+                        ESP_LOGW(TAG, "Échec de l'écriture des logs SHT31 sur la carte SD");
                     }
                 }
             }
-            skip_sd_log:;
-        }
-        else
-        {
-            // --- Échec : gestion des erreurs ---
-            const sht31_runtime_t *runtime = sht31_get_runtime();
-
-            // Vérifier que runtime n'est pas NULL
-            if (!runtime)
+            else
             {
-                ESP_LOGE(TAG, "sht31_get_runtime() a retourné NULL");
-                g_ctx.temperature = NAN;  // Marquer les données comme invalides
+                // --- Échec : gestion des erreurs ---
+                const sht31_runtime_t *runtime = sht31_get_runtime();
+
+                // Vérifier que runtime n'est pas NULL
+                if (!runtime)
+                {
+                    ESP_LOGE(TAG, "sht31_get_runtime() a retourné NULL");
+                    g_ctx.temperature = NAN; // Marquer les données comme invalides
+                    g_ctx.humidity = NAN;
+                    goto manage_delay;
+                }
+
+                // Mettre à jour les données globales avec NAN dès la première erreur
+                g_ctx.temperature = NAN;
                 g_ctx.humidity = NAN;
-                goto manage_delay;
-            }
 
-            // Mettre à jour les données globales avec NAN dès la première erreur
-            g_ctx.temperature = NAN;
-            g_ctx.humidity = NAN;
-
-            // Log des erreurs (filtré pour éviter le spam)
-            if (runtime->consecutive_error_count <= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS ||
-                (runtime->consecutive_error_count % 10) == 0)
-            {
-                ESP_LOGW(
-                    TAG,
-                    "Erreur SHT31: %s (consecutives=%lu)",
-                    esp_err_to_name(ret),
-                    (unsigned long)runtime->consecutive_error_count
-                );
-            }
-
-            // Après un certain nombre d'erreurs, tenter une récupération
-            if (runtime->consecutive_error_count >= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS &&
-                (runtime->consecutive_error_count % SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS) == 0)
-            {
-                esp_err_t recover_ret = sht31_recover();
-                if (recover_ret != ESP_OK)
+                // Log des erreurs (filtré pour éviter le spam)
+                if (runtime->consecutive_error_count <= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS ||
+                    (runtime->consecutive_error_count % 10) == 0)
                 {
                     ESP_LOGW(
                         TAG,
-                        "Récupération SHT31 échouée: %s",
-                        esp_err_to_name(recover_ret)
-                    );
+                        "Erreur SHT31: %s (consecutives=%lu)",
+                        esp_err_to_name(ret),
+                        (unsigned long)runtime->consecutive_error_count);
+                }
+
+                // Après un certain nombre d'erreurs, tenter une récupération
+                if (runtime->consecutive_error_count >= SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS &&
+                    (runtime->consecutive_error_count % SHT31_RECOVER_AFTER_CONSECUTIVE_ERRORS) == 0)
+                {
+                    esp_err_t recover_ret = sht31_recover();
+                    if (recover_ret != ESP_OK)
+                    {
+                        ESP_LOGW(
+                            TAG,
+                            "Récupération SHT31 échouée: %s",
+                            esp_err_to_name(recover_ret));
+                    }
                 }
             }
-        }
 
+            // --- 4. Logs SD (toutes les 5 minutes) ---
+            if (!isnan(g_ctx.temperature))
+            {
+                int64_t now = time_utils_get_timestamp();
+                if ((now - last_log_time) >= LOG_INTERVAL_MS * 1000)
+                {
+                    last_log_time = now;
+                    char time_str[24];
+                    char log_buf[128];
+                    time_utils_get_time_str(time_str, sizeof(time_str));
+                    snprintf(log_buf, sizeof(log_buf), "%s,%.1f,%.1f\n", time_str, g_ctx.temperature, g_ctx.humidity);
+                    if (sd_write_file("/sdcard/sht_data.csv", log_buf, "a") != ESP_OK)
+                    {
+                        ESP_LOGW(TAG, "Échec de l'écriture des logs SHT sur la carte SD");
+                    }
+                }
+            }
+            
         // --- Gestion du délai avant la prochaine lecture ---
         manage_delay:
         {
             sht31_config_t config;
-            uint32_t delay_ms = SHT31_DEFAULT_DELAY_MS;  // Valeur par défaut
+            uint32_t delay_ms = SHT31_DEFAULT_DELAY_MS; // Valeur par défaut
 
             // 1. Vérifier si task_config->delay_ms est valide
             if (task_config->delay_ms != NULL)
@@ -244,12 +233,13 @@ void sht31_task(void *pvParameters)
             vTaskDelay(pdMS_TO_TICKS(delay_ms));
         }
 
-        // --- Mise à jour de l'état "running" si la tâche est arrêtée ---
-        if ((xEventGroupGetBits(task_config->event_group) & task_config->event_bit) == 0)
-        {
-            sht31_set_running(false);
-            was_active = false;
+            // --- Mise à jour de l'état "running" si la tâche est arrêtée ---
+            if ((xEventGroupGetBits(task_config->event_group) & task_config->event_bit) == 0)
+            {
+                sht31_set_running(false);
+                was_active = false;
+            }
         }
-    }
-#endif  // USE_SHT31_SENSOR
+#endif // USE_SHT31_SENSOR
+}
 }

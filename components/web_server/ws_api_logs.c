@@ -39,9 +39,6 @@ static esp_err_t logs_handler(httpd_req_t *req)
 
     httpd_resp_send_chunk(req, NULL, 0);
     return ESP_OK;
-    // const char* resp_str = "{\"status\":\"ok\", \"message\":\"Voici les logs\"}";
-    // httpd_resp_set_type(req, "application/json");
-    // return httpd_resp_send(req, resp_str, strlen(resp_str));
 }
 
 esp_err_t ws_register_logs_api(httpd_handle_t server)

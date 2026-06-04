@@ -33,29 +33,6 @@ static esp_err_t predict_status_handler(httpd_req_t *req)
     return err;
 }
 
-/* =========================================================
- * POST /api/predict/cmd
- * (optionnel selon ton moteur)
- * ========================================================= */
-// static esp_err_t predict_command_handler(httpd_req_t *req)
-// {
-//     char buf[128];
-//     int len = httpd_req_recv(req, buf, sizeof(buf) - 1);
-
-//     if (len <= 0) {
-//         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No body");
-//         return ESP_FAIL;
-//     }
-
-//     buf[len] = '\0';
-//     ESP_LOGI(TAG, "CMD: %s", buf);
-
-//     httpd_resp_set_type(req, "application/json");
-//     httpd_resp_send(req, "{\"status\":\"ok\"}", HTTPD_RESP_USE_STRLEN);
-
-//     return ESP_OK;
-// }
-
 static esp_err_t predict_command_handler(httpd_req_t *req)
 {
     char buf[128];
